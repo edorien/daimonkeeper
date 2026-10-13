@@ -606,6 +606,11 @@ void clear_dig_for_map_rect(int64_t plyr_idx, MapSubtlCoord start_x, MapSubtlCoo
 {
     int64_t x;
     int64_t y;
+    // (the rectangle comes from a script's numbers: only the slabs of the map)
+    if (start_x < 0) start_x = 0;
+    if (start_y < 0) start_y = 0;
+    if (end_x > kfx_sim_state.map_tiles_x) end_x = kfx_sim_state.map_tiles_x;
+    if (end_y > kfx_sim_state.map_tiles_y) end_y = kfx_sim_state.map_tiles_y;
     for (y = start_y; y < end_y; y++)
         for (x = start_x; x < end_x; x++)
         {
@@ -661,10 +666,10 @@ void reveal_map_area(PlayerNumber plyr_idx,MapSubtlCoord start_x,MapSubtlCoord e
 
 void conceal_map_area(PlayerNumber plyr_idx,MapSubtlCoord start_x,MapSubtlCoord end_x,MapSubtlCoord start_y,MapSubtlCoord end_y, TbBool all)
 {
-    start_x = stl_slab_starting_subtile(start_x);
-    start_y = stl_slab_starting_subtile(start_y);
-    end_x = stl_slab_ending_subtile(end_x)+1;
-    end_y = stl_slab_ending_subtile(end_y)+1;
+    start_x = max(stl_slab_starting_subtile(start_x),0);
+    start_y = max(stl_slab_starting_subtile(start_y),0);
+    end_x = min(stl_slab_ending_subtile(end_x)+1, kfx_sim_state.map_subtiles_x);
+    end_y = min(stl_slab_ending_subtile(end_y)+1, kfx_sim_state.map_subtiles_y);
     clear_dig_for_map_rect(plyr_idx,subtile_slab(start_x),subtile_slab(end_x),
                            subtile_slab(start_y),subtile_slab(end_y));
     for (MapSubtlCoord y = start_y; y < end_y; y++)

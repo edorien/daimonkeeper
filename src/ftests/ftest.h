@@ -64,6 +64,9 @@ struct FTestActionArgs
     void* data;
 };
 
+/** Stops the periodic and end-of-test check of the simulation state (a test that corrupts it on purpose). */
+void ftest_disable_state_validation(void);
+
 typedef enum FTestActionResult
 {
     FTRs_Repeat_Current_Action = 0,

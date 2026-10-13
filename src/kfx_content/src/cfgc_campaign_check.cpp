@@ -8,6 +8,7 @@
 #include "cfgc_campaign_check.h"
 #include "cfgc_content.h"
 #include "cfgc_validate.h"
+#include "safe_path.h"
 
 #include <algorithm>
 #include <cctype>
@@ -41,7 +42,10 @@ std::string join_path(const std::string &root, const std::string &rel)
 {
     if (rel.empty())
         return std::string();
-    if (root.empty() || rel[0] == '/' || (rel.size() > 1 && rel[1] == ':'))
+    // a name that leads out of the game's folders is not looked at (security pass S07); location() reports it
+    if (!path_cannot_escape(rel.c_str()))
+        return std::string();
+    if (root.empty())
         return rel;
     return root + "/" + rel;
 }
@@ -197,6 +201,12 @@ std::vector<CfgDiagnostic> cfgc_check_campaign(const ConfigDocument &doc, const 
     // Locations: resolved, exist, shared.
     auto location = [&](const char *key) -> std::string {
         const auto *k = key_of(common, key);
+        if (k != nullptr && !k->first.empty() && !path_cannot_escape(k->first.c_str()))
+        {
+            add(CfgSev_Error, "location_outside", k->second,
+                std::string(key) + " " + k->first + " leads outside the game's folders; the game ignores it");
+            return std::string();
+        }
         return k != nullptr ? join_path(env.root, k->first) : std::string();
     };
     const std::string levels_dir = location("LEVELS_LOCATION");

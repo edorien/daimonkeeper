@@ -15,9 +15,14 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "config_campaigns.h"
+#include "config.h"
+#include "kfx_config_test_paths.h"
 #include "kfx_memory.h" // KfxFree, used directly to release lvinfos/items after each test
 
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <string>
 
 namespace {
 struct ZeroedCampaign {
@@ -270,4 +275,23 @@ TEST_CASE("get_campaign_sanitized_id falls back to \"unknown\" and respects the 
     char small[4];
     get_campaign_sanitized_id("abcdefgh.cfg", small, sizeof(small));
     CHECK(std::strcmp(small, "abc") == 0);
+}
+
+// Security pass S07: a campaign file names folders and files that are joined to the game's folders; one that leads
+// outside them (absolute, "..", a drive) is dropped at load, as if the key were absent.
+TEST_CASE("load_campaign drops locations and file names that lead outside the game's folders", "[kfx_config][config_campaigns][security]") {
+    snprintf(keeper_runtime_directory, sizeof(keeper_runtime_directory), "%s", KFX_CONFIG_TEST_FIXTURES_DIR);
+    struct GameCampaign *campgn = (struct GameCampaign *)calloc(1, sizeof(struct GameCampaign));
+    REQUIRE(campgn != nullptr);
+    REQUIRE(load_campaign("campaign_escape.cfg", campgn, CnfLd_ListOnly, FGrp_Main));
+    CHECK(std::string(campgn->levels_location) == "");
+    CHECK(std::string(campgn->land_location) == "");
+    CHECK(std::string(campgn->configs_location) == "");
+    CHECK(std::string(campgn->credits_fname) == "");
+    // the plain ones stay
+    CHECK(std::string(campgn->creatures_location) == "campgns/fine_crtr");
+    CHECK(std::string(campgn->media_location) == "ldata");
+    CHECK(std::string(campgn->movie_intro_fname) == "intro.smk");
+    free_campaign(campgn);
+    free(campgn);
 }

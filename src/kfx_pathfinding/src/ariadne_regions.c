@@ -24,6 +24,7 @@
 #include "globals.h"
 #include "bflib_basics.h"
 #include "ariadne_tringls.h"
+#include "ariadne_state_check.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -317,6 +318,19 @@ void region_unlock(int64_t ntri)
 
 /******************************************************************************/
 /** The regions, their store and queue: part of the saved navigation mesh (ariadne_saved_state.h). */
+int ariadne_regions_check_saved_state(struct StateCheck *c)
+{
+    ARI_RANGE(c, max_RegionStore, 0, REGIONS_COUNT, "ariadne.max_RegionStore", 0);
+    ARI_RANGE(c, ix_RegionQput, 0, REGION_QUEUE_LEN - 1, "ariadne.ix_RegionQput", 0);
+    ARI_RANGE(c, ix_RegionQget, 0, REGION_QUEUE_LEN - 1, "ariadne.ix_RegionQget", 0);
+    // (-1 is the queue before it was first used; the entries are triangles, not regions; a region's triangle count
+    // is bookkeeping that real levels leave negative -- none of them indexes anything)
+    ARI_RANGE(c, count_RegionQ, -1, REGION_QUEUE_LEN, "ariadne.count_RegionQ", 0);
+    for (int64_t i = 0; i < REGION_QUEUE_LEN; i++)
+        ARI_RANGE(c, RegionQueue[i], -1, TRIANLGLES_COUNT - 1, "ariadne.RegionQueue", i);
+    return 1;
+}
+
 void ariadne_regions_visit_saved_state(AriadneStateVisitor visit, void *ctx)
 {
     visit(ctx, Regions, sizeof(Regions));

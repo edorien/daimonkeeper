@@ -37,6 +37,7 @@ enum CompatIssueKind {
     CompatIssue_ConfigValue,    // unknown named value (or flag) for a known key
     CompatIssue_LuaFunction,    // Lua called a function this build doesn't have
     CompatIssue_Limit,          // more of something than this build has room for
+    CompatIssue_RefusedPath,    // a file or folder name that leads outside the game's folders (ignored)
 };
 
 #define COMPAT_ISSUES_MAX     64

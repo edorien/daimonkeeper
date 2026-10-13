@@ -39,6 +39,8 @@
 #include "kfx_config_state.h"
 #include "sound_manager.h"
 #include "state_versions.h"
+#include "state_validate.h"
+#include "config_state_validate.h"
 #include "ports/script_port.h"
 #include "ports/ui_port.h"
 #include "ports/game_port.h"
@@ -215,6 +217,15 @@ static TbBool receive_resync_message(char ** message_out, size_t * message_size_
     return false;
 }
 
+#define RESYNC_MAX_SCRIPT_DATA (64u * 1024u * 1024u)
+#define RESYNC_SLACK (16u * 1024u * 1024u)
+
+size_t resync_max_original_length(void)
+{
+    return (size_t)KFX_SIM_STATE_SIZE + KFX_NET_STATE_SIZE + KFX_GAME_STATE_SIZE + KFX_FRONTEND_STATE_SIZE
+        + KFX_CONFIG_STATE_SIZE + ariadne_saved_state_size() + RESYNC_MAX_SCRIPT_DATA + RESYNC_SLACK;
+}
+
 static TbBool decode_resync_message(const char * message_buffer, size_t message_size, size_t expected_length, char ** data_buffer, size_t * data_length)
 {
     if (message_size < sizeof(ResyncHeader)) {
@@ -234,6 +245,11 @@ static TbBool decode_resync_message(const char * message_buffer, size_t message_
     }
     if (expected_length != 0 && header.original_length != expected_length) {
         ERRORLOG("Resync data with wrong size: %" PRIu64 " != %" PRIu64, (uint64_t)(header.original_length), (uint64_t)expected_length);
+        return false;
+    }
+    if (header.original_length > resync_max_original_length()) {
+        ERRORLOG("Resync data claims %" PRIu64 " bytes, more than a resync can hold (%" PRIu64 "): refused",
+            (uint64_t)header.original_length, (uint64_t)resync_max_original_length());
         return false;
     }
     size_t output_size = header.original_length;
@@ -453,6 +469,49 @@ TbBool send_resync_game(void)
 }
 
 // Applies a resync's game state (build_resync_game_data()'s framing); frees nothing.
+/** Whether the simulation state received in a resync (at `data`, possibly not aligned for the struct) passes
+ *  sim_state_validate(). */
+TbBool resync_sim_state_acceptable(const char *data)
+{
+    char why[256];
+    void *aligned_copy = NULL;
+    const struct KfxSimState *candidate = (const struct KfxSimState *)data;
+    if (((uintptr_t)data % alignof(struct KfxSimState)) != 0) {
+        aligned_copy = malloc(sizeof(kfx_sim_state));
+        if (aligned_copy == NULL) {
+            ERRORLOG("Resync refused: no memory to check the received state");
+            return false;
+        }
+        memcpy(aligned_copy, data, sizeof(kfx_sim_state));
+        candidate = (const struct KfxSimState *)aligned_copy;
+    }
+    const TbBool ok = sim_state_validate(candidate, why, sizeof(why));
+    free(aligned_copy);
+    if (!ok) {
+        ERRORLOG("Resync refused, the received state is invalid: %s", why);
+    }
+    return ok;
+}
+
+/** Whether the configuration received in a resync (at `data`, KFX_CONFIG_STATE_SAVED_LEN bytes, possibly not aligned for
+ *  the struct) passes config_state_validate(). */
+TbBool resync_config_state_acceptable(const char *data)
+{
+    char why[256];
+    struct KfxConfigState *candidate = (struct KfxConfigState *)calloc(1, sizeof(struct KfxConfigState));
+    if (candidate == NULL) {
+        ERRORLOG("Resync refused: no memory to check the received configuration");
+        return false;
+    }
+    memcpy(candidate, data, KFX_CONFIG_STATE_SAVED_LEN);
+    const TbBool ok = config_state_validate(candidate, why, sizeof(why));
+    free(candidate);
+    if (!ok) {
+        ERRORLOG("Resync refused, the received configuration is invalid: %s", why);
+    }
+    return ok;
+}
+
 static TbBool apply_resync_game_data(const char * full_resync_data, size_t full_resync_len)
 {
 
@@ -519,6 +578,22 @@ static TbBool apply_resync_game_data(const char * full_resync_data, size_t full_
         return false;
     }
     const char * lua_data = read_ptr;
+
+    // The state about to replace ours comes from the host's machine: nothing in it is trusted until its indexes and
+    // links are known to stay inside the state (security pass S06). Before anything local changes.
+    if (!resync_sim_state_acceptable(kfx_sim_state_data)) {
+        return false;
+    }
+    if (!resync_config_state_acceptable(config_state_data)) {
+        return false;
+    }
+    {
+        char why[256];
+        if (!ariadne_saved_state_check(ariadne_state_data, why, sizeof(why))) {
+            ERRORLOG("Resync refused, the received navigation mesh is invalid: %s", why);
+            return false;
+        }
+    }
 
     if (!game_resync_import_game_state(game_state_data, game_state_len)) {
         return false;

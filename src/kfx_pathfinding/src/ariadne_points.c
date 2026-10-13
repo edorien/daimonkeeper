@@ -23,6 +23,7 @@
 #include "globals.h"
 #include "bflib_basics.h"
 #include "ports/ui_port.h"
+#include "ariadne_state_check.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -163,6 +164,14 @@ void triangulation_initxy_points(int64_t startx, int64_t starty, int64_t endx, i
 }
 /******************************************************************************/
 /** The points and their allocator: part of the saved navigation mesh (ariadne_saved_state.h). */
+int ariadne_points_check_saved_state(struct StateCheck *c)
+{
+    ARI_RANGE(c, count_Points, 0, POINTS_COUNT, "ariadne.count_Points", 0);
+    ARI_RANGE(c, ix_Points, 0, POINTS_COUNT, "ariadne.ix_Points", 0);
+    ARI_RANGE(c, free_Points, -1, POINTS_COUNT - 1, "ariadne.free_Points", 0);
+    return 1;
+}
+
 void ariadne_points_visit_saved_state(AriadneStateVisitor visit, void *ctx)
 {
     visit(ctx, ari_Points, sizeof(ari_Points));

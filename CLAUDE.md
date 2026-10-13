@@ -88,6 +88,12 @@ python3 scripts/check_layering.py --strict   # exit 1 on any violation not in AC
 
 Verifies no `src/kfx_*/` library `#include`s a header from a library ranked above it (see Architecture below). Run this after any change that adds or moves an `#include` across a `src/kfx_*/` boundary.
 
+### Hardening and dependency checks (security pass S09)
+
+- The game's own code is built with exploit-mitigation flags (stack protector, `_FORTIFY_SOURCE`, PIE/RELRO on Linux, ASLR/DEP/high-entropy ASLR and static libssp on Windows) set explicitly in `build/cmake/modules/Hardening.cmake`; `-DKFX_HARDEN=OFF` turns them off (the sanitizer build does). `python3 scripts/check_hardening.py out/linux/daimonkeeper` (or `…/daimonkeeper.exe`) verifies a finished binary and runs in every CI build job -- run it after touching link flags or the toolchain file.
+- Every source tarball `Dependencies.cmake` downloads is pinned by SHA-256 (`KFX_SHA256_*` at its top). Bumping a dependency means updating that line too: fetch the new tarball, check its signature/checksum where the project publishes one, `sha256sum` it. `python3 scripts/check_dep_vulns.py` lists the pinned versions and the advisories fixed by a later release (needs network; a weekly workflow runs it).
+- libcurl is built with `http https ws wss` only (matchmaking needs nothing else): a new curl use that needs another protocol has to enable it deliberately in `Dependencies.cmake`.
+
 ## Tests
 
 Two separate test mechanisms:

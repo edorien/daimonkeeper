@@ -855,6 +855,26 @@ TbBool open_packet_file_for_load(char *fname, struct CatalogueEntry *centry)
     return true;
 }
 
+/** A seam for the replay fuzzer and tests: starts reading the turns of a packet file at `data_offset`, with the header
+ *  chunk's contents given, without the chunks before the turns (loading those loads the campaign, which is slow and not
+ *  what a hostile turn stream attacks). @return the number of turns found, or -1 if the file cannot be opened. */
+int64_t replay_open_turns_for_test(const char *fname, uint64_t data_offset, const struct PacketSaveHead *head)
+{
+    replay_map_mismatch = false;
+    memset(&replay, 0, sizeof(replay));
+    replay.head = *head;
+    snprintf(replay.fname, sizeof(replay.fname), "%s", fname);
+    replay.fp = LbFileOpen(replay.fname, Lb_FILE_MODE_READ_ONLY);
+    if (!replay.fp)
+        return -1;
+    LbFileSeek(replay.fp, (int64_t)data_offset, Lb_FILE_SEEK_BEGINNING);
+    replay.file_pos = LbFilePosition(replay.fp);
+    reset_packet_codec();
+    replay.turns_stored = count_stored_turns();
+    replay.fopened = 1;
+    return (int64_t)replay.turns_stored;
+}
+
 void restore_users_from_packet_save(void)
 {
     TbBool local_mapped = false;

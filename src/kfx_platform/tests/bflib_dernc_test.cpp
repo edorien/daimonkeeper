@@ -239,6 +239,62 @@ TEST_CASE_METHOD(ScratchFile, "LbFileLoadAtMax cuts an RNC file that unpacks lar
         CHECK(read_back[i] == 0xEE);
 }
 
+// Security pass S08: an RNC file's header sizes come from a file that may be hostile. Each of these used to read or
+// write outside the buffers (found by AddressSanitizer), or allocate what the header said.
+TEST_CASE_METHOD(ScratchFile, "an RNC header whose packed size is larger than the file is refused", "[kfx_platform][bflib_dernc][security]") {
+    std::vector<unsigned char> file = make_rnc_fixture();
+    put_be32(file, 8, 1u << 29); // far more packed data than the file holds
+    LbFileSaveAt(kTestFile, file.data(), file.size());
+    std::vector<unsigned char> read_back(kRncUnpackedSize + 64, 0xEE);
+    CHECK(LbFileLoadAt(kTestFile, read_back.data()) == -1);
+}
+
+TEST_CASE_METHOD(ScratchFile, "an RNC header whose unpacked size is smaller than the packed data is refused, not overrun", "[kfx_platform][bflib_dernc][security]") {
+    std::vector<unsigned char> file = make_rnc_fixture();
+    put_be32(file, 4, 8); // the buffer a caller makes from LbFileLengthRnc(): 8 bytes
+    LbFileSaveAt(kTestFile, file.data(), file.size());
+    CHECK(LbFileLengthRnc(kTestFile) == 8);
+    std::vector<unsigned char> read_back(8 + 64, 0xEE);
+    CHECK(LbFileLoadAt(kTestFile, read_back.data()) == -1);
+    for (size_t i = 8; i < read_back.size(); i++)
+        CHECK(read_back[i] == 0xEE); // nothing past the 8 bytes the caller has was touched
+}
+
+TEST_CASE_METHOD(ScratchFile, "a packed file that is larger than its unpacked size loads (incompressible data)", "[kfx_platform][bflib_dernc]") {
+    // the packed size, not the unpacked one, is what has to fit in the file: here a one-byte literal run in 100+ bytes
+    const std::vector<unsigned char> file = make_rnc_fixture();
+    LbFileSaveAt(kTestFile, file.data(), file.size());
+    std::vector<unsigned char> read_back(kRncUnpackedSize);
+    CHECK(LbFileLoadAt(kTestFile, read_back.data()) == (int64_t)kRncUnpackedSize);
+}
+
+TEST_CASE_METHOD(ScratchFile, "an RNC file shorter than its header is a plain file, not read past its end", "[kfx_platform][bflib_dernc][security]") {
+    const unsigned char tiny[8] = { 'R', 'N', 'C', 1, 0, 0, 0, 9 };
+    LbFileSaveAt(kTestFile, tiny, sizeof(tiny));
+    CHECK(LbFileLengthRnc(kTestFile) == 8);
+    unsigned char read_back[8];
+    CHECK(LbFileLoadAt(kTestFile, read_back) == 8);
+    CHECK(UnpackM1(read_back, 5) == 0); // a buffer shorter than a header
+}
+
+TEST_CASE_METHOD(ScratchFile, "an RNC header that claims over a gigabyte unpacked is refused", "[kfx_platform][bflib_dernc][security]") {
+    std::vector<unsigned char> file = make_rnc_fixture();
+    put_be32(file, 4, 0xF0000000u);
+    LbFileSaveAt(kTestFile, file.data(), file.size());
+    CHECK(LbFileLengthRnc(kTestFile) == -1);
+}
+
+TEST_CASE_METHOD(ScratchFile, "a packed stream that tries to copy past the end of the output is refused", "[kfx_platform][bflib_dernc][security]") {
+    // the same stream, told its output is one byte shorter: the last match copy would write one byte beyond it
+    std::vector<unsigned char> file = make_rnc_fixture();
+    put_be32(file, 4, kRncUnpackedSize - 1);
+    LbFileSaveAt(kTestFile, file.data(), file.size());
+    std::vector<unsigned char> read_back(kRncUnpackedSize - 1 + 64, 0xEE);
+    CHECK(LbFileLoadAt(kTestFile, read_back.data()) < 0);
+    for (size_t i = kRncUnpackedSize - 1; i < read_back.size(); i++)
+        CHECK(read_back[i] == 0xEE);
+}
+
 TEST_CASE_METHOD(ScratchFile, "calculate_file_checksum is deterministic for identical content", "[kfx_platform][bflib_dernc]") {
     const char *payload = "checksum me";
     LbFileSaveAt(kTestFile, payload, std::strlen(payload));

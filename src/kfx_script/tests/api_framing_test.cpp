@@ -58,3 +58,41 @@ TEST_CASE("api framing: a message far bigger than one read", "[api_framing]")
     CHECK_FALSE(complete);
     CHECK(next(big) == big);
 }
+
+// Security pass S02 (docs/security-pass/README.md): what the API server refuses before any message is run.
+TEST_CASE("api: a stream that starts like HTTP (or anything but a JSON object) is not an API client", "[api_framing][security]")
+{
+    auto looks = [](const std::string &s) { return api_stream_looks_like_api(s.data(), s.size()); };
+    CHECK(looks("{\"action\":\"hello\"}") == 1);
+    CHECK(looks("  \r\n\t{\"a\":1}") == 1);            // whitespace first is fine
+    CHECK(looks("{") == 1);
+    CHECK(looks("") == -1);                              // nothing yet
+    CHECK(looks(" \r\n") == -1);                         // only whitespace so far: wait
+    CHECK(looks("POST / HTTP/1.1\r\nHost: 127.0.0.1:5599\r\n\r\n{\"action\":\"console_command\"}") == 0);
+    CHECK(looks("GET / HTTP/1.1\r\n\r\n") == 0);
+    CHECK(looks("OPTIONS / HTTP/1.1\r\n\r\n") == 0);
+    CHECK(looks("\x16\x03\x01") == 0);                   // a TLS hello
+    CHECK(looks("[1,2]") == 0);                          // JSON but not an object
+    CHECK(looks("junk\n{\"a\":1}") == 0);                // stray text before the first object is no longer skipped
+}
+
+TEST_CASE("api: lua is not run for an API client, however the command is spelled", "[api_framing][security]")
+{
+    for (const char *refused : {"lua print(1)", "LUA x=1", "Lua", "  lua os.exit()", "\tlua\tx", "lua"})
+        CHECK(api_console_command_refused(refused));
+    for (const char *allowed : {"luatypedump", "lual", "ver", "creature.create IMP", "", "xlua", "player.flag lua", "stats lua"})
+        CHECK_FALSE(api_console_command_refused(allowed));
+    CHECK_FALSE(api_console_command_refused(nullptr));
+}
+
+TEST_CASE("api: the token compare", "[api_framing][security]")
+{
+    CHECK(api_token_matches("s3cret-token", "s3cret-token"));
+    CHECK_FALSE(api_token_matches("s3cret-token", "s3cret-tokeN"));
+    CHECK_FALSE(api_token_matches("s3cret-token", "s3cret-toke"));    // a prefix
+    CHECK_FALSE(api_token_matches("s3cret-token", "s3cret-token2"));  // longer
+    CHECK_FALSE(api_token_matches("s3cret-token", ""));
+    CHECK_FALSE(api_token_matches("s3cret-token", nullptr));
+    CHECK_FALSE(api_token_matches("", ""));                           // no token set: nothing matches
+    CHECK_FALSE(api_token_matches(nullptr, "x"));
+}

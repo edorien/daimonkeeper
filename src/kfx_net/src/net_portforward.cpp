@@ -47,9 +47,13 @@
 #endif
 
 #include <atomic>
+#include <chrono>
+#include <condition_variable>
 #include <cstdio>
+#include <cstdlib>
 #include <ctime>
 #include <future>
+#include <mutex>
 #ifdef __WIN32__
 #include <winsock2.h>
 #include <iphlpapi.h>
@@ -57,6 +61,12 @@
 
 #define NATPMP_TIMEOUT_SECONDS 1.0
 #define UPNP_TIMEOUT_MS 3000
+// Every mapping is a lease the router drops by itself, renewed while the game is hosting. A permanent mapping would
+// stay in the router, open to the internet, after a crash or a power cut. (UPnP routers that accept nothing but
+// permanent leases still get one; the log says so.)
+#define MAPPING_LEASE_SECONDS 3600
+#define MAPPING_LEASE_TEXT "3600"
+#define MAPPING_RENEW_SECONDS (MAPPING_LEASE_SECONDS / 2)
 
 #include "post_inc.h"
 
@@ -70,6 +80,9 @@ static enum PortForwardMethod active_method = PORT_FORWARD_NONE;
 static uint16_t mapped_port = 0;
 static std::future<void> mapping_task;
 static std::atomic<uint32_t> mapping_generation = 0;
+static std::mutex mapping_mutex;                     // pairs with mapping_changed: wakes the renewal wait early
+static std::condition_variable mapping_changed;
+static bool lease_is_permanent = false;              // a UPnP router that takes nothing else: nothing to renew
 
 static struct UPNPUrls upnp_urls;
 static struct IGDdatas upnp_data;
@@ -153,7 +166,7 @@ static int64_t natpmp_add_port_mapping(int64_t port) {
         closenatpmp(&natpmp);
         return 0;
     }
-    if (sendnewportmappingrequest(&natpmp, NATPMP_PROTOCOL_UDP, port, port, 0x7FFFFFFF) < 0) {
+    if (sendnewportmappingrequest(&natpmp, NATPMP_PROTOCOL_UDP, port, port, MAPPING_LEASE_SECONDS) < 0) {
         LbNetLog("NAT-PMP: Failed to send port mapping request\n");
         closenatpmp(&natpmp);
         return 0;
@@ -172,30 +185,9 @@ static int64_t natpmp_add_port_mapping(int64_t port) {
         result = readnatpmpresponseorretry(&natpmp, &response);
     } while (result == NATPMP_TRYAGAIN);
     if (result < 0) {
-        LbNetLog("NAT-PMP: Permanent lease rejected, trying timed lease\n");
-        if (sendnewportmappingrequest(&natpmp, NATPMP_PROTOCOL_UDP, port, port, 3600) < 0) {
-            LbNetLog("NAT-PMP: Failed to send timed port mapping request\n");
-            closenatpmp(&natpmp);
-            return 0;
-        }
-        do {
-            double elapsed = (double)(LbTimerClock() - start_time) / 1000.0;
-            if (elapsed > NATPMP_TIMEOUT_SECONDS) {
-                LbNetLog("NAT-PMP: Timeout on timed lease\n");
-                closenatpmp(&natpmp);
-                return 0;
-            }
-            FD_ZERO(&file_descriptors);
-            FD_SET(natpmp.s, &file_descriptors);
-            getnatpmprequesttimeout(&natpmp, &timeout);
-            select(FD_SETSIZE, &file_descriptors, NULL, NULL, &timeout);
-            result = readnatpmpresponseorretry(&natpmp, &response);
-        } while (result == NATPMP_TRYAGAIN);
-        if (result < 0) {
-            LbNetLog("NAT-PMP: Failed to add port mapping\n");
-            closenatpmp(&natpmp);
-            return 0;
-        }
+        LbNetLog("NAT-PMP: Failed to add port mapping\n");
+        closenatpmp(&natpmp);
+        return 0;
     }
     LbNetLog("NAT-PMP: port forwarding active on port %" PRIu64 "\n", (uint64_t)(port));
     mapped_port = port;
@@ -234,15 +226,17 @@ static void port_forward_add_mapping_internal(int64_t port)
     snprintf(port_string, sizeof(port_string), "%" PRIu64, (uint64_t)(port));
     UPNP_DeletePortMapping(upnp_urls.controlURL, upnp_data.first.servicetype, port_string, "UDP", "");
     LbNetLog("UPnP: lanaddr=%s\n", upnp_lanaddr);
-    int64_t result = UPNP_AddPortMapping(upnp_urls.controlURL, upnp_data.first.servicetype, port_string, port_string, upnp_lanaddr, PRODUCT_NAME, "UDP", "", "0");
+    lease_is_permanent = false;
+    int64_t result = UPNP_AddPortMapping(upnp_urls.controlURL, upnp_data.first.servicetype, port_string, port_string, upnp_lanaddr, PRODUCT_NAME, "UDP", "", MAPPING_LEASE_TEXT);
+    if (result == 725) { // OnlyPermanentLeasesSupported
+        LbNetLog("UPnP: the router only takes permanent leases; the mapping is removed when the game stops hosting, but a crash would leave it\n");
+        result = UPNP_AddPortMapping(upnp_urls.controlURL, upnp_data.first.servicetype, port_string, port_string, upnp_lanaddr, PRODUCT_NAME, "UDP", "", "0");
+        lease_is_permanent = true;
+    }
     if (result != UPNPCOMMAND_SUCCESS) {
-        LbNetLog("UPnP: permanent lease rejected (error %" PRId64 "), trying timed lease\n", (int64_t)(result));
-        result = UPNP_AddPortMapping(upnp_urls.controlURL, upnp_data.first.servicetype, port_string, port_string, upnp_lanaddr, PRODUCT_NAME, "UDP", "", "3600");
-        if (result != UPNPCOMMAND_SUCCESS) {
-            LbNetLog("UPnP: failed to add port mapping (error %" PRId64 "), UDP hole punching will be used\n", (int64_t)(result));
-            FreeUPNPUrls(&upnp_urls);
-            return;
-        }
+        LbNetLog("UPnP: failed to add port mapping (error %" PRId64 "), UDP hole punching will be used\n", (int64_t)(result));
+        FreeUPNPUrls(&upnp_urls);
+        return;
     }
     LbNetLog("UPnP: port forwarding active on port %" PRIu64 "\n", (uint64_t)(port));
     mapped_port = port;
@@ -289,9 +283,39 @@ static void port_forward_remove_mapping(void)
     active_method = PORT_FORWARD_NONE;
 }
 
+// Asks the router to extend the lease; false if it no longer answers (the lease then simply runs out).
+static bool port_forward_renew_mapping(void)
+{
+    if (active_method == PORT_FORWARD_NATPMP) {
+        return natpmp_add_port_mapping(mapped_port) != 0;
+    }
+    if (active_method == PORT_FORWARD_UPNP) {
+        char port_string[16];
+        snprintf(port_string, sizeof(port_string), "%" PRIu64, (uint64_t)(mapped_port));
+        return UPNP_AddPortMapping(upnp_urls.controlURL, upnp_data.first.servicetype, port_string, port_string, upnp_lanaddr, PRODUCT_NAME, "UDP", "", MAPPING_LEASE_TEXT) == UPNPCOMMAND_SUCCESS;
+    }
+    return false;
+}
+
+// Stops the renewal task and takes the mapping out of the router on any orderly exit, not only through host_destroy().
+static void port_forward_at_exit(void)
+{
+    port_forward_set_mapping(0);
+    if (mapping_task.valid()) {
+        mapping_task.wait_for(std::chrono::seconds(8));
+    }
+}
+
 void port_forward_set_mapping(uint16_t port)
 {
-    uint32_t generation = ++mapping_generation;
+    static std::once_flag exit_hook;
+    std::call_once(exit_hook, [] { std::atexit(port_forward_at_exit); });
+    uint32_t generation;
+    {
+        std::lock_guard<std::mutex> lock(mapping_mutex);
+        generation = ++mapping_generation;
+    }
+    mapping_changed.notify_all();
     mapping_task = std::async(std::launch::async, [previous = std::move(mapping_task), port, generation]() mutable {
         if (previous.valid()) {
             previous.wait();
@@ -309,6 +333,20 @@ void port_forward_set_mapping(uint16_t port)
         port_forward_remove_mapping();
         if (port != 0 && generation == mapping_generation) {
             port_forward_add_mapping_internal(port);
+            // Keep the lease alive for as long as this is the current mapping. A new request (or the exit hook)
+            // bumps the generation, which ends the wait; the next task then removes the mapping.
+            while (active_method != PORT_FORWARD_NONE && !lease_is_permanent) {
+                std::unique_lock<std::mutex> lock(mapping_mutex);
+                if (mapping_changed.wait_for(lock, std::chrono::seconds(MAPPING_RENEW_SECONDS),
+                        [generation] { return generation != mapping_generation; })) {
+                    break;
+                }
+                lock.unlock();
+                if (!port_forward_renew_mapping()) {
+                    LbNetLog("Port forwarding: the router did not renew the lease; it will run out on its own\n");
+                    break;
+                }
+            }
         }
 #ifdef _WIN32
         WSACleanup();

@@ -27,6 +27,7 @@
 #include "ariadne_edge.h"
 #include "ariadne.h"
 #include "ports/ui_port.h"
+#include "ariadne_state_check.h"
 #include "post_inc.h"
 
 #define EDGELEN_BITS 6
@@ -408,6 +409,40 @@ char triangle_divide_areas_s8differ(int64_t ntri, int64_t ncorA, int64_t ncorB, 
 }
 /******************************************************************************/
 /** The triangles and their allocator: part of the saved navigation mesh (ariadne_saved_state.h). */
+int ariadne_tringls_check_saved_state(struct StateCheck *c)
+{
+    ARI_RANGE(c, count_Triangles, 0, TRIANLGLES_COUNT, "ariadne.count_Triangles", 0);
+    ARI_RANGE(c, ix_Triangles, 0, TRIANLGLES_COUNT, "ariadne.ix_Triangles", 0);
+    ARI_RANGE(c, free_Triangles, -1, TRIANLGLES_COUNT - 1, "ariadne.free_Triangles", 0);
+    const int64_t used = (ix_Triangles < 0) ? 0 : (ix_Triangles > TRIANLGLES_COUNT) ? TRIANLGLES_COUNT : ix_Triangles;
+    for (int64_t i = 0; i < used; i++)
+    {
+        const struct Triangle *t = &Triangles[i];
+        for (int k = 0; k < 3; k++)
+        {
+            ARI_RANGE(c, t->points[k], -1, 30000 - 1, "ariadne.Triangles.points", i);
+            ARI_RANGE(c, t->tags[k], -1, TRIANLGLES_COUNT - 1, "ariadne.Triangles.tags", i);
+        }
+        ARI_RANGE(c, t->region_and_edgelen >> EDGELEN_BITS, 0, 300, "ariadne.Triangles.region", i);
+    }
+    // the free triangles link through tags[0]; the chain has to end
+    int64_t idx = free_Triangles;
+    int64_t steps = 0;
+    while (idx != -1)
+    {
+        if ((idx < 0) || (idx >= TRIANLGLES_COUNT))
+            break; // (noted above as out of range)
+        if (++steps > TRIANLGLES_COUNT)
+        {
+            if (!state_check_note(c, "ariadne.free_Triangles chain never ends", 0, idx, "the list of free triangles never ends"))
+                return 0;
+            break;
+        }
+        idx = Triangles[idx].tags[0];
+    }
+    return 1;
+}
+
 void ariadne_tringls_visit_saved_state(AriadneStateVisitor visit, void *ctx)
 {
     visit(ctx, Triangles, sizeof(Triangles));

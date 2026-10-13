@@ -50,6 +50,7 @@ extern int matchmaking_session_count;
 extern char join_lobby_id[MATCHMAKING_ID_MAX];
 
 void matchmaking_set_server(const char* host);
+TbBool matchmaking_secure_handle(void *curl_easy_handle); // a CURL*: verified TLS >= 1.2, https/wss only, no redirects
 void matchmaking_connect_async(void);
 int matchmaking_request_list(void);
 void matchmaking_disconnect(enum NetSessionPhase phase);

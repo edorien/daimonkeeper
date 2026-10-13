@@ -80,8 +80,8 @@ static const char *const golden_cases[] = {
     "a:EditorToggleDoorLock $C0", "a:EditorToggleDoorLock 0",
     "a:EditorUndo $C0", "a:EditorUndo $HEART", "a:EditorUndo 0",
     "a:EditorSetGoldValue $C0 500", "a:EditorSetThingPosition #120 #128 $C0 0",
-    "a:EditorPlaceTerrainRect #120 #125 12 0", "a:EditorRectClearEarth #120 #125", "a:EditorRectDeleteThings #120 #125",
-    "a:EditorRectSetOwner #120 #125 1", "a:EditorRectSetOwner #120 #125 0 @ROOM",
+    "a:EditorPlaceTerrainRect 120 125 12 0", "a:EditorRectClearEarth 120 125", "a:EditorRectDeleteThings 120 125",
+    "a:EditorRectSetOwner 120 125 1", "a:EditorRectSetOwner 120 125 0 @ROOM",
     "a:EditorRedoCreature #126 #131 5 0", "a:EditorRedoDigger #126 #131 0 1", "a:EditorRedoTrap #126 #131 1 0",
     "a:EditorRedoDoor #126 #131 1 0",
     "a:EditorGoSpectator #126 #131",
@@ -114,13 +114,13 @@ static const char *const golden_cases[] = {
     // a multiplayer game refuses them all: only the game kind changes (P5-F17)
     "multiplayer", "multiplayer ; a:CheatRevealMap", "multiplayer ; a:CheatWinLevel", "multiplayer ; a:CheatAllRooms",
     "multiplayer ; a:CheatMakeCreature 5 0", "multiplayer ; a:CheatPlaceTerrain 12 0", "multiplayer ; a:EditorUndo $C0",
-    "multiplayer ; a:EditorRectClearEarth #120 #125", "multiplayer ; possess ; a:CheatKillCreature",
+    "multiplayer ; a:EditorRectClearEarth 120 125", "multiplayer ; possess ; a:CheatKillCreature",
     "multiplayer ; c:KillCreatr click", "multiplayer ; c:DestroyThing click @HEART",
     "multiplayer ; a:SetPlyrState 28 0", "a:SetPlyrState 28 0", "multiplayer ; a:SetPlyrState 2 1",
     // Lua's OnObjectDestroyed is for objects, not a creature the editor or the eraser destroys (P5-F19)
     "lua:function OnObjectDestroyed(t) PLAYER0.FLAG5 = 7 end ; a:EditorUndo $C0",
     "lua:function OnObjectDestroyed(t) PLAYER0.FLAG5 = 7 end ; c:DestroyThing click",
-    "lua:function OnObjectDestroyed(t) PLAYER0.FLAG5 = 7 end ; a:EditorRectDeleteThings #120 #125",
+    "lua:function OnObjectDestroyed(t) PLAYER0.FLAG5 = 7 end ; a:EditorRectDeleteThings 120 125",
     "lua:function OnObjectDestroyed(t) PLAYER0.FLAG5 = 7 end ; a:EditorUndo $HEART",
 };
 

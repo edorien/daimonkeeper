@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <random>
 #include <string>
 
 #include "config_combat_assist.h"
@@ -30,7 +31,7 @@ struct Fixture {
             {PwrK_LIGHTNING, "POWER_LIGHTNING"}, {PwrK_CAVEIN, "POWER_CAVE_IN"}, {PwrK_CALL2ARMS, "POWER_CALL_TO_ARMS"},
             {PwrK_OBEY, "POWER_OBEY"}};
         for (auto &e : names) std::snprintf(m.power_cfgstats[e.k].code_name, COMMAND_WORD_LEN, "%s", e.n);
-        dir = (std::filesystem::temp_directory_path() / ("kfx-assist-profile-" + std::to_string(std::rand()))).string();
+        dir = (std::filesystem::temp_directory_path() / ("kfx-assist-profile-" + std::to_string(std::random_device{}()))).string();
         std::filesystem::create_directories(dir);
         REQUIRE(keeper_assist_load_presets((std::string(KFX_CONFIG_TEST_REPO_ROOT) + "/config/fxdata/combat_assist_presets.toml").c_str(), &presets));
     }

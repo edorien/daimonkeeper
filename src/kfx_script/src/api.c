@@ -81,6 +81,16 @@ struct ApiGlobals
     kfx_socket_t activeSocket;  // Active client socket (only one client at a time)
 } api = { KFX_INVALID_SOCKET, KFX_INVALID_SOCKET }; // sockets start invalid, not 0 (0 is a valid fd)
 
+/** The token a client must present before anything else (environment DAIMON_API_TOKEN, read when the server starts).
+ *  Empty: none needed, as in every earlier version. */
+static char api_token[128] = "";
+/** Of the connection now open: whether its first bytes were seen to be an API client's, and whether it has presented
+ *  the token (always, when none is needed). */
+static TbBool api_conn_checked = false;
+static TbBool api_conn_authenticated = false;
+
+static void api_drop_client(const char *why);
+
 /**
  * Structure representing a subscribed variable.
  *
@@ -344,7 +354,29 @@ int64_t api_init_server()
 
     api.serverSocket = srv;
 
-    JUSTLOG("API server active");
+    api_token[0] = '\0';
+    const char *token_env = getenv("DAIMON_API_TOKEN");
+    if ((token_env != NULL) && (token_env[0] != '\0'))
+    {
+        if (strlen(token_env) < sizeof(api_token))
+        {
+            snprintf(api_token, sizeof(api_token), "%s", token_env);
+            JUSTLOG("API server active; clients must present the token from DAIMON_API_TOKEN");
+        }
+        else
+        {
+            // Serving without the token the user asked for would be the worse failure.
+            JUSTLOG("DAIMON_API_TOKEN is longer than %d characters: API server not started", (int)(sizeof(api_token) - 1));
+            kfx_closesocket(srv);
+            api.serverSocket = KFX_INVALID_SOCKET;
+            api_close_server();
+            return 1;
+        }
+    }
+    else
+    {
+        JUSTLOG("API server active");
+    }
 
     // Initialize all subscription slots
     for (int64_t i = 0; i < API_SUBSCRIBE_LIST_SIZE; ++i)
@@ -1226,6 +1258,14 @@ static void api_action_console_command(const struct ApiRequest *req)
         console_command += 1;
     }
 
+    // Lua is not run for an API client (security pass S02): a web page or a stray local program that got a message
+    // in would otherwise have the whole script state, with cheat mode on.
+    if (api_console_command_refused(console_command))
+    {
+        api_err("COMMAND_NOT_ALLOWED", req->ack_id);
+        return;
+    }
+
     // Execute console command, at the centre of the player's view (upstream #5370)
     MapCoord cursor_x;
     MapCoord cursor_y;
@@ -1963,6 +2003,13 @@ static void api_process_buffer(const char *buffer, size_t buf_size)
     // Values for the data of the buffer
     VALUE json_data, *value = &json_data;
 
+    // Nothing to read (an empty message: found by the API fuzzer, it read the byte before the buffer)
+    if (buf_size == 0)
+    {
+        api_err("NO_JSON", NULL);
+        return;
+    }
+
     // Handle closing null byte
     if (buffer[buf_size - 1] == 0)
     {
@@ -2005,6 +2052,34 @@ static void api_process_buffer(const char *buffer, size_t buf_size)
     if (action == NULL)
     {
         api_err("MISSING_ACTION", ack_id);
+        value_fini(&json_data);
+        return;
+    }
+
+    // hello: presenting the token (answered even when none is needed, so a client can always say it).
+    if (strcasecmp(action, "hello") == 0)
+    {
+        if (api_token[0] == '\0')
+        {
+            api_ok(ack_id);
+        }
+        else if (api_token_matches(api_token, value_string(value_dict_get(value, "token"))))
+        {
+            api_conn_authenticated = true;
+            api_ok(ack_id);
+        }
+        else
+        {
+            api_err("UNAUTHORIZED", ack_id);
+            api_drop_client("wrong token");
+        }
+        value_fini(&json_data);
+        return;
+    }
+    if ((api_token[0] != '\0') && !api_conn_authenticated)
+    {
+        api_err("UNAUTHORIZED", ack_id);
+        api_drop_client("no token");
         value_fini(&json_data);
         return;
     }
@@ -2113,8 +2188,16 @@ static void api_rx_process(void)
         json_string[json_length] = '\0';
         memmove(api_rx, api_rx + end, api_rx_len - end);
         api_rx_len -= end;
-        JUSTLOG("Received message from client: %.*s%s", (int)((json_length > 400) ? 400 : json_length), json_string,
-            (json_length > 400) ? " ..." : "");
+        if (api_conn_authenticated)
+        {
+            JUSTLOG("Received message from client: %.*s%s", (int)((json_length > 400) ? 400 : json_length), json_string,
+                (json_length > 400) ? " ..." : "");
+        }
+        else
+        {
+            // a message that may carry the token
+            JUSTLOG("Received a message from a client that has not presented the token (%" PRIu64 " bytes)", (uint64_t)json_length);
+        }
         api_process_buffer(json_string, (int64_t)json_length);
         free(json_string);
         if (api.activeSocket == KFX_INVALID_SOCKET)
@@ -2126,6 +2209,20 @@ static void api_rx_process(void)
         memmove(api_rx, api_rx + start, api_rx_len - start);
         api_rx_len -= start;
     }
+}
+
+/** Closes the connection of the client now open, as if it had gone away. */
+static void api_drop_client(const char *why)
+{
+    api_clear_all_subscriptions();
+    extseat_on_client_lost();
+    if (api.activeSocket != KFX_INVALID_SOCKET)
+    {
+        kfx_closesocket(api.activeSocket);
+        api.activeSocket = KFX_INVALID_SOCKET;
+    }
+    api_rx_clear();
+    JUSTLOG("API connection closed: %s", why);
 }
 
 /**
@@ -2176,6 +2273,8 @@ void api_update_server()
 #endif
                 api.activeSocket = client;
                 api_rx_clear();
+                api_conn_checked = false;
+                api_conn_authenticated = (api_token[0] == '\0');
                 JUSTLOG("Client connected");
             }
         }
@@ -2209,8 +2308,23 @@ void api_update_server()
             }
             break;
         }
+        // The first message must start with '{': a web page's request does not (security pass S02).
+        if (!api_conn_checked && (api_rx_len > 0))
+        {
+            const int looks = api_stream_looks_like_api(api_rx, api_rx_len);
+            if (looks == 0)
+            {
+                WARNLOG("Refused a connection to the API that does not speak it (first byte 0x%02x); no answer sent", (unsigned)(unsigned char)api_rx[0]);
+                api_drop_client("not an API client");
+            }
+            else if (looks == 1)
+            {
+                api_conn_checked = true;
+            }
+        }
         // What arrived before a disconnect still counts (a client's last word is often a set_var).
-        api_rx_process();
+        if (api.activeSocket != KFX_INVALID_SOCKET)
+            api_rx_process();
         if (lost && (api.activeSocket != KFX_INVALID_SOCKET))
         {
             api_clear_all_subscriptions();

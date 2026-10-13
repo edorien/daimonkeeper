@@ -144,16 +144,17 @@ size_t convert_codepage_to_utf8_buffer(const char *src, size_t src_size, char *d
             size_t written = encode_utf8_codepoint(codepoint, dst + out_pos, dst_size - out_pos);
             if (written == 0)
             {
-                if (out_pos < dst_size)
-                    dst[out_pos] = '\0';
+                // the output is full: it still ends in a terminator, which takes the place of the last byte
+                if (out_pos >= dst_size)
+                    out_pos = dst_size - 1;
+                dst[out_pos] = '\0';
                 return out_pos;
             }
             out_pos += written;
         }
-        if (out_pos < dst_size)
-            dst[out_pos] = '\0';
-        else if (dst_size > 0)
-            dst[dst_size - 1] = '\0';
+        if (out_pos >= dst_size)
+            out_pos = dst_size - 1;
+        dst[out_pos] = '\0';
         return out_pos;
     }
 

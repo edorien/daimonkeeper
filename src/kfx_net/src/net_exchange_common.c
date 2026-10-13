@@ -160,9 +160,21 @@ static TbError handle_exchange_message(NetUserId source, void *server_buf, size_
     return Lb_OK;
 }
 
+TbBool network_chat_sender_valid(NetUserId source, int64_t sender, int64_t max_users)
+{
+    if ((sender < 0) || (sender >= max_users))
+        return false;
+    return (source == SERVER_ID) || (source == sender);
+}
+
 static TbError handle_chat_message(NetUserId source, char *read_pos, size_t message_size, enum NetMessageType expected_frame_type)
 {
-    NetUserId sender = (NetUserId)read_pos[0];
+    // (the byte is unsigned: through a plain char a sender of 200 would be -56)
+    NetUserId sender = (NetUserId)(uint8_t)read_pos[0];
+    if (!network_chat_sender_valid(source, sender, netstate.max_users)) {
+        WARNLOG("Peer %" PRId64 " sent a chat message as user %" PRId64 ": ignored", (int64_t)source, (int64_t)sender);
+        return Lb_OK;
+    }
     read_pos += 1;
     const char *message;
     if (!read_network_message_text(&read_pos, &message, sizeof(netstate.msg_buffer) - 1)) {
@@ -325,7 +337,7 @@ TbError process_network_message(NetUserId source, void *server_buf, size_t frame
     read_pos += 1;
     switch (message_type) {
     case NETMSG_LOGIN:
-        return process_login_message(source, read_pos);
+        return process_login_message(source, read_pos, netstate.msg_buffer + message_size);
     case NETMSG_USERUPDATE:
         return process_user_update_message(source, read_pos, netstate.msg_buffer + message_size);
     case NETMSG_FRONTEND:

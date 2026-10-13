@@ -28,6 +28,23 @@ extern "C" {
 
 TbBool LbNetwork_Resync(void *data_buffer, size_t buffer_length);
 void animate_resync_progress_bar(int64_t current_phase, int64_t total_phases);
+
+/**
+ * The most a full resync can honestly hold once decompressed: the state structs, the frontend and game blobs, the
+ * Ariadne mesh, the configuration, and a ceiling for the scripts' data. The header of a resync message states the
+ * decompressed size itself, and a client allocates that much; a host (or anyone in its place) could otherwise ask
+ * for gigabytes with a few kilobytes of zlib (security pass S05).
+ */
+size_t resync_max_original_length(void);
+
+/**
+ * Whether the simulation state received in a resync, at `data` (sizeof(struct KfxSimState) bytes, not necessarily
+ * aligned) passes sim_state_validate(); logs why not. A resync that fails this is refused before anything local
+ * changes (security pass S06).
+ */
+TbBool resync_sim_state_acceptable(const char *data);
+/** Whether the configuration received in a resync (KFX_CONFIG_STATE_SAVED_LEN bytes at `data`) passes config_state_validate(). */
+TbBool resync_config_state_acceptable(const char *data);
 void resync_game(void);
 TbBool apply_recorded_resync(const char *message_buffer, size_t message_size);
 

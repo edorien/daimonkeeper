@@ -152,6 +152,22 @@ TEST_CASE("WriteBatch writes several files and creates directories", "[cfgc_writ
     CHECK(b.empty());
 }
 
+TEST_CASE("WriteBatch refuses a path that leads out of its folder, and writes nothing", "[cfgc_writebatch]")
+{
+    TempDir t("escape");
+    for (const char *bad : {"/../x.cfg", "/sub/../../x.cfg", "\\..\\x.cfg", "/sub/.../x.cfg"})
+    {
+        INFO(bad);
+        WriteBatch b;
+        b.put((t.path / "fine.cfg").string(), "fine");
+        b.put(t.path.string() + bad, "evil");
+        std::string err;
+        CHECK_FALSE(b.commit(&err));
+        CHECK(err.find("leads out") != std::string::npos);
+        CHECK_FALSE(fs::exists(t.path / "fine.cfg"));
+    }
+}
+
 TEST_CASE("WriteBatch removes files and tolerates missing ones", "[cfgc_writebatch]")
 {
     TempDir t("rm");

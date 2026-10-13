@@ -54,6 +54,7 @@
 #include "ports/script_port.h"
 #include "ports/game_port.h"
 #include "ports/render_port.h"
+#include "safe_path.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -1628,6 +1629,14 @@ static char *_resolve_file_path_internal(char *dst, size_t dst_size,
       if (fname == NULL)
           fname = "";
 
+      // Each part below the game's folder can come from content: a mod's folder, a campaign's locations, a file
+      // name in a config or a script. None may lead out of the folder it is joined to (security pass S07).
+      if (!path_cannot_escape(mod_dir) || !path_cannot_escape(sdir) || !path_cannot_escape(fname)) {
+          ERRORLOG("Refusing a path that leaves the game's folders: mod '%.80s', folder '%.80s', file '%.120s'", mod_dir, sdir, fname);
+          dst[0] = '\0';
+          return dst;
+      }
+
       int64_t len_mdir = (int64_t)strlen(mdir);
       int64_t len_mod_dir = (int64_t)strlen(mod_dir);
       int64_t len_sdir = (int64_t)strlen(sdir);
@@ -1738,6 +1747,10 @@ char *prepare_campaign_levels_path(char *dst, int64_t dst_size, const struct Gam
   dst[0] = '\0';
   if ((campgn == NULL) || (campgn->levels_location[0] == '\0'))
       return dst;
+  if (!path_cannot_escape(campgn->levels_location) || !path_cannot_escape(fname)) {
+      ERRORLOG("Refusing a path that leaves the game's folders: folder '%.80s', file '%.120s'", campgn->levels_location, fname);
+      return dst;
+  }
   const char *mdir = install_info.inst_path[0] ? install_info.inst_path : keeper_runtime_directory;
   snprintf(dst, (size_t)dst_size, "%s/%s/%s", mdir, campgn->levels_location, fname);
   return dst;

@@ -87,7 +87,11 @@ static uint64_t mirror(uint64_t x, int64_t n);
 // If COMPRESSOR is defined, it also returns the leeway number
 // (which gets stored at offset 16 into the compressed-file header)
 // in `*leeway', if `leeway' isn't NULL.
-int64_t rnc_unpack (const void *packed, void *unpacked, uint64_t flags
+//
+// The sizes in the header come from a file that may be hostile (security pass S08): `packed_len` is how many bytes
+// really are at `packed`, `unpacked_cap` how many may be written at `unpacked`, and a header that claims more of
+// either is refused.
+static int64_t rnc_unpack_checked (const void *packed, uint64_t packed_len, void *unpacked, uint64_t unpacked_cap, uint64_t flags
 #ifdef COMPRESSOR
          , int64_t *leeway
 #endif
@@ -100,6 +104,8 @@ int64_t rnc_unpack (const void *packed, void *unpacked, uint64_t flags
     int64_t lee = 0;
 #endif
 
+    if (packed_len < RNC_HEADER_LEN)
+        return RNC_HEADER_VAL_ERROR;
     memcpy(&header, packed, sizeof(header));
 
     if (header.signature != RNC_SIGNATURE) {
@@ -115,6 +121,9 @@ int64_t rnc_unpack (const void *packed, void *unpacked, uint64_t flags
     header.unpacked_crc32 = ntohs(header.unpacked_crc32);
 
     if ((header.unpacked_size>(1<<30))||(header.packed_size>(1<<30))) {
+        return RNC_HEADER_VAL_ERROR;
+    }
+    if ((header.unpacked_size > unpacked_cap) || (header.packed_size > packed_len - RNC_HEADER_LEN)) {
         return RNC_HEADER_VAL_ERROR;
     }
     unsigned char* outputend = output + header.unpacked_size;
@@ -211,7 +220,7 @@ int64_t rnc_unpack (const void *packed, void *unpacked, uint64_t flags
             if (((output-posn)<(unsigned char *)unpacked)
              || ((output-posn)>(unsigned char *)outputend)
              || ((output)<(unsigned char *)unpacked)
-             || ((output)>(unsigned char *)outputend))
+             || ((output)>=(unsigned char *)outputend))
             {
                    if (!(flags&RNC_IGNORE_HUF_EXCEEDS_RANGE))
                        return RNC_HUF_EXCEEDS_RANGE;
@@ -249,6 +258,24 @@ int64_t rnc_unpack (const void *packed, void *unpacked, uint64_t flags
     }
 
     return header.unpacked_size;
+}
+
+// The sizes the header itself gives: for a caller that has already checked them against the buffers (UnpackM1()).
+int64_t rnc_unpack (const void *packed, void *unpacked, uint64_t flags
+#ifdef COMPRESSOR
+         , int64_t *leeway
+#endif
+         )
+{
+    rnc_header header;
+    memcpy(&header, packed, sizeof(header));
+    const uint64_t packed_len = (uint64_t)RNC_HEADER_LEN + ntohl(header.packed_size);
+    const uint64_t unpacked_cap = ntohl(header.unpacked_size);
+    return rnc_unpack_checked(packed, packed_len, unpacked, unpacked_cap, flags
+#ifdef COMPRESSOR
+        , leeway
+#endif
+        );
 }
 
 // Read a Huffman table out of the bit stream and data stream given.
@@ -319,10 +346,20 @@ static int64_t huf_read (huf_table *h, bit_stream *bs,
 // Initialises a bit stream with the first two bytes of the packed
 // data.
 // Checks pend for proper buffer pointers range.
+/** The 16 bits at *p, with whatever lies at or past pend read as zero (the stream's last byte may be a lone one). */
+static uint64_t word_at(const unsigned char *p, const unsigned char *pend)
+{
+    if (pend - p >= 2)
+        return lword((unsigned char *)(uintptr_t)p);
+    if (pend - p == 1)
+        return p[0];
+    return 0;
+}
+
 static void bitread_init (bit_stream *bs, unsigned char **p, unsigned char *pend)
 {
     if (pend-(*p) >= 0)
-        bs->bitbuf = lword (*p);
+        bs->bitbuf = word_at (*p, pend);
     else
         bs->bitbuf = 0;
     bs->bitcount = 16;
@@ -336,7 +373,7 @@ static void bitread_fix (bit_stream *bs, unsigned char **p, unsigned char *pend)
     bs->bitcount -= 16;
     bs->bitbuf &= (1<<bs->bitcount)-1; // remove the top 16 bits
     if (pend-(*p) >= 0)
-        bs->bitbuf |= (lword(*p)<<bs->bitcount);// replace with what's at *p
+        bs->bitbuf |= (word_at(*p, pend)<<bs->bitcount);// replace with what's at *p
     bs->bitcount += 16;
 }
 
@@ -356,7 +393,7 @@ static void bit_advance (bit_stream *bs, int64_t n, unsigned char **p, unsigned 
     {
         (*p) += 2;
         if (pend-(*p) >= 0)
-            bs->bitbuf |= (lword(*p)<<bs->bitcount);
+            bs->bitbuf |= (word_at(*p, pend)<<bs->bitcount);
         bs->bitcount += 16;
     }
 }
@@ -461,6 +498,12 @@ int64_t LbFileLengthRnc(const char *fname)
             LbSyncLog("%s: file size from RNC header: %" PRIu64 " bytes\n", fname, (uint64_t)(header.packed_size));
         }
         flength = ntohl(header.unpacked_size);
+        if (flength > (1 << 30))
+        {
+            // the unpacker takes no more; a caller would allocate what is returned here
+            LbFileClose(handle);
+            return -1;
+        }
     } else {
         if (KFX_DEBUG_ON(19))
         {
@@ -476,6 +519,9 @@ int64_t UnpackM1(void * buffer, uint64_t bufsize)
 {
     int64_t retcode;
     rnc_header header;
+    // A buffer shorter than a header holds a plain file
+    if (bufsize < sizeof(header))
+        return 0;
     memcpy(&header, buffer, sizeof(header));
     //If file isn't compressed - return with zero
     if (header.signature != RNC_SIGNATURE)
@@ -486,9 +532,12 @@ int64_t UnpackM1(void * buffer, uint64_t bufsize)
     header.packed_crc32 = ntohs(header.packed_crc32);
     header.unpacked_size = ntohl(header.unpacked_size);
     header.unpacked_crc32 = ntohs(header.unpacked_crc32);
-    void * unpacked = calloc(header.unpacked_size, 1);
+    // the packed data has to be in the buffer, all of it, for the unpacker to read it
+    if ((header.unpacked_size > (1u << 30)) || (header.packed_size > bufsize - sizeof(header)))
+        return -1;
+    void * unpacked = calloc(header.unpacked_size ? header.unpacked_size : 1, 1);
     if (unpacked==NULL) return -1;
-    retcode = rnc_unpack(buffer, unpacked, 0);
+    retcode = rnc_unpack_checked(buffer, bufsize, unpacked, header.unpacked_size, 0);
     if (header.unpacked_size > bufsize) {
         memcpy(buffer, unpacked, bufsize);
     } else {
@@ -500,37 +549,55 @@ int64_t UnpackM1(void * buffer, uint64_t bufsize)
 
 int64_t LbFileLoadAt(const char *fname, void *buffer)
 {
+  // For an RNC file this is the unpacked size, and `buffer` has that many bytes; for any other file, its size.
   int64_t filelength = LbFileLengthRnc(fname);
   TbFileHandle handle = NULL;
   if (filelength!=-1)
   {
       handle = LbFileOpen(fname,Lb_FILE_MODE_READ_ONLY);
   }
-  int64_t read_status=-1;
-  if (handle)
-  {
-      read_status=LbFileRead(handle, buffer, filelength);
-      LbFileClose(handle);
-  }
-  if (read_status==-1)
+  if (!handle)
   {
       ERRORLOG("Couldn't read \"%s\", expected size %" PRId64 ", errno %" PRId64,fname,(int64_t)(filelength), (int64_t)errno);
       return -1;
   }
-  int64_t unp_length = UnpackM1(buffer, filelength);
-  int64_t result;
-  if ( unp_length >= 0 )
+  // The file on disk is not the size of `buffer` when it is packed -- it can be larger (data that does not shrink),
+  // and what its header claims has to be checked against what is there (security pass S08).
+  const int64_t disk_length = LbFileLengthHandle(handle);
+  rnc_header header = {0};
+  const TbBool is_rnc = (disk_length >= (int64_t)sizeof(header))
+      && (LbFileRead(handle, &header, sizeof(header)) == (int64_t)sizeof(header))
+      && (header.signature == RNC_SIGNATURE);
+  if (!is_rnc)
   {
-      if (unp_length!=0)
-        result = unp_length;
-      else
-        result = filelength;
-  } else
+      LbFileSeek(handle, 0, Lb_FILE_SEEK_BEGINNING);
+      int64_t read_status = LbFileRead(handle, buffer, filelength);
+      LbFileClose(handle);
+      if (read_status==-1)
+      {
+          ERRORLOG("Couldn't read \"%s\", expected size %" PRId64 ", errno %" PRId64,fname,(int64_t)(filelength), (int64_t)errno);
+          return -1;
+      }
+      return filelength;
+  }
+  LbFileSeek(handle, 0, Lb_FILE_SEEK_BEGINNING);
+  unsigned char *packed = (unsigned char *)malloc((size_t)disk_length);
+  int64_t read_status = (packed != NULL) ? LbFileRead(handle, packed, disk_length) : -1;
+  LbFileClose(handle);
+  if (read_status != disk_length)
+  {
+      free(packed);
+      ERRORLOG("Couldn't read \"%s\", expected size %" PRId64 ", errno %" PRId64,fname,(int64_t)(disk_length), (int64_t)errno);
+      return -1;
+  }
+  const int64_t unp_length = rnc_unpack_checked(packed, (uint64_t)disk_length, buffer, (uint64_t)filelength, 0);
+  free(packed);
+  if (unp_length < 0)
   {
       ERRORLOG("ERROR decompressing \"%s\"",fname);
-      result = -1;
+      return -1;
   }
-  return result;
+  return unp_length;
 }
 
 int64_t LbFileLoadAtMax(const char *fname, void *buffer, uint64_t buf_size)

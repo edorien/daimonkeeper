@@ -234,3 +234,13 @@ TEST_CASE_METHOD(ResetSimAndConfig, "conceal_map_area reports its refreshed rect
     CHECK(PanelMapUpdateSpy::w == 3);
     CHECK(PanelMapUpdateSpy::h == 3);
 }
+
+// Security pass S08: the rectangles of ConcealMapRect()/RevealMapRect() come from a script's numbers.
+TEST_CASE("clearing the digging of a rectangle outside the map touches only the slabs of the map", "[kfx_sim][map_data][security]") {
+    std::memset(&kfx_sim_state, 0, sizeof(kfx_sim_state));
+    kfx_sim_state.map_tiles_x = kfx_sim_state.map_tiles_y = 5;
+    kfx_sim_state.map_subtiles_x = kfx_sim_state.map_subtiles_y = 15;
+    // used to loop over the whole 64-bit range (and read the slab map far outside the state)
+    clear_dig_for_map_rect(0, INT64_MIN / 2, INT64_MAX / 2, -1000000, 1000000);
+    SUCCEED();
+}

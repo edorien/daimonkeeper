@@ -1,6 +1,7 @@
 """Newline-delimited JSON client for the game's in-game TCP API (API_ENABLED=TRUE, API_PORT). Standard library only."""
 import collections
 import json
+import os
 import select
 import socket
 import time
@@ -20,8 +21,11 @@ class ApiError(Exception):
 
 
 class Api:
-    def __init__(self, host="127.0.0.1", port=5599):
+    def __init__(self, host="127.0.0.1", port=5599, token=None):
         self.host, self.port = host, port
+        # The game, started with DAIMON_API_TOKEN set, answers nothing before this token is presented (a stray local
+        # program or a web page cannot drive it). Not set: no handshake, as before.
+        self.token = token if token is not None else os.environ.get("DAIMON_API_TOKEN") or None
         self.sock = None
         self.buf = b""
         self.ack = 0
@@ -34,11 +38,20 @@ class Api:
             try:
                 self.sock = socket.create_connection((self.host, self.port), timeout=10)
                 self.buf = b""
+                self.authenticate()
                 return
             except OSError:
                 if time.time() > deadline:
                     raise
                 time.sleep(0.25)
+
+    def authenticate(self):
+        """Presents the API token (DAIMON_API_TOKEN) when there is one; raises ApiError if the game refuses it."""
+        if not self.token:
+            return
+        resp = self.call(action="hello", token=self.token)
+        if not resp.get("success"):
+            raise ApiError(resp.get("error", "UNAUTHORIZED"), {"action": "hello"})
 
     def close(self):
         if self.sock:

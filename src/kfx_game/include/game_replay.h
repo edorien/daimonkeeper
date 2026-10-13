@@ -46,6 +46,8 @@ TbBool reinit_packets_after_load(void);
 void disable_packet_mode(void);
 TbBool verify_replay_map_checksums(void);
 void restore_users_from_packet_save(void);
+struct PacketSaveHead;
+int64_t replay_open_turns_for_test(const char *fname, uint64_t data_offset, const struct PacketSaveHead *head);
 void write_debug_packets(void);
 void write_debug_screenpackets(void);
 void dump_memory_to_file(const char * fname, const char * buf, size_t len);

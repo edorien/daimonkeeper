@@ -26,6 +26,7 @@
 #include "ariadne_tringls.h"
 #include "ariadne_points.h"
 #include "ariadne.h"
+#include "ariadne_state_check.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -225,6 +226,14 @@ TbBool point_find(int64_t pt_x, int64_t pt_y, int64_t *output_triangle_index, in
 /******************************************************************************/
 /** Where point location starts looking: part of the saved navigation mesh (ariadne_saved_state.h), as which of
  *  two triangles sharing an edge a walk ends in depends on where it starts. */
+int ariadne_findcache_check_saved_state(struct StateCheck *c)
+{
+    for (int64_t y = 0; y < 4; y++)
+        for (int64_t x = 0; x < 4; x++)
+            ARI_RANGE(c, find_cache[y][x], -1, TRIANLGLES_COUNT - 1, "ariadne.find_cache", y * 4 + x);
+    return 1;
+}
+
 void ariadne_findcache_visit_saved_state(AriadneStateVisitor visit, void *ctx)
 {
     visit(ctx, find_cache, sizeof(find_cache));

@@ -6,9 +6,12 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "config.h"
+#include "config_campaigns.h"
 
 #include <cstddef>
+#include <cstdio>
 #include <cstring>
+#include <string>
 
 TEST_CASE("parameter_is_number accepts plain integers", "[kfx_config][config]") {
     CHECK(parameter_is_number("0"));
@@ -237,4 +240,28 @@ TEST_CASE("a key in a table's last row given more values than it has rows is war
     const int64_t len = (int64_t)std::strlen(buf);
     REQUIRE(parse_named_field_block(buf, len, "test", 0, "block", last_single, &lenient_set, 1));
     CHECK(lenient_records[1].small == 7);
+}
+
+// Security pass S07: the path builder is the one place a content-supplied folder or file name becomes a path.
+TEST_CASE("prepare_file_path refuses a name, a mod folder or a campaign folder that leaves the game's folders", "[kfx_config][config][security]") {
+    snprintf(keeper_runtime_directory, sizeof(keeper_runtime_directory), "/game");
+    CHECK(std::string(prepare_file_path(FGrp_FxData, "sprites/a.png")) == "/game/fxdata/sprites/a.png");
+    CHECK(std::string(prepare_file_path(FGrp_FxData, "*.cfg")) == "/game/fxdata/*.cfg");
+    CHECK(std::string(prepare_file_path(FGrp_FxData, NULL)) == "/game/fxdata");
+    CHECK(std::string(prepare_file_path_mod("mods/x", FGrp_FxData, "a.cfg")) == "/game/mods/x/fxdata/a.cfg");
+    for (const char *bad : {"../x", "a/../../x", "/etc/passwd", "\\\\server\\share", "C:\\x", "a/b:stream", "..\\x"})
+    {
+        INFO(bad);
+        CHECK(std::string(prepare_file_path(FGrp_FxData, bad)) == "");
+        CHECK(std::string(prepare_file_path_mod("mods/x", FGrp_Main, bad)) == "");
+        CHECK(std::string(prepare_file_path_mod(bad, FGrp_Main, "a.cfg")) == "");
+    }
+    // a campaign's folder, as the campaign file set it
+    snprintf(campaign.levels_location, sizeof(campaign.levels_location), "campgns/ok");
+    CHECK(std::string(prepare_file_path(FGrp_CmpgLvls, "map00001.slb")) == "/game/campgns/ok/map00001.slb");
+    snprintf(campaign.levels_location, sizeof(campaign.levels_location), "../../etc");
+    CHECK(std::string(prepare_file_path(FGrp_CmpgLvls, "passwd")) == "");
+    snprintf(campaign.levels_location, sizeof(campaign.levels_location), "/etc");
+    CHECK(std::string(prepare_file_path(FGrp_CmpgLvls, "passwd")) == "");
+    campaign.levels_location[0] = '\0';
 }

@@ -66,6 +66,7 @@
 #include "ports/audio_port.h"
 #include "ports/render_port.h"
 #include "list_walk.h"
+#include "config_funcnames.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -121,6 +122,8 @@ const Magic_use_Func magic_use_func_list[] = {
      &magic_use_power_armageddon,
      &magic_use_power_tunneller,
 };
+_Static_assert(sizeof(magic_use_func_list) / sizeof(magic_use_func_list[0]) >= MAGIC_USE_FUNC_SLOTS,
+    "magic_use_func_list must have a slot for every index in magic_use_func_commands[] (config_magic.c)");
 /******************************************************************************/
 
 /**

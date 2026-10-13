@@ -1529,6 +1529,11 @@ extern "C" TbBool custom_sound_load_wav(const char* filepath, int64_t sample_id)
 			ERRORLOG("Empty audio file %s", filepath);
 			return false;
 		}
+		// (a folder opens as a stream whose size is the largest number there is; found by the creature-file fuzzer)
+		if (sz > (std::streamoff)(512 << 20)) {
+			ERRORLOG("Audio file %s is too large", filepath);
+			return false;
+		}
 		file_data.resize((size_t)sz);
 		f.seekg(0);
 		if (!f.read(reinterpret_cast<char*>(file_data.data()), sz)) {

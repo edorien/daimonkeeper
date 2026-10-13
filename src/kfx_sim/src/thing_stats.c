@@ -1177,17 +1177,22 @@ GoldAmount calculate_gold_digged_out_of_slab_with_single_hit(int64_t damage_did_
 {
     struct SlabConfigStats *slabst = get_slab_stats(slb);
     GoldAmount gold_per_block = slabst->gold_held;
-    GoldAmount gold = (damage_did_to_slab * gold_per_block) / kfx_sim_state.block_health[slabst->block_health_index];
+    // (the divisors come from the configuration and from the damage: a zero in either is a trap on x86, not a result)
+    const GoldAmount block_health = kfx_sim_state.block_health[slabst->block_health_index];
+    if (block_health <= 0)
+        return 1;
+    GoldAmount gold = (damage_did_to_slab * gold_per_block) / block_health;
     if (slb->health == 0)
     // If the last hit deals the damage exactly, just drop a pile and the remainder.
     {
-        gold += (gold_per_block % gold);
+        if (gold != 0)
+            gold += (gold_per_block % gold);
     }
-    else if (slb->health < 0)
+    else if ((slb->health < 0) && (damage_did_to_slab != 0))
     // If the damage dealt is more than the remaining health, then health is not divisible by damage,
     // so this should return whatever is left, as this is less than the gold given for a full hit.
     {
-        gold = gold_per_block - (kfx_sim_state.block_health[slabst->block_health_index] / damage_did_to_slab) * gold;
+        gold = gold_per_block - (block_health / damage_did_to_slab) * gold;
     // Subtract all of the "full hits" and return what's left.
     }
     if (gold < 1)

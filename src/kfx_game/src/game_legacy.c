@@ -22,7 +22,9 @@
 #include "globals.h"
 #include "bflib_basics.h"
 #include "state_versions.h"
+#include <stdlib.h>
 #include <string.h>
+#include "game_state_validate.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -53,6 +55,21 @@ TbBool resync_import_game_state(const char *data, size_t len)
 {
     if (len != sizeof(resync_game_state_buffer)) {
         ERRORLOG("Received game state with wrong size: %" PRIu64 " != %" PRIu64, (uint64_t)len, (uint64_t)sizeof(resync_game_state_buffer));
+        return false;
+    }
+    // Checked before anything local changes (security pass S06). The struct sits one byte into the buffer
+    // (struct Game is a single byte), so it is looked at in a copy that is aligned for it.
+    struct KfxGameState *candidate = (struct KfxGameState *)malloc(sizeof(struct KfxGameState));
+    if (candidate == NULL) {
+        ERRORLOG("Resync refused: no memory to check the received game state");
+        return false;
+    }
+    memcpy(candidate, data + sizeof(game), sizeof(kfx_game_state));
+    char why[256];
+    const TbBool state_ok = game_state_validate(candidate, why, sizeof(why));
+    free(candidate);
+    if (!state_ok) {
+        ERRORLOG("Resync refused, the received game state is invalid: %s", why);
         return false;
     }
     memcpy(&game, data, sizeof(game));

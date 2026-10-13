@@ -5,6 +5,7 @@
 #include <lualib.h>
 
 #include "lua_api.h"
+#include "lua_sandbox.h"
 
 #include "bflib_basics.h"
 #include "bflib_fileio.h"
@@ -22,6 +23,7 @@
 #include "config_crtrstates.h"
 
 #include "compat_report.h"
+#include "state_versions.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -142,7 +144,12 @@ void close_lua_script()
 }
 
 
-int setLuaPath( lua_State* L)
+/**
+ * Sets where `require` looks for Lua modules. Only the game's own folders, never LuaJIT's default path (which
+ * includes the current directory). With `trusted_only` just fxdata/lua: while the game's own scripts load,
+ * a campaign or level file of the same module name must not be able to stand in for one of them.
+ */
+static int setLuaPath(lua_State* L, TbBool trusted_only)
 {
     #define PATH_LENGTH 4096
     char fx_data_path[PATH_LENGTH];
@@ -152,17 +159,17 @@ int setLuaPath( lua_State* L)
     char levelpath[PATH_LENGTH];
     prepare_file_path_buf(levelpath, sizeof(levelpath), FGrp_CmpgLvls, "?.lua");
 
+    char new_path[PATH_LENGTH * 3 + 4];
+    if (trusted_only)
+        snprintf(new_path, sizeof(new_path), "%s", fx_data_path);
+    else
+        snprintf(new_path, sizeof(new_path), "%s;%s;%s", levelpath, campaignpath, fx_data_path);
 
     lua_getglobal(L, "package");
-    lua_getfield(L, -1, "path"); // get field "path" from table at top of stack (-1)
-    const char *cur_path = lua_tostring(L, -1); // grab path string from top of stack
-    char new_path[PATH_LENGTH];
-    snprintf(new_path, sizeof(new_path), "%s;%s;%s;%s", levelpath,campaignpath,fx_data_path,cur_path);
-    lua_pop(L, 1); // get rid of the string on the stack we just pushed on line 5
-    lua_pushstring(L, new_path); // push the new one
-    lua_setfield(L, -2, "path"); // set the field "path" in table at -2 with value at top of stack
-    lua_pop(L, 1); // get rid of package table from top of stack
-    return 0; // all done!
+    lua_pushstring(L, new_path);
+    lua_setfield(L, -2, "path");
+    lua_pop(L, 1); // the package table
+    return 0;
 }
 
 
@@ -179,7 +186,7 @@ TbBool execute_lua_code_from_console(const char* code)
         return false;
     }
 
-    int64_t result = luaL_dostring(Lvl_script, code);
+    int64_t result = lua_sandbox_dostring(Lvl_script, code);
     if (result != LUA_OK) {
         const char *message = lua_tostring(Lvl_script, -1);
         ERRORLOG("Failed to execute Lua code: %s", message ? message : "Unknown error");
@@ -205,7 +212,7 @@ TbBool execute_lua_code_from_script(const char* code)
         return false;
     }
 
-    int64_t result = luaL_dostring(Lvl_script, code);
+    int64_t result = lua_sandbox_dostring_script(Lvl_script, code);
     if (result != LUA_OK) {
         const char *message = lua_tostring(Lvl_script, -1);
         ERRORLOG("Failed to execute Lua code: %s", message ? message : "Unknown error");
@@ -264,7 +271,7 @@ static TbBool open_lua_script_for_mod(lua_State* L, LevelNumber lvnum, const str
         fname = prepare_file_fmtpath_mod(mod_dir, FGrp_FxData, "lua/init.lua");
         if (LbFileExists(fname))
         {
-            if (CheckLua(L, luaL_dofile(L, fname), "mod_fxdata_lua_file"))
+            if (CheckLua(L, lua_sandbox_dofile(L, fname), "mod_fxdata_lua_file"))
             {
                 result = true;
             }
@@ -280,7 +287,7 @@ static TbBool open_lua_script_for_mod(lua_State* L, LevelNumber lvnum, const str
         fname = prepare_file_fmtpath_mod(mod_dir, FGrp_CmpgConfig, "lua/init.lua");
         if (LbFileExists(fname))
         {
-            if (CheckLua(L, luaL_dofile(L, fname), "mod_campaign_lua_file"))
+            if (CheckLua(L, lua_sandbox_dofile(L, fname), "mod_campaign_lua_file"))
             {
                 result = true;
             }
@@ -297,7 +304,7 @@ static TbBool open_lua_script_for_mod(lua_State* L, LevelNumber lvnum, const str
         fname = prepare_file_fmtpath_mod(mod_dir, fgroup, "map%05" PRIu64 ".lua", (uint64_t)lvnum);
         if (LbFileExists(fname))
         {
-            if(CheckLua(L, luaL_dofile(L, fname), "mod_level_script_loading"))
+            if(CheckLua(L, lua_sandbox_dofile(L, fname), "mod_level_script_loading"))
             {
                 result = true;
             }
@@ -356,7 +363,10 @@ TbBool open_lua_script(LevelNumber lvnum)
 
     reg_host_functions(Lvl_script);
 
-    setLuaPath(Lvl_script);
+    // Trusted tier: the game's own scripts, with the full standard libraries. Source-only module loading
+    // from fxdata/lua alone.
+    lua_sandbox_install_loaders(Lvl_script);
+    setLuaPath(Lvl_script, true);
 
     char* fname = prepare_file_fmtpath(FGrp_FxData, "lua/init.lua");
 
@@ -366,17 +376,30 @@ TbBool open_lua_script(LevelNumber lvnum)
         ERRORLOG("file %s missing",fname);
         return false;
     }
-    if(!CheckLua(Lvl_script, luaL_dofile(Lvl_script, fname), "global_lua_file"))
+    if(!CheckLua(Lvl_script, lua_sandbox_dofile(Lvl_script, fname), "global_lua_file"))
     {
         ERRORLOG("failed to load global lua script");
         close_lua_script();
         return false;
     }
 
+    // Untrusted tier from here on: campaign, level and mod scripts. The game's own scripts have captured
+    // what they need; take away what reaches outside the game.
+    lua_sandbox_lock_down(Lvl_script);
+    setLuaPath(Lvl_script, false);
+    // What the untrusted scripts may use up: the scripts of a level run their top-level code now (more allowed than
+    // in a game turn), then lua_on_game_tick() starts the per-turn budget. This replaces a few library functions, so
+    // it comes before the seal, which fixes which built-in functions a saved game may name.
+    lua_sandbox_limit_resources(Lvl_script, LUA_SANDBOX_LOAD_BUDGET, LUA_SANDBOX_MEMORY_KIB);
+    if (!CheckLua(Lvl_script, lua_sandbox_seal_core(Lvl_script), "seal_core_serialisation"))
+    {
+        ERRORLOG("the game's serialisation script could not be sealed; saved games will not keep script data");
+    }
+
     fname = prepare_file_fmtpath(FGrp_CmpgConfig, "lua/init.lua");
     if (LbFileExists(fname))
     {
-        if (!CheckLua(Lvl_script, luaL_dofile(Lvl_script, fname), "campaign_lua_file"))
+        if (!CheckLua(Lvl_script, lua_sandbox_dofile(Lvl_script, fname), "campaign_lua_file"))
         {
             ERRORLOG("failed to load campaign lua script");
         }
@@ -387,7 +410,7 @@ TbBool open_lua_script(LevelNumber lvnum)
     // Load and parse the Lua File
     if (LbFileExists(fname) )
     {
-        if(!CheckLua(Lvl_script, luaL_dofile(Lvl_script, fname), "level_script_loading"))
+        if(!CheckLua(Lvl_script, lua_sandbox_dofile(Lvl_script, fname), "level_script_loading"))
         {
             ERRORLOG("failed to load level lua script");
         }
@@ -403,14 +426,22 @@ static char* lua_serialized_data = NULL;
 
 const char* lua_get_serialised_data(size_t *len)
 {
+    // NULL with KFX_LUA_SERIALISE_FAILED when the scripts' data could not be serialised; NULL with 0 when there is
+    // no script state to serialise.
+    *len = KFX_LUA_SERIALISE_FAILED;
+    if (Lvl_script == NULL) {
+        *len = 0;
+        return NULL;
+    }
     lua_getglobal(Lvl_script, "GetSerializedData");
-	if (lua_isfunction(Lvl_script, -1))
-	{
+    if (lua_isfunction(Lvl_script, -1))
+    {
         JUSTLOG("calling GetSerializedData");
         int64_t result = lua_pcall(Lvl_script, 0, 1, 0);
         JUSTLOG("lua_pcall result: %" PRId64, (int64_t)(result));
         if (!CheckLua(Lvl_script, result, "GetSerializedData")) {
             ERRORLOG("Failed to call GetSerializedData");
+            *len = KFX_LUA_SERIALISE_FAILED;
             return NULL;
         }
 
@@ -418,23 +449,31 @@ const char* lua_get_serialised_data(size_t *len)
         if (!lua_isstring(Lvl_script, -1)) {
             ERRORLOG("Expected 'GetSerializedData' to return a string");
             lua_pop(Lvl_script, 1);
+            *len = KFX_LUA_SERIALISE_FAILED;
             return NULL;
         }
-		const char *data = lua_tolstring(Lvl_script, -1, len);  // Get the result
+        const char *data = lua_tolstring(Lvl_script, -1, len);  // Get the result
         if (data) {
             lua_serialized_data = (char*)malloc(*len);
+            if (lua_serialized_data == NULL) {
+                lua_pop(Lvl_script, 1);
+                *len = KFX_LUA_SERIALISE_FAILED;
+                return NULL;
+            }
             memcpy(lua_serialized_data, data, *len);
             lua_pop(Lvl_script, 1);  // Pop the result
             return lua_serialized_data;
         }
-		return NULL;
-	}
-	else
-	{
-		ERRORLOG("failed to find GetSerializedData lua function");
+        *len = KFX_LUA_SERIALISE_FAILED;
+        return NULL;
+    }
+    else
+    {
+        ERRORLOG("failed to find GetSerializedData lua function");
         lua_pop(Lvl_script, 1);  // Pop nil
-		return NULL;
-	}
+        *len = KFX_LUA_SERIALISE_FAILED;
+        return NULL;
+    }
 }
 
 

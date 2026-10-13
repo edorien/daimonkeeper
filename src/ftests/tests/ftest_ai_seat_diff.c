@@ -155,7 +155,7 @@ FTestActionResult f03_check_diff(struct FTestActionArgs* const args)
     TbBool saw_owner = false;
     for (size_t i = 0; chg && i < value_array_size(chg); i++) {
         const char* cells = value_string(value_dict_get(value_array_get(chg, i), "cells"));
-        for (size_t k = 1; cells[k]; k += 2) if (cells[k] == (char)('0' + P)) saw_owner = true;
+        for (size_t k = 1, n = strlen(cells); k < n; k += 2) if (cells[k] == (char)('0' + P)) saw_owner = true; // (pairs: a cell, then its owner)
     }
     CHECK_TRUE("the seat's newly owned slabs show with its owner digit", saw_owner);
 

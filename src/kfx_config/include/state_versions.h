@@ -34,6 +34,8 @@
 #ifndef DK_STATE_VERSIONS_H
 #define DK_STATE_VERSIONS_H
 
+#include <stddef.h>
+
 /* struct Game (kfx_game's game_legacy.h), the SGC_GameOrig chunk */
 #define KFX_GAME_ORIG_VER          1
 #define KFX_GAME_ORIG_SIZE         1
@@ -116,6 +118,17 @@
 /* struct IntralevelData (kfx_game's game_merge.h), SGC_IntralevelData */
 #define KFX_INTRALEVEL_VER         1
 #define KFX_INTRALEVEL_SIZE        81747
+
+/* The script data of a save (SGC_LuaData): what core/serialisation.lua serialises, as bytes the game does not
+   interpret itself (the data carries its own format version too). Variable length, so no SIZE.
+   0: (unchecked) functions kept as Lua bytecode
+   1: security pass S03 -- functions are kept as references (a global's name, or the text of an anonymous function of
+      a loaded script), never as bytecode; saves of version 0 are refused before anything is loaded */
+#define KFX_LUA_DATA_VER           1
+/* lua_get_serialised_data()'s length when serialising failed (a function that can't be kept in a save, say), as
+   opposed to NULL with length 0 for "there is no script state": the game is then not saved, instead of saved
+   without its script data. */
+#define KFX_LUA_SERIALISE_FAILED   ((size_t)-1)
 
 /* struct LightsShadows (kfx_render's lish) was resynced as its own blob, at
    version 1, until S11: it now holds only shading, which isn't saved or sent

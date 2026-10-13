@@ -34,7 +34,6 @@ local char = string.char
 local byte = string.byte
 local format = string.format
 local sub = string.sub
-local dump = string.dump
 local floor = math.floor
 local frexp = math.frexp
 local unpack = unpack or table.unpack
@@ -216,10 +215,11 @@ local function newbinser()
     -- TABLE = 207
     -- REFERENCE = 208
     -- CONSTRUCTOR = 209
-    -- FUNCTION = 210
+    -- FUNCTION = 210 (compiled bytecode; no longer written, and refused when read -- security pass S03)
     -- RESOURCE = 211
     -- INT64 = 212
     -- TABLE WITH META = 213
+    -- FUNCTION REFERENCE = 214 (a kind and a name or text, see setFunctionCodec)
 
     local mts = {}
     local ids = {}
@@ -228,6 +228,10 @@ local function newbinser()
     local resources = {}
     local resources_by_name = {}
     local types = {}
+
+    -- How a function is kept: encode(f) -> kind, what (two strings; or an error), decode(kind, what) -> f.
+    -- There is no default: a function is never written as bytecode, and bytecode is never read.
+    local encode_function, decode_function
 
     types["nil"] = function(x, visited, accum)
         accum[#accum + 1] = "\202"
@@ -339,12 +343,18 @@ local function newbinser()
             accum[#accum + 1] = number_to_str(visited[x])
         else
             if check_custom_type(x, visited, accum) then return end
+            if not encode_function then
+                error("Cannot serialize functions (no function codec set).")
+            end
+            local kind, what = encode_function(x)
+            if type(kind) ~= "string" or type(what) ~= "string" then
+                error("Cannot serialize this function: " .. tostring(what or kind))
+            end
             visited[x] = visited[NEXT]
             visited[NEXT] =  visited[NEXT] + 1
-            local str = dump(x)
-            accum[#accum + 1] = "\210"
-            accum[#accum + 1] = number_to_str(#str)
-            accum[#accum + 1] = str
+            accum[#accum + 1] = "\214"
+            types.string(kind, visited, accum)
+            types.string(what, visited, accum)
         end
     end
 
@@ -434,12 +444,17 @@ local function newbinser()
             visited[#visited + 1] = ret
             return ret, nextindex
         elseif t == 210 then
-            local length, dataindex = number_from_str(str, index + 1)
-            local nextindex = dataindex + length
-            if not (length >= 0) then error("Bad string length") end
-            if #str < nextindex - 1 then error("Expected more bytes of string") end
-            local ret = loadstring(sub(str, dataindex, nextindex - 1))
-            visited[#visited + 1] = ret
+            error("Saved data holds a function as bytecode, which is not loaded (security).")
+        elseif t == 214 then
+            if not decode_function then error("Cannot deserialize functions (no function codec set).") end
+            local slot = #visited + 1
+            visited[slot] = false -- the function's place among the references; its two strings come after it
+            local kind, what, nextindex
+            kind, nextindex = deserialize_value(str, index + 1, visited)
+            what, nextindex = deserialize_value(str, nextindex, visited)
+            if type(kind) ~= "string" or type(what) ~= "string" then error("Bad function reference.") end
+            local ret = decode_function(kind, what)
+            visited[slot] = ret
             return ret, nextindex
         elseif t == 211 then
             local resname, nextindex = deserialize_value(str, index + 1, visited)
@@ -742,6 +757,9 @@ local function newbinser()
         appendFile = appendFile,
         register = register,
         unregister = unregister,
+        setFunctionCodec = function(encode, decode)
+            encode_function, decode_function = encode, decode
+        end,
         registerResource = registerResource,
         unregisterResource = unregisterResource,
         registerClass = registerClass,

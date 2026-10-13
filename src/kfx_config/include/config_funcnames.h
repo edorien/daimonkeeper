@@ -100,6 +100,16 @@ extern const struct NamedCommand move_from_slab_func_commands[];
 #define MOVE_CHECK_FUNC_COMMANDS_SLOTS 15
 extern const struct NamedCommand move_check_func_commands[];
 
+/* object_update_functions[], kfx_sim/src/thing_objects.c (object_update_functions_desc, config_objects.c) */
+#define OBJECT_UPDATE_FUNC_SLOTS 7
+/* magic_use_func_list[], kfx_sim/src/magic_powers.c (magic_use_func_commands, config_magic.c) */
+#define MAGIC_USE_FUNC_SLOTS 15
+/* powermodel_expand_check_func_list[], kfx_sim/src/power_process.c (enum OverchargeChecks, config_magic.h) */
+#define POWERMODEL_EXPAND_CHECK_FUNC_SLOTS 5
+/* terrain_room_total_capacity_func_list[] / terrain_room_used_capacity_func_list[], kfx_sim/src/room_data.c */
+#define ROOM_TOTAL_CAPACITY_FUNC_SLOTS 12
+#define ROOM_USED_CAPACITY_FUNC_SLOTS 9
+
 /******************************************************************************/
 #ifdef __cplusplus
 }

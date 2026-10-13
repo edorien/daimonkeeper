@@ -32,6 +32,13 @@ enum NetworkPeerSendMode {
 };
 
 TbBool read_network_message_text(char **read_pos, const char **text, size_t max_len);
+/**
+ * Whether a message that arrived from peer `source` may say it is from user `sender` (security pass S05). A chat
+ * message names its sender inside the message; a peer could name anyone, and the chat line (or a chat command, which
+ * every machine runs for the sender) would then come from somebody else. Only the host relays for others, so only the
+ * host's messages may name another user; the sender must be a user the game has.
+ */
+TbBool network_chat_sender_valid(NetUserId source, int64_t sender, int64_t max_users);
 void send_network_chat_message(NetUserId sender, const char *message);
 void send_network_chat_message_at(NetUserId sender, const char *message, int32_t cursor_x, int32_t cursor_y);
 struct PlayerInfo *prepare_network_chat_message(int64_t player_id, const char *message);

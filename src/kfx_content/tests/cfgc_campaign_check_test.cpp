@@ -64,6 +64,24 @@ TEST_CASE("list problems are errors", "[cfgc_campaign_check]")
     CHECK(has(d, "level_files_missing"));
 }
 
+TEST_CASE("a location that leads outside the game's folders is an error and is not looked at", "[cfgc_campaign_check]")
+{
+    const ConfigSchema schema = build_engine_schema();
+    const ConfigDocument doc = ConfigDocument::parse(
+        "[common]\nLEVELS_LOCATION = ../../etc\nCONFIGS_LOCATION = /etc\nCREATURES_LOCATION = C:\\x\nSINGLE_LEVELS = 1\n");
+    CampaignCheckEnv env = memory_env({"/etc/map00001.slb", "root/../../etc/map00001.slb"}, {"/etc"});
+    const auto d = cfgc_check_campaign(doc, schema, env);
+    int outside = 0;
+    for (const CfgDiagnostic &x : d)
+        if (x.code == "location_outside")
+        {
+            outside++;
+            CHECK(x.severity == CfgSev_Error);
+        }
+    CHECK(outside == 3);
+    CHECK_FALSE(has(d, "location_missing")); // never resolved, so never tested for
+}
+
 TEST_CASE("entries, locations, sharing and strings", "[cfgc_campaign_check]")
 {
     const ConfigSchema schema = build_engine_schema();

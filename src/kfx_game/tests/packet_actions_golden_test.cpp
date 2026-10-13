@@ -16,6 +16,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "game_commands.h"
+#include "packet_validate.h"
 #include "packet_data.h"
 #include "player_data.h"
 #include "config_players.h"
@@ -101,6 +102,15 @@ void bare_level() {
     local_system_flags = 0;
     std::memset(&replay, 0, sizeof(replay));
     kfx_config_state.neutral_player_num = PLAYER_NEUTRAL;
+    // What a loaded configuration says how many kinds there are (packet_validate.h checks the kind parameters of an
+    // action against these; the configuration is not part of the hashes).
+    kfx_config_state.conf.slab_conf.slab_types_count = 60;
+    kfx_config_state.conf.crtr_conf.model_count = 40;
+    kfx_config_state.conf.crtr_conf.instances_count = 100;
+    kfx_config_state.conf.trapdoor_conf.trap_types_count = 12;
+    kfx_config_state.conf.trapdoor_conf.door_types_count = 6;
+    kfx_config_state.conf.magic_conf.power_types_count = 30;
+    kfx_config_state.conf.magic_conf.spell_types_count = 30;
     kfx_sim_state.map_tiles_x = 85; kfx_sim_state.map_tiles_y = 85;
     kfx_sim_state.map_subtiles_x = 255; kfx_sim_state.map_subtiles_y = 255;
     for (PlayerNumber i = 0; i < PLAYERS_COUNT; i++)
@@ -258,4 +268,61 @@ TEST_CASE("golden: what each packet action and cheat cursor does to a bare level
     CHECK(died == 0);
     if (!print)
         CHECK(checked == (int64_t)expected.size());
+}
+
+
+// Security pass S05: whatever a packet carries, process_user_packet() must not take the game down. Every action
+// number (including the ones that are not actions) with extreme parameter values, each in a child process on the
+// bare level; a child that dies is a packet that crashes the game.
+TEST_CASE("hostile packets: no action number with extreme parameters crashes the game", "[kfx_game][packet_golden][security]")
+{
+    ScopedPortOverride<UiPort> ui{ui_port, set_ui_port};
+    ui->targeted_message_add = ui_targeted;
+    ui->clear_messages_from_player = ui_clear;
+    ui->message_add = ui_message;
+    ui->show_onscreen_msg = ui_onscreen;
+    bare_level();
+    const int32_t extremes[] = {INT32_MIN, -1, 0, 1, 255, 65536, INT32_MAX};
+    int64_t cases_run = 0;
+    std::vector<std::string> crashed;
+    for (int a = 1; a < 256; a++) {
+        if (a == PckA_SwitchView) continue;
+        for (int32_t p1 : extremes) {
+            for (int32_t p2 : extremes) {
+                // (p3, p4) share their bytes with the camera position in most actions; vary them for the rest
+                const int16_t p3 = (int16_t)((p1 < 0) ? INT16_MIN : INT16_MAX), p4 = (int16_t)((p2 < 0) ? -1 : 32000);
+                int fds[2];
+                REQUIRE(pipe(fds) == 0);
+                std::fflush(nullptr);
+                const pid_t pid = fork();
+                if (pid == 0) {
+                    close(fds[0]);
+                    alarm(20);
+                    struct Packet *pckt = get_packet(0);
+                    pckt->control_flags = PCtr_MapCoordsValid;
+                    pckt->pos_x = 12000; pckt->pos_y = 9000;
+                    pckt->action = (unsigned char)a;
+                    pckt->actn_par1 = p1; pckt->actn_par2 = p2; pckt->actn_par3 = p3; pckt->actn_par4 = p4;
+                    process_user_packet(0);
+                    const uint8_t done = 1;
+                    (void)!write(fds[1], &done, 1);
+                    _exit(0);
+                }
+                close(fds[1]);
+                uint8_t done = 0;
+                if (read(fds[0], &done, 1) != 1) done = 0;
+                close(fds[0]);
+                int status = 0;
+                waitpid(pid, &status, 0);
+                cases_run++;
+                if (!done)
+                    crashed.push_back("action " + std::to_string(a) + " par1=" + std::to_string((long long)p1) + " par2=" + std::to_string((long long)p2));
+            }
+        }
+    }
+    bare_level();
+    CHECK(cases_run == 254 * 49);
+    for (size_t i = 0; i < crashed.size() && i < 40; i++)
+        FAIL_CHECK(crashed[i]);
+    CHECK(crashed.empty());
 }

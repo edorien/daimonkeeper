@@ -1,0 +1,106 @@
+name: Sanitizers and fuzzing
+
+# Security pass S08 (fuzz/README.md): the Catch2 suite under AddressSanitizer + UBSan, then a short fuzz smoke of every
+# target that needs no proprietary game data. Long fuzz runs and the ftests under the sanitizers are local
+# (scripts/fuzz_all.sh, scripts/build-fuzz.sh asan-ft). Nothing here is required to merge.
+#
+# NOT YET RUN IN CI: written from build-prototype.yml's unit-tests job and the local scripts; the first run may need
+# its apt list or cache path adjusted.
+
+on:
+  pull_request:
+    types: [ready_for_review, review_requested]
+  workflow_dispatch:
+
+jobs:
+  sanitizers:
+    name: "Sanitizers + fuzz smoke"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Update system
+      run: |
+        set -eux
+        sudo apt update
+        sudo apt install -y \
+                  build-essential \
+                  cmake \
+                  ninja-build \
+                  pkg-config \
+                  curl \
+                  libavcodec-dev \
+                  libavformat-dev \
+                  libavutil-dev \
+                  libopenal-dev \
+                  libluajit-5.1-dev \
+                  libminizip-dev \
+                  libnatpmp-dev \
+                  libspng-dev \
+                  libswresample-dev \
+                  libwayland-dev \
+                  wayland-protocols \
+                  libdecor-0-dev \
+                  libxkbcommon-dev \
+                  libgl1-mesa-dev \
+                  libegl1-mesa-dev \
+                  libdrm-dev \
+                  libgbm-dev \
+                  libasound2-dev \
+                  libpulse-dev \
+                  libdbus-1-dev \
+                  libudev-dev \
+                  libpng-dev \
+                  libjpeg-dev \
+                  libogg-dev \
+                  libvorbis-dev \
+                  libflac-dev \
+                  libmpg123-dev \
+                  libopusfile-dev \
+                  libminiupnpc-dev \
+                  libssl-dev \
+                  libzstd-dev \
+                  zlib1g-dev
+
+    # build-fuzz.sh keeps its dependency cache in out/scratch/sanitize-deps (the sanitizers change how every
+    # dependency is compiled, so it cannot share deps/.cache-lin64)
+    - name: Cache third-party dependencies
+      uses: actions/cache@v4
+      with:
+        path: out/scratch/sanitize-deps
+        key: ${{ runner.os }}-kfx-deps-sanitize-${{ hashFiles('build/cmake/modules/Dependencies.cmake', 'scripts/build-fuzz.sh') }}
+
+    - name: Build the unit tests with AddressSanitizer and UBSan
+      run: scripts/build-fuzz.sh asan
+
+    - name: Run the unit tests
+      run: cd out/asan && ASAN_OPTIONS=detect_leaks=0 ctest -j"$(nproc)" --output-on-failure --timeout 900
+
+    - name: Build the fuzz harnesses
+      run: scripts/build-fuzz.sh fuzz
+
+    - name: Fuzz smoke (60 s per target; those that need the original game's data are skipped)
+      run: |
+        set -eux
+        scripts/fuzz_seeds.py
+        KFX_FUZZ_JOBS="$(nproc)" scripts/fuzz_all.sh 60 config_file creature_file campaign_file level_script strings_file rnc_file \
+          lua_serialised lua_source api_json packet replay_file audio_buffer sprite_zip
+
+    - name: Fail if the fuzzers found anything
+      run: |
+        set -eux
+        if [ -d out/scratch/fuzz/crashes ] && [ -n "$(find out/scratch/fuzz/crashes -type f ! -name '*.txt' | head -1)" ]; then
+          scripts/fuzz_triage.py
+          exit 1
+        fi
+
+    - name: Keep what was found
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: fuzz-crashes
+        path: out/scratch/fuzz/crashes

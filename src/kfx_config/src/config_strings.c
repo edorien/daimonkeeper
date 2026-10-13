@@ -396,6 +396,9 @@ const char * gui_string(uint64_t index)
         snprintf(string_invalid, sizeof(string_invalid), "untranslated <%" PRId64 ">", (int64_t)(index));
         return string_invalid;
     }
+    // (NULL until the game's strings are loaded: a level script can ask for a message before that)
+    if (gui_strings[index] == NULL)
+        return "";
     return gui_strings[index];
 }
 
@@ -405,7 +408,8 @@ const char * cmpgn_string(uint64_t index)
     {
         return gui_string(index - STRINGS_MAX);
     }
-    if (*campaign.strings[index] != '\0')
+    // (an entry is only NULL before a campaign's strings are set up; a level script can ask for a message before that)
+    if ((campaign.strings[index] != NULL) && (*campaign.strings[index] != '\0'))
     {
         return campaign.strings[index];
     }

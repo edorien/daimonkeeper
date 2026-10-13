@@ -190,7 +190,9 @@ static struct CommandDesc const *find_command_desc(const struct CommandToken *to
     int64_t token_len = token->end - token->start;
     for (int64_t i = 0; cmdlist_desc[i].textptr != NULL; i++)
     {
-        if ((cmdlist_desc[i].textptr[token_len] == 0) && (strncmp(cmdlist_desc[i].textptr, token->start, token_len) == 0))
+        // strncmp first: it stops at the end of the command's name, so textptr[token_len] is only read when the
+        // name is at least that long (a script word longer than a command's name read past the end of the name)
+        if ((strncmp(cmdlist_desc[i].textptr, token->start, token_len) == 0) && (cmdlist_desc[i].textptr[token_len] == 0))
         {
             cmnd_desc = &cmdlist_desc[i];
             break;
@@ -442,6 +444,15 @@ TbBool script_command_param_to_text(char type_chr, struct ScriptLine *scline, in
     return true;
 }
 
+/** The type letter of parameter `i` of a command, or 0 past the end of the list: a script that gives a command more
+ *  (bad) parameters than it takes advances the position beyond args[] (found by the level-script fuzzer). */
+static char command_arg(const struct CommandDesc *cmd_desc, int64_t i)
+{
+    if ((i < 0) || (i > COMMANDDESC_ARGS_COUNT))
+        return 0;
+    return cmd_desc->args[i];
+}
+
 static int64_t count_required_parameters(const char *args)
 {
     int64_t required = 0;
@@ -510,7 +521,7 @@ static TbBool process_subfunc(char **line, struct ScriptLine *scline, const stru
             TbBool is_if_statement = ((scline->command == Cmd_IF) || (scline->command == Cmd_IF_AVAILABLE) || (scline->command == Cmd_IF_CONTROLS));
             if (kfx_game_state.level_file_version > 0)
             {
-                char chr = cmd_desc->args[src];
+                char chr = command_arg(cmd_desc, src);
                 int64_t ri;
                 for (fi = 0, ri = 0; fi < COMMANDDESC_ARGS_COUNT; fi++, ri++)
                 {
@@ -605,7 +616,7 @@ static TbBool process_subfunc(char **line, struct ScriptLine *scline, const stru
             {
                 if ((range_index >= range_total) && (range_index <= range_total + ranges[fi].max - ranges[fi].min))
                 {
-                    char chr = cmd_desc->args[src];
+                    char chr = command_arg(cmd_desc, src);
                     if (toupper(chr) == 'A') {
                         if (is_if_statement)
                         {
@@ -664,9 +675,15 @@ static int64_t script_recognize_params(char **line, const struct CommandDesc *cm
     for (dst = 0, src = 0; dst <= COMMANDDESC_ARGS_COUNT; dst++, src++)
     {
         TbBool extended = false;
-        char chr = cmd_desc->args[src];
+        char chr = command_arg(cmd_desc, src);
         if (token.type == TkClose)
             break;
+        if (dst >= COMMANDDESC_ARGS_COUNT)
+        {
+            // the list is full and more follows: the loop's last turn is only for finding the closing bracket
+            SCRPTERRLOG("Too many parameters for command \"%s\", discarding command", scline->tcmnd);
+            return -1;
+        }
         if (chr == '!')
         {
             dst--;
@@ -724,7 +741,7 @@ static int64_t script_recognize_params(char **line, const struct CommandDesc *cm
             }
             else if ((token.type != TkClose) && (token.type != TkComma))
             {
-                if ((cmd_desc->args[src + 1] != 'O') || (token.type != TkOperator))
+                if ((command_arg(cmd_desc, src + 1) != 'O') || (token.type != TkOperator))
                 {
                     SCRPTERRLOG("Unexpected token after parameter %" PRId64 " of command \"%s\", discarding command", (int64_t)(dst + 1),
                                 scline->tcmnd);
@@ -739,13 +756,13 @@ static int64_t script_recognize_params(char **line, const struct CommandDesc *cm
         if (scline->tp[dst][0] == '\0') {
           break;
         }
-        chr = cmd_desc->args[src];
-        if (cmd_desc->args[src + 1] == '+')
+        chr = command_arg(cmd_desc, src);
+        if (command_arg(cmd_desc, src + 1) == '+')
         {
             // All other parameters will be same
             src -= 1;
         }
-        if (cmd_desc->args[src + 1] == '!') //extended set (dst.e. ANY_CREATURE)
+        if (command_arg(cmd_desc, src + 1) == '!') //extended set (dst.e. ANY_CREATURE)
         {
             extended = true;
         }

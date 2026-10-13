@@ -54,8 +54,39 @@ if(WIN32)
 else()
     set(KFX_DEP_CACHE_TAG lin64)
 endif()
-set(KFX_DEP_CACHE_DIR "${CMAKE_SOURCE_DIR}/deps/.cache-${KFX_DEP_CACHE_TAG}")
+# KFX_DEP_CACHE_ROOT (default: deps/ in the source tree) moves the cache elsewhere. A build with other compiler flags
+# than the shared ones -- the sanitizer/fuzz tree (scripts/build-fuzz.sh) -- must not share it: every tree that
+# configures against a cache rebuilds and relinks the dependencies in it, under whatever is running from it.
+set(KFX_DEP_CACHE_ROOT "${CMAKE_SOURCE_DIR}/deps" CACHE PATH "Where the dependency cache (.cache-<platform>) lives")
+set(KFX_DEP_CACHE_DIR "${KFX_DEP_CACHE_ROOT}/.cache-${KFX_DEP_CACHE_TAG}")
 set(FETCHCONTENT_BASE_DIR "${KFX_DEP_CACHE_DIR}/_deps" CACHE PATH "" FORCE)
+
+# --- Download integrity ------------------------------------------------------------------------------------------
+# Every source tarball fetched below is pinned by SHA-256 (security pass S09): a tarball that differs from the one the
+# version was tested with -- a hijacked mirror or release page, a re-tagged release -- stops the configure step
+# instead of being compiled into the game. Bumping a version means updating its line here: download the new tarball,
+# check it against the project's signature or checksum where it publishes one, then run `sha256sum` on it. (GitHub's
+# generated /archive/ tarballs have been byte-identical between the Linux and Windows caches here; should GitHub ever
+# change their compression, the mismatch is reported by name and the fix is the same update.)
+# scripts/check_dep_vulns.py reads the version pins and checks them against published advisories.
+set(KFX_SHA256_CENTIJSON 161c8d7f9a2070ef47490a6404a80a89650cc8c7d81f8da295062d7cb9a69bf0)
+set(KFX_SHA256_ASTRONOMY ac1c31c420d321cf2b4ae85253168681a9b74a1f2901583ed5e5890ebc31c495)
+set(KFX_SHA256_ENET6 58276a1c17aebd090886229de8537f93317a9abe880b8377ce800891778bb12d)
+set(KFX_SHA256_ZLIB 9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23)
+set(KFX_SHA256_SPNG 47ec02be6c0a6323044600a9221b049f63e1953faf816903e7383d4dc4234487)
+set(KFX_SHA256_OPENAL cb5e6197a1c0da0edcf2a81024953cc8fa8545c3b9474e48c852af709d587892)
+set(KFX_SHA256_LUAJIT f5b09359b2939ccc769949acf42e0ad2721fa9bb7678c34789059cb44977fc8a)
+set(KFX_SHA256_MINIUPNP 8cf2c833b3e76fc4893ff29c2a376e3394962449e5970e373c0a91421724d222)
+set(KFX_SHA256_NATPMP be1864ed4e54a122590fd2de3824b085386b6e4aa9a91738c277c280ab8bf188)
+set(KFX_SHA256_CURL 222c6b5c1f368ac63aed59bce2774eb5def9e8e67e46e800be182e684d2845a3)
+set(KFX_SHA256_SDL3_SRC f07b958a9ac5020fb7a44cadb957f658b2149c3c8abb4f63145fac9303249db7)
+set(KFX_SHA256_SDL3_IMAGE_SRC 29751304a13d25ac513f24305fa25b06a6edd9607718c90129b8350d35fc5573)
+set(KFX_SHA256_SDL3_MIXER_SRC 182a07c745375e113dc740d43964ff21b0be29f29f59876c4dbc4db3d32f6901)
+set(KFX_SHA256_SDL3_MINGW ea8071241b934e1feec0337f7d78807a5004de9a500dba1942aaf615a988d7a2)
+set(KFX_SHA256_SDL3_IMAGE_MINGW f9e3b3e0b74f7c1ffd8bcbdeda40eb2fc0d56d0afc874a804beb2b8df471b6a4)
+set(KFX_SHA256_SDL3_MIXER_MINGW 2ff5f59be4683e0afb4339c4fa73c6228651e52d37b040ecf80da08edb3cecd6)
+set(KFX_SHA256_LCOV 987031ad5528c8a746d4b52b380bc1bffe412de1f2b9c2ba5224995668e3240b)
+set(KFX_SHA256_FFMPEG de668509caf9e35e3cd162473441fdb29538c6d96ed080292b3cf9e6fc5d558f)  # ffmpeg-7.1.5.tar.xz; the release is GPG-signed (FFmpeg release key FCF986EA15E6E293A5644F10B4322F04D67658D8): checked when pinned
 
 # kfx_populate(<name> <FetchContent_Populate args...>): wraps
 # FetchContent_Populate()'s "inline content details" signature (the
@@ -88,6 +119,7 @@ set(KFX_CENTITOML_SRC "${CMAKE_SOURCE_DIR}/deps/centitoml")
 # kfx_fetch(<dir> <url>): download + extract into <builddir>/deps/<dir>/ once.
 # Only SDL3's prebuilt mingw devel tarballs still use this.
 function(kfx_fetch dir url)
+    set(_sha256 "${ARGV2}")   # optional third argument: the tarball's SHA-256, checked after download and when reusing
     set(_tgz "${D}/${dir}.tar.gz")
     set(_dest "${D}/${dir}")
     if(NOT EXISTS "${_dest}")
@@ -98,6 +130,14 @@ function(kfx_fetch dir url)
             list(GET _st 0 _code)
             if(NOT _code EQUAL 0)
                 message(FATAL_ERROR "Failed to download ${url}: ${_st}")
+            endif()
+        endif()
+        if(_sha256)
+            file(SHA256 "${_tgz}" _got)
+            if(NOT _got STREQUAL _sha256)
+                file(REMOVE "${_tgz}")
+                message(FATAL_ERROR "${url}\n  SHA-256 is ${_got}\n  expected   ${_sha256}\n"
+                    "  The download is not the file this version was pinned to (see the download-integrity note in Dependencies.cmake).")
             endif()
         endif()
         execute_process(
@@ -118,7 +158,8 @@ endfunction()
 # .c files ourselves, same pattern as centitoml just below.
 set(KFX_CENTIJSON_COMMIT 8c7a5fb42d9f55044d60592809288164adb4ca95)
 kfx_populate(centijson_src
-    URL "https://github.com/mity/centijson/archive/${KFX_CENTIJSON_COMMIT}.tar.gz")
+    URL "https://github.com/mity/centijson/archive/${KFX_CENTIJSON_COMMIT}.tar.gz"
+    URL_HASH SHA256=${KFX_SHA256_CENTIJSON})
 add_library(centijson_static STATIC
     "${centijson_src_SOURCE_DIR}/src/json.c"
     "${centijson_src_SOURCE_DIR}/src/json-dom.c"
@@ -140,6 +181,7 @@ file(DOWNLOAD "https://raw.githubusercontent.com/dkfans/kfx-deps/master/astronom
 file(DOWNLOAD "https://raw.githubusercontent.com/dkfans/kfx-deps/master/astronomy-357.patch" "${_astro_patch_dir}/357.patch")
 kfx_populate(astronomy_src
     URL "https://github.com/cosinekitty/astronomy/archive/${KFX_ASTRONOMY_COMMIT}.tar.gz"
+    URL_HASH SHA256=${KFX_SHA256_ASTRONOMY}
     PATCH_COMMAND sh -c "patch -p1 -N -i ${_astro_patch_dir}/356.patch; patch -p1 -N -i ${_astro_patch_dir}/357.patch"
     UPDATE_DISCONNECTED 1)
 add_library(astronomy_static STATIC "${astronomy_src_SOURCE_DIR}/source/c/astronomy.c")
@@ -154,7 +196,8 @@ target_include_directories(astronomy_static PUBLIC "${astronomy_src_SOURCE_DIR}/
 set(BUILD_SHARED_LIBS_SAVE ${BUILD_SHARED_LIBS})
 set(BUILD_SHARED_LIBS OFF)
 FetchContent_Declare(enet6_src
-    URL "https://github.com/SirLynix/enet6/archive/refs/tags/v6.1.3.tar.gz")
+    URL "https://github.com/SirLynix/enet6/archive/refs/tags/v6.1.3.tar.gz"
+    URL_HASH SHA256=${KFX_SHA256_ENET6})
 FetchContent_MakeAvailable(enet6_src)
 set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_SAVE})
 add_library(enet6_static ALIAS enet6)
@@ -189,9 +232,9 @@ if(WIN32)
     set(SDL3_MIX_VER  3.2.4)
     set(SDL3_IMG_VER  3.4.4)
 
-    kfx_fetch(sdl3       "https://github.com/libsdl-org/SDL/releases/download/release-${SDL3_VER}/SDL3-devel-${SDL3_VER}-mingw.tar.gz")
-    kfx_fetch(sdl3_mixer "https://github.com/libsdl-org/SDL_mixer/releases/download/release-${SDL3_MIX_VER}/SDL3_mixer-devel-${SDL3_MIX_VER}-mingw.tar.gz")
-    kfx_fetch(sdl3_image "https://github.com/libsdl-org/SDL_image/releases/download/release-${SDL3_IMG_VER}/SDL3_image-devel-${SDL3_IMG_VER}-mingw.tar.gz")
+    kfx_fetch(sdl3       "https://github.com/libsdl-org/SDL/releases/download/release-${SDL3_VER}/SDL3-devel-${SDL3_VER}-mingw.tar.gz" ${KFX_SHA256_SDL3_MINGW})
+    kfx_fetch(sdl3_mixer "https://github.com/libsdl-org/SDL_mixer/releases/download/release-${SDL3_MIX_VER}/SDL3_mixer-devel-${SDL3_MIX_VER}-mingw.tar.gz" ${KFX_SHA256_SDL3_MIXER_MINGW})
+    kfx_fetch(sdl3_image "https://github.com/libsdl-org/SDL_image/releases/download/release-${SDL3_IMG_VER}/SDL3_image-devel-${SDL3_IMG_VER}-mingw.tar.gz" ${KFX_SHA256_SDL3_IMAGE_MINGW})
 
     set(SDL3_PREFIX      "${D}/sdl3/SDL3-${SDL3_VER}/x86_64-w64-mingw32")
     set(SDL3_MIX_PREFIX  "${D}/sdl3_mixer/SDL3_mixer-${SDL3_MIX_VER}/x86_64-w64-mingw32")
@@ -233,7 +276,8 @@ if(WIN32)
     # contrib/minizip *is* a directory literally named "minizip".
     set(KFX_ZLIB_VER 1.3.1)
     FetchContent_Declare(zlib_src
-        URL "https://github.com/madler/zlib/releases/download/v${KFX_ZLIB_VER}/zlib-${KFX_ZLIB_VER}.tar.gz")
+        URL "https://github.com/madler/zlib/releases/download/v${KFX_ZLIB_VER}/zlib-${KFX_ZLIB_VER}.tar.gz"
+        URL_HASH SHA256=${KFX_SHA256_ZLIB})
     FetchContent_MakeAvailable(zlib_src)
     set_target_properties(zlibstatic PROPERTIES OUTPUT_NAME z)
     target_include_directories(zlibstatic PUBLIC "${zlib_src_SOURCE_DIR}" "${zlib_src_BINARY_DIR}")
@@ -268,7 +312,8 @@ if(WIN32)
     set(SPNG_STATIC    ON  CACHE BOOL "" FORCE)
     set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
     FetchContent_Declare(spng
-        URL "https://github.com/randy408/libspng/archive/refs/tags/v0.7.4.tar.gz")
+        URL "https://github.com/randy408/libspng/archive/refs/tags/v0.7.4.tar.gz"
+        URL_HASH SHA256=${KFX_SHA256_SPNG})
     FetchContent_MakeAvailable(spng)
     add_dependencies(spng_static zlibstatic)
 
@@ -287,7 +332,8 @@ if(WIN32)
     set(ALSOFT_BACKEND_DSOUND   ON  CACHE BOOL "" FORCE)
     set(ALSOFT_BACKEND_WASAPI   OFF CACHE BOOL "" FORCE)
     FetchContent_Declare(openal_soft
-        URL "https://github.com/kcat/openal-soft/releases/download/1.24.3/openal-soft-1.24.3.tar.bz2")
+        URL "https://github.com/kcat/openal-soft/releases/download/1.24.3/openal-soft-1.24.3.tar.bz2"
+        URL_HASH SHA256=${KFX_SHA256_OPENAL})
     FetchContent_MakeAvailable(openal_soft)
 
     # --- LuaJIT: its own hand-written Makefile (bootstraps minilua/buildvm,
@@ -298,7 +344,8 @@ if(WIN32)
     # is the build host, so a plain host gcc does (no -m32/gcc-multilib, which
     # the old 32-bit i686 target needed); CC is the x86_64-w64-mingw32 one.
     kfx_populate(luajit_src
-        URL "https://github.com/openresty/luajit2/archive/refs/tags/v2.1-20260724.tar.gz")
+        URL "https://github.com/openresty/luajit2/archive/refs/tags/v2.1-20260724.tar.gz"
+        URL_HASH SHA256=${KFX_SHA256_LUAJIT})
     ExternalProject_Add(luajit_build
         PREFIX            "${KFX_DEP_CACHE_DIR}/luajit-prefix"
         SOURCE_DIR        "${luajit_src_SOURCE_DIR}"
@@ -327,6 +374,7 @@ if(WIN32)
     set(UPNPC_BUILD_SAMPLE OFF CACHE BOOL "" FORCE)
     FetchContent_Declare(miniupnp_src
         URL "https://github.com/miniupnp/miniupnp/archive/refs/tags/miniupnpc_2_3_3.tar.gz"
+        URL_HASH SHA256=${KFX_SHA256_MINIUPNP}
         SOURCE_SUBDIR miniupnpc)
     FetchContent_MakeAvailable(miniupnp_src)
     # <miniupnpc/miniupnpc.h> needs a directory literally named "miniupnpc" on
@@ -340,7 +388,8 @@ if(WIN32)
     target_include_directories(kfx_miniupnpc_shim INTERFACE "${CMAKE_BINARY_DIR}/miniupnpc_shim")
 
     kfx_populate(natpmp_src
-        URL "https://github.com/miniupnp/libnatpmp/archive/134fc89e2781e154e40042641f4d8bcbe42579f1.tar.gz")
+        URL "https://github.com/miniupnp/libnatpmp/archive/134fc89e2781e154e40042641f4d8bcbe42579f1.tar.gz"
+        URL_HASH SHA256=${KFX_SHA256_NATPMP})
     set(BUILD_SHARED_LIBS OFF)
     add_subdirectory("${natpmp_src_SOURCE_DIR}" "${natpmp_src_BINARY_DIR}" EXCLUDE_FROM_ALL)
     # net_portforward.cpp #includes <natpmp/natpmp.h> on Windows specifically
@@ -360,9 +409,18 @@ if(WIN32)
     set(BUILD_TESTING      OFF CACHE BOOL   "" FORCE)
     set(CURL_USE_SCHANNEL  ON  CACHE BOOL   "" FORCE)
     set(CURL_USE_LIBPSL    OFF CACHE BOOL   "" FORCE)
+    # Only what matchmaking uses is compiled in: https and wss. The other protocols (file, ftp, gopher, imap, ldap, mqtt,
+    # pop3, rtsp, smtp, telnet, tftp, dict), cookies, .netrc, and the brotli/zstd response decoders are attack surface
+    # a lobby server (or anyone on the path) could reach for nothing. (HTTP_ONLY would also drop WebSockets.)
+    foreach(_p DICT FILE FTP GOPHER IMAP IPFS LDAP LDAPS MQTT POP3 RTSP SMTP TELNET TFTP COOKIES NETRC)
+        set(CURL_DISABLE_${_p} ON CACHE BOOL "" FORCE)
+    endforeach()
+    set(CURL_BROTLI OFF CACHE BOOL "" FORCE)
+    set(CURL_ZSTD   OFF CACHE BOOL "" FORCE)
     set(BUILD_SHARED_LIBS  OFF CACHE BOOL   "" FORCE)
     FetchContent_Declare(curl_src
-        URL "https://github.com/curl/curl/archive/refs/tags/curl-8_22_0.tar.gz")
+        URL "https://github.com/curl/curl/archive/refs/tags/curl-8_22_0.tar.gz"
+        URL_HASH SHA256=${KFX_SHA256_CURL})
     FetchContent_MakeAvailable(curl_src)
     add_dependencies(libcurl_static zlibstatic)
     target_compile_definitions(libcurl_static PUBLIC CURL_STATICLIB)
@@ -374,7 +432,8 @@ if(WIN32)
     set(FFMPEG_INSTALL_DIR "${KFX_DEP_CACHE_DIR}/ffmpeg-install")
     file(MAKE_DIRECTORY "${FFMPEG_INSTALL_DIR}/include")
     ExternalProject_Add(ffmpeg_build
-        URL "https://ffmpeg.org/releases/ffmpeg-7.1.tar.xz"
+        URL "https://ffmpeg.org/releases/ffmpeg-7.1.5.tar.xz"
+        URL_HASH SHA256=${KFX_SHA256_FFMPEG}
         PREFIX "${KFX_DEP_CACHE_DIR}/ffmpeg"
         CONFIGURE_COMMAND <SOURCE_DIR>/configure
             --prefix=${FFMPEG_INSTALL_DIR}
@@ -465,11 +524,14 @@ else()
         # back to XWayland/X11 sessions.
         set(SDL_X11            OFF CACHE BOOL "" FORCE)
         FetchContent_Declare(SDL3
-            URL "https://github.com/libsdl-org/SDL/releases/download/release-${SDL3_VER}/SDL3-${SDL3_VER}.tar.gz")
+            URL "https://github.com/libsdl-org/SDL/releases/download/release-${SDL3_VER}/SDL3-${SDL3_VER}.tar.gz"
+            URL_HASH SHA256=${KFX_SHA256_SDL3_SRC})
         FetchContent_Declare(SDL3_image
-            URL "https://github.com/libsdl-org/SDL_image/releases/download/release-${SDL3_IMG_VER}/SDL3_image-${SDL3_IMG_VER}.tar.gz")
+            URL "https://github.com/libsdl-org/SDL_image/releases/download/release-${SDL3_IMG_VER}/SDL3_image-${SDL3_IMG_VER}.tar.gz"
+            URL_HASH SHA256=${KFX_SHA256_SDL3_IMAGE_SRC})
         FetchContent_Declare(SDL3_mixer
-            URL "https://github.com/libsdl-org/SDL_mixer/releases/download/release-${SDL3_MIX_VER}/SDL3_mixer-${SDL3_MIX_VER}.tar.gz")
+            URL "https://github.com/libsdl-org/SDL_mixer/releases/download/release-${SDL3_MIX_VER}/SDL3_mixer-${SDL3_MIX_VER}.tar.gz"
+            URL_HASH SHA256=${KFX_SHA256_SDL3_MIXER_SRC})
         FetchContent_MakeAvailable(SDL3 SDL3_image SDL3_mixer)
         target_link_libraries(kfx_sdl3 INTERFACE
             SDL3::SDL3 SDL3_image::SDL3_image SDL3_mixer::SDL3_mixer)
@@ -519,7 +581,8 @@ else()
     set(FFMPEG_INSTALL_DIR "${KFX_DEP_CACHE_DIR}/ffmpeg-install")
     file(MAKE_DIRECTORY "${FFMPEG_INSTALL_DIR}/include")
     ExternalProject_Add(ffmpeg_build
-        URL "https://ffmpeg.org/releases/ffmpeg-7.1.tar.xz"
+        URL "https://ffmpeg.org/releases/ffmpeg-7.1.5.tar.xz"
+        URL_HASH SHA256=${KFX_SHA256_FFMPEG}
         PREFIX "${KFX_DEP_CACHE_DIR}/ffmpeg"
         CONFIGURE_COMMAND <SOURCE_DIR>/configure
             --prefix=${FFMPEG_INSTALL_DIR}
@@ -583,7 +646,8 @@ else()
         set(ALSOFT_TESTS    OFF CACHE BOOL "" FORCE)
         set(ALSOFT_INSTALL  OFF CACHE BOOL "" FORCE)
         FetchContent_Declare(openal_soft
-            URL "https://github.com/kcat/openal-soft/releases/download/1.24.3/openal-soft-1.24.3.tar.bz2")
+            URL "https://github.com/kcat/openal-soft/releases/download/1.24.3/openal-soft-1.24.3.tar.bz2"
+            URL_HASH SHA256=${KFX_SHA256_OPENAL})
         FetchContent_MakeAvailable(openal_soft)
         target_link_libraries(kfx_openal INTERFACE OpenAL::OpenAL)
     endif()
@@ -600,7 +664,8 @@ else()
         set(SPNG_STATIC    ON  CACHE BOOL "" FORCE)
         set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
         FetchContent_Declare(spng
-            URL "https://github.com/randy408/libspng/archive/refs/tags/v0.7.4.tar.gz")
+            URL "https://github.com/randy408/libspng/archive/refs/tags/v0.7.4.tar.gz"
+            URL_HASH SHA256=${KFX_SHA256_SPNG})
         FetchContent_MakeAvailable(spng)
         target_link_libraries(kfx_spng INTERFACE spng_static)
     endif()
@@ -620,7 +685,8 @@ else()
     else()
         message(STATUS "minizip: system library not found; building contrib/minizip from zlib source")
         kfx_populate(zlib_minizip_src
-            URL "https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz")
+            URL "https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz"
+            URL_HASH SHA256=${KFX_SHA256_ZLIB})
         add_library(minizip_from_source STATIC
             "${zlib_minizip_src_SOURCE_DIR}/contrib/minizip/ioapi.c"
             "${zlib_minizip_src_SOURCE_DIR}/contrib/minizip/unzip.c")
@@ -649,7 +715,8 @@ else()
     else()
         message(STATUS "luajit: system library not found; building from source (its own Makefile, via ExternalProject)")
         kfx_populate(luajit_src
-            URL "https://github.com/openresty/luajit2/archive/refs/tags/v2.1-20260724.tar.gz")
+            URL "https://github.com/openresty/luajit2/archive/refs/tags/v2.1-20260724.tar.gz"
+            URL_HASH SHA256=${KFX_SHA256_LUAJIT})
         ExternalProject_Add(luajit_build
             PREFIX            "${KFX_DEP_CACHE_DIR}/luajit-prefix"
             SOURCE_DIR        "${luajit_src_SOURCE_DIR}"
@@ -682,6 +749,7 @@ else()
         set(UPNPC_BUILD_SAMPLE OFF CACHE BOOL "" FORCE)
         FetchContent_Declare(miniupnp_src
             URL "https://github.com/miniupnp/miniupnp/archive/refs/tags/miniupnpc_2_3_3.tar.gz"
+            URL_HASH SHA256=${KFX_SHA256_MINIUPNP}
             SOURCE_SUBDIR miniupnpc)
         FetchContent_MakeAvailable(miniupnp_src)
         # <miniupnpc/miniupnpc.h> needs a directory literally named
@@ -709,7 +777,8 @@ else()
     else()
         message(STATUS "natpmp: system library not found; building from source (FetchContent)")
         kfx_populate(natpmp_src
-            URL "https://github.com/miniupnp/libnatpmp/archive/134fc89e2781e154e40042641f4d8bcbe42579f1.tar.gz")
+            URL "https://github.com/miniupnp/libnatpmp/archive/134fc89e2781e154e40042641f4d8bcbe42579f1.tar.gz"
+            URL_HASH SHA256=${KFX_SHA256_NATPMP})
         # Its own CMakeLists.txt does `option(BUILD_SHARED_LIBS ... OFF)`,
         # which is a no-op once some earlier FetchContent'd project (SDL3)
         # has already cached BUILD_SHARED_LIBS ON -- force it back off for
@@ -739,9 +808,18 @@ else()
         set(BUILD_TESTING     OFF CACHE BOOL "" FORCE)
         set(CURL_USE_OPENSSL  ON  CACHE BOOL "" FORCE)
         set(CURL_USE_LIBPSL   OFF CACHE BOOL "" FORCE)
+        # Only what matchmaking uses is compiled in: https and wss. The other protocols (file, ftp, gopher, imap, ldap, mqtt,
+        # pop3, rtsp, smtp, telnet, tftp, dict), cookies, .netrc, and the brotli/zstd response decoders are attack surface
+        # a lobby server (or anyone on the path) could reach for nothing. (HTTP_ONLY would also drop WebSockets.)
+        foreach(_p DICT FILE FTP GOPHER IMAP IPFS LDAP LDAPS MQTT POP3 RTSP SMTP TELNET TFTP COOKIES NETRC)
+            set(CURL_DISABLE_${_p} ON CACHE BOOL "" FORCE)
+        endforeach()
+        set(CURL_BROTLI OFF CACHE BOOL "" FORCE)
+        set(CURL_ZSTD   OFF CACHE BOOL "" FORCE)
         set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
         FetchContent_Declare(curl_src
-            URL "https://github.com/curl/curl/archive/refs/tags/curl-8_22_0.tar.gz")
+            URL "https://github.com/curl/curl/archive/refs/tags/curl-8_22_0.tar.gz"
+            URL_HASH SHA256=${KFX_SHA256_CURL})
         FetchContent_MakeAvailable(curl_src)
         target_compile_definitions(libcurl_static PUBLIC CURL_STATICLIB)
         target_link_libraries(kfx_curl INTERFACE libcurl_static)

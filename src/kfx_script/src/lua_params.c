@@ -13,6 +13,8 @@
 #include "game_legacy.h"
 #include "globals.h"
 #include "gui_msgs.h"
+#include "config_effects.h"
+#include "config_creature.h"
 #include "thing_navigate.h"
 #include "thing_effects.h"
 #include "lua_base.h"
@@ -96,11 +98,24 @@ TbBool luaL_isPlayer(lua_State *L, int64_t index)
 /************    Inputs   **************************************************************************/
 /***************************************************************************************************/
 
+/** Whether `value` is one of the numbers a table of names stands for. */
+static TbBool named_command_has_value(const struct NamedCommand *commanddesc, int64_t value)
+{
+    for (const struct NamedCommand *c = commanddesc; (c != NULL) && (c->name != NULL); c++)
+        if (c->num == value)
+            return true;
+    return false;
+}
+
 int64_t luaL_checkNamedCommand(lua_State *L, int64_t index,const struct NamedCommand * commanddesc)
 {
     if (lua_isnumber(L, index))
     {
-        return lua_tointeger(L, index);
+        // A number stands for a name too, but only for one the table has: the callers use it as an index into the
+        // tables of creatures, rooms, spells... (found by the Lua API fuzzer: a script passed -6 and 2^63).
+        const int64_t value = lua_tointeger(L, index);
+        luaL_argcheck(L, named_command_has_value(commanddesc, value), index, "unrecognized command");
+        return value;
     }
     else if(lua_isstring(L, index))
     {
@@ -208,7 +223,7 @@ TbMapLocation luaL_checkLocation(lua_State *L, int64_t index)
         return get_coord_encoded_location(stl_x,stl_y);
     }
 
-    const char* locname = lua_tostring(L, index);
+    const char* locname = luaL_checkstring(L, index);
     TbMapLocation location;
     if(!get_map_location_id(locname, &location))
     {
@@ -228,8 +243,11 @@ TbMapLocation luaL_optLocation(lua_State *L, int64_t index)
 
 TbMapLocation luaL_checkHeadingLocation(lua_State *L, int64_t index)
 {
-    const char* locname = lua_tostring(L, index);
-    int64_t target = luaL_checkNamedCommand(L, index + 1,head_for_desc);
+    const char* locname = luaL_checkstring(L, index);
+    // the target is a number (an action point's or a player's) or, as a script has always been able to write, a name
+    // of head_for_desc
+    int64_t target = lua_isnumber(L, index + 1) ? luaL_checkIntMinMax(L, index + 1, 0, 0xFFFF)
+                                                : luaL_checkNamedCommand(L, index + 1, head_for_desc);
 
 
     TbMapLocation location;
@@ -248,15 +266,19 @@ PlayerNumber luaL_checkPlayerRangeId(lua_State *L, int64_t index)
         if (lua_isnumber(L, -1)) {
             int64_t i = lua_tointeger(L, -1);
             lua_pop(L, 1);
+            // (a PlayerNumber is a byte: 256 would be player 0)
+            luaL_argcheck(L, (i >= 0) && (i <= ALL_PLAYERS), index, "expected a valid player");
             return i;
         }
         luaL_argerror(L,index, "Expected table to be of class Player");
         return -1;
     }
 
-    const char* plrname = lua_tostring(L, index);
+    const char* plrname = luaL_checkstring(L, index);
 
-    return get_id(player_desc, plrname);
+    const int64_t id = get_id(player_desc, plrname);
+    luaL_argcheck(L, id != -1, index, "unrecognized player");
+    return id;
 }
 
 struct PlayerRange luaL_checkPlayerRange(lua_State *L, int64_t index)
@@ -264,6 +286,8 @@ struct PlayerRange luaL_checkPlayerRange(lua_State *L, int64_t index)
     struct PlayerRange playerRange = {0,0};
 
     int64_t plr_range_id = luaL_checkPlayerRangeId(L,index);
+    // (a Player table carries any number)
+    luaL_argcheck(L, (plr_range_id >= 0) && (plr_range_id <= ALL_PLAYERS), index, "expected a valid player");
 
     if (plr_range_id == ALL_PLAYERS)
     {
@@ -286,7 +310,7 @@ PlayerNumber luaL_checkPlayerSingle(lua_State *L, int64_t index)
     {
         luaL_argerror(L,index,"player range not supported for this command");
     }
-    if(playerId > PLAYERS_COUNT || playerId < 0)
+    if(playerId >= PLAYERS_COUNT || playerId < 0)
     {
         luaL_argerror(L,index,"expected a valid player");
     }
@@ -355,7 +379,7 @@ unsigned char luaL_checkCrtLevel(lua_State *L, int64_t index)
 
 unsigned char luaL_checkParty(lua_State *L, int64_t index)
 {
-    const char *party_name = lua_tostring(L,  index);
+    const char *party_name = luaL_checkstring(L,  index);
     // Recognize party name
     int64_t prty_id = get_party_index_of_name(party_name);
     if (prty_id < 0)
@@ -402,7 +426,10 @@ EffectOrEffElModel luaL_checkEffectOrEffElModel(lua_State *L, int64_t index)
 {
     if (lua_isnumber(L, index))
     {
-        return lua_tointeger(L, index);
+        // positive: an effect, negative: an effect element; each indexes a table of EFFECTS_TYPES_MAX
+        const int64_t value = lua_tointeger(L, index);
+        luaL_argcheck(L, (value > -EFFECTS_TYPES_MAX) && (value < EFFECTS_TYPES_MAX), index, "invalid effect option");
+        return value;
     }
     else if(lua_isstring(L, index))
     {
@@ -421,7 +448,10 @@ int64_t luaL_checkCreature_or_creature_wildcard(lua_State *L, int64_t index)
 {
     if (lua_isnumber(L, index))
     {
-        return lua_tointeger(L, index);
+        const int64_t value = lua_tointeger(L, index);
+        luaL_argcheck(L, named_command_has_value(creature_desc, value) || (value == CREATURE_NOT_A_DIGGER) || (value == CREATURE_ANY),
+            index, "unrecognized creature type");
+        return value;
     }
     else if(lua_isstring(L, index))
     {
@@ -525,6 +555,10 @@ void luaL_checkCoord3d(lua_State *L, int64_t index, struct Coord3d* pos)
         lua_getfield(L, index, "val_z");
         pos->z.val = lua_tointeger(L, -1);
         lua_pop(L, 1);
+        // a position outside the map (or below it, or a thousand floors up) is not one: x and y become subtile numbers
+        luaL_argcheck(L, (pos->x.val >= 0) && (pos->x.val <= (int64_t)kfx_sim_state.map_subtiles_x * COORD_PER_STL)
+            && (pos->y.val >= 0) && (pos->y.val <= (int64_t)kfx_sim_state.map_subtiles_y * COORD_PER_STL)
+            && (pos->z.val >= 0) && (pos->z.val <= 16 * COORD_PER_STL), index, "position outside the map");
 
         return;
     }
@@ -536,7 +570,9 @@ int64_t luaL_checkAnimationId(lua_State* L, int64_t index)
 {
     if (lua_isnumber(L, index))
     {
-        return lua_tointeger(L, index);
+        const int64_t value = lua_tointeger(L, index);
+        luaL_argcheck(L, (value >= 0) && (value < 0x10000), index, "unrecognized command");
+        return value;
     }
     else if (lua_isstring(L, index))
     {

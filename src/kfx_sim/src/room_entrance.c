@@ -432,6 +432,9 @@ TbBool update_creature_pool_state(void)
 
 void add_creature_to_pool(ThingModel kind, int64_t amount)
 {
+    // (wrapped, so that a "any creature" value lands on a model; a negative one, or no models at all, is nothing)
+    if ((kind < 0) || (kfx_config_state.conf.crtr_conf.model_count <= 0))
+        return;
     kind %= kfx_config_state.conf.crtr_conf.model_count;
 
     if (amount > 0 && kfx_sim_state.pool.crtr_kind[kind] > INT32_MAX - amount)

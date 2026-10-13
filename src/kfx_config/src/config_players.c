@@ -74,7 +74,8 @@ static const struct NamedCommand pointer_group_commands[] = {
     {"PLACETERRAIN"  ,PsPg_PlaceTerrain},
     {"MAKEDIGGER"    ,PsPg_MkDigger    },
     {"MAKECREATURE"  ,PsPg_MkCreatr    },
-    {"ORDERCREATURE" ,PsPg_OrderCreatr }
+    {"ORDERCREATURE" ,PsPg_OrderCreatr },
+    {NULL            ,0                }
 };
 
 /******************************************************************************/

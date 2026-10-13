@@ -35,7 +35,13 @@
 #include <filesystem>
 #include <fstream>
 #include <map>
+#ifndef _WIN32
+#include <errno.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
 #include "config.h"
+#include "safe_path.h"
 #include "post_inc.h"
 
 // Maximum number of messages that can be queued at once.
@@ -63,6 +69,9 @@ struct Message {
 	: type(_type), duration(_duration)
 	{}
 
+	// Messages are owned through unique_ptr<Message>: deleting a derived one through the base needs this
+	// (AddressSanitizer: new-delete-type-mismatch)
+	virtual ~Message() = default;
 	virtual bool is(const Message &) const noexcept = 0;
 	virtual void play() const noexcept = 0;
 };
@@ -182,12 +191,35 @@ static std::string extract_zip_speech_to_temp(LevelNumber lvnum, const char* ent
 	for (auto& c : safe_name) {
 		if (c == '/' || c == '\\' || c == ':') c = '_';
 	}
+	if (safe_name.empty() || safe_name == "." || safe_name == "..") {
+		free(data);
+		return "";
+	}
 	std::error_code ec;
 	std::filesystem::path temp_dir = std::filesystem::temp_directory_path(ec);
 	if (ec) {
 		free(data);
 		return "";
 	}
+#ifndef _WIN32
+	// The temp folder is shared by every user of the machine: a folder of ours, made by us and closed to others, not a
+	// predictable name that someone else may have made first as a link or with files of their own in it.
+	{
+		char own[64];
+		snprintf(own, sizeof(own), "daimonkeeper-%u", (unsigned)getuid());
+		temp_dir /= own;
+		struct stat st;
+		if (mkdir(temp_dir.c_str(), 0700) != 0 && errno != EEXIST) {
+			free(data);
+			return "";
+		}
+		if (lstat(temp_dir.c_str(), &st) != 0 || !S_ISDIR(st.st_mode) || st.st_uid != getuid() || (st.st_mode & 077) != 0) {
+			WARNLOG("Not using %s for speech from the map's zip: it is not a private folder of ours", temp_dir.c_str());
+			free(data);
+			return "";
+		}
+	}
+#endif
 	char subdir[64];
 	snprintf(subdir, sizeof(subdir), "keeperfx_map%05" PRId64 "_speech", (int64_t)(lvnum));
 	temp_dir /= subdir;
@@ -220,6 +252,12 @@ static std::string resolve_speech_path(const char* path, const char* lang,
 	const uint64_t num_groups = sizeof(search_groups) / sizeof(search_groups[0]);
 	const char* slash = strrchr(path, '/');
 	result = SpeechResolveResult::NotFound;
+	// A speech file name comes from a level's script: it may only name something below the folders searched
+	// (security pass S07).
+	if (!path_cannot_escape(path) || !path_cannot_escape(lang)) {
+		WARNLOG("Speech file '%.120s' leads outside the game's folders, ignored", path);
+		return "";
+	}
 
 	// Step 1: language-specific variant
 	if (lang != nullptr && lang[0] != '\0') {

@@ -54,6 +54,7 @@
 #include "ports/audio_port.h"
 #include "ports/render_port.h"
 #include "list_walk.h"
+#include "config_funcnames.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -94,6 +95,8 @@ const Expand_Check_Func powermodel_expand_check_func_list[] = {
   NULL,
   NULL,
 };
+_Static_assert(sizeof(powermodel_expand_check_func_list) / sizeof(powermodel_expand_check_func_list[0]) >= POWERMODEL_EXPAND_CHECK_FUNC_SLOTS,
+    "powermodel_expand_check_func_list must have a slot for every OverchargeChecks value (config_magic.h)");
 
 void process_armageddon(void)
 {

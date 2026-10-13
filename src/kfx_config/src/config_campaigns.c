@@ -46,6 +46,8 @@
 #include "ports/ui_port.h"
 #include "ports/render_port.h"
 #include "ports/sim_port.h"
+#include "safe_path.h"
+#include "compat_report.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -1127,6 +1129,36 @@ int64_t parse_campaign_map_blocks(struct GameCampaign *campgn, char *buf, int64_
     return 1;
 }
 
+/**
+ * A campaign file names folders and files to read (its levels, creatures, configs, media, land view, speech, credits,
+ * movies, strings, soundtrack, high scores). They are joined to the game's folders, so none may lead out of them:
+ * an absolute path, a ".." or a drive would make a downloaded campaign read (or, through the editor, write)
+ * anywhere on the machine (security pass S07). An offending value is dropped, as if the key were absent.
+ */
+static void campaign_drop_unsafe_paths(struct GameCampaign *campgn, const char *config_name)
+{
+    struct { char *value; const char *key; } paths[] = {
+        { campgn->levels_location, "LEVELS_LOCATION" }, { campgn->speech_location, "SPEECH_LOCATION" },
+        { campgn->land_location, "LAND_LOCATION" }, { campgn->creatures_location, "CREATURES_LOCATION" },
+        { campgn->configs_location, "CONFIGS_LOCATION" }, { campgn->media_location, "MEDIA_LOCATION" },
+        { campgn->movie_intro_fname, "INTRO_MOVIE" }, { campgn->movie_outro_fname, "OUTRO_MOVIE" },
+        { campgn->credits_fname, "CREDITS" }, { campgn->strings_fname, "STRINGS" },
+        { campgn->strings_fname_eng, "STRINGS" }, { campgn->hiscore_fname, "HIGH_SCORES" },
+        { campgn->land_view_start, "LAND_VIEW_START" }, { campgn->land_window_start, "LAND_VIEW_START" },
+        { campgn->land_view_end, "LAND_VIEW_END" }, { campgn->land_window_end, "LAND_VIEW_END" },
+        { campgn->soundtrack_fname, "SOUNDTRACK" },
+    };
+    for (size_t i = 0; i < sizeof(paths) / sizeof(paths[0]); i++)
+    {
+        if (!path_cannot_escape(paths[i].value))
+        {
+            ERRORLOG("%s: %s '%.120s' leads outside the game's folders, ignored", config_name, paths[i].key, paths[i].value);
+            compat_report_add(CompatIssue_RefusedPath, paths[i].key, config_name, 0);
+            paths[i].value[0] = '\0';
+        }
+    }
+}
+
 TbBool load_campaign(const char *cmpgn_fname,struct GameCampaign *campgn,int64_t flags, int64_t fgroup)
 {
     // Preparing campaign file name and checking the file
@@ -1158,6 +1190,7 @@ TbBool load_campaign(const char *cmpgn_fname,struct GameCampaign *campgn,int64_t
         result = parse_campaign_common_blocks(campgn, buf, len, fname);
         if (!result)
           WARNMSG("Parsing campaign file \"%s\" common blocks failed.",cmpgn_fname);
+        campaign_drop_unsafe_paths(campgn, cmpgn_fname);
     }
     if ((result) && ((flags & CnfLd_ListOnly) == 0)) // This block doesn't have anything we'd like to parse in list mode
     {            
@@ -1167,12 +1200,14 @@ TbBool load_campaign(const char *cmpgn_fname,struct GameCampaign *campgn,int64_t
         result = parse_campaign_strings_blocks(campgn, buf, len, fname);
         if (!result)
           WARNMSG("Parsing campaign file \"%s\" strings block failed.",cmpgn_fname);
+        campaign_drop_unsafe_paths(campgn, cmpgn_fname);
     }
     if ((result) && ((flags & CnfLd_ListOnly) == 0) && (fgroup == FGrp_Campgn))
     {
         result = parse_campaign_speech_blocks(campgn, buf, len, fname);
         if (!result)
           WARNMSG("Parsing campaign file \"%s\" speech block failed.",cmpgn_fname);
+        campaign_drop_unsafe_paths(campgn, cmpgn_fname);
     }
     if ((result) && ((flags & CnfLd_ListOnly) == 0) && (fgroup == FGrp_Campgn))
     {

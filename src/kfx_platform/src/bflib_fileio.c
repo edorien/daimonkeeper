@@ -322,6 +322,8 @@ int64_t LbFileRead(TbFileHandle handle, void *buffer, uint64_t len)
 */
 int64_t LbFileWrite(TbFileHandle handle, const void *buffer, const uint64_t len)
 {
+    if (len == 0)
+        return 0; // (fwrite's buffer is not allowed to be NULL, even for nothing)
     return fwrite(buffer, 1, len, handle);
 }
 

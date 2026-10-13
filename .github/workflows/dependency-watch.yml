@@ -1,0 +1,22 @@
+name: Dependency Watch
+
+# Security pass S09: once a week (and on demand), compare the library versions Dependencies.cmake pins with published
+# advisories. The job fails when a newer patch release of a pinned library fixes an advisory; the run's log lists
+# them. Libraries the advisory database does not cover are listed with the page to check by hand.
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-dependency-advisories:
+    name: "Check pinned dependencies for known advisories"
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Check advisories
+      run: python3 scripts/check_dep_vulns.py

@@ -104,6 +104,13 @@ char determine_door_angle(MapSlabCoord slb_x, MapSlabCoord slb_y)
 
 struct Thing *create_door(struct Coord3d *pos, ThingModel tngmodel, unsigned char orient, PlayerNumber plyr_idx, TbBool is_locked)
 {
+    // A door is placed along one of two axes; the orientation indexes the door's two slab kinds (a cheat packet in a
+    // replay carried 255: found by AddressSanitizer in the cheat golden test)
+    if (orient > 1)
+    {
+        ERRORLOG("Cannot create door model %" PRId64 " with orientation %d", (int64_t)tngmodel, (int)orient);
+        return INVALID_THING;
+    }
     if (!i_can_allocate_free_thing_structure(TCls_Door))
     {
         ERRORDBG(3,"Cannot create door model %" PRId64 " (%s) for player %" PRId64 ". There are too many things allocated.",(int64_t)tngmodel, door_code_name(tngmodel), (int64_t)plyr_idx);

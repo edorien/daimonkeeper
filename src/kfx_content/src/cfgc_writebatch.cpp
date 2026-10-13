@@ -72,6 +72,23 @@ void drop_op(std::vector<WriteBatch::Op> &ops, const std::string &path)
         }
 }
 
+/** A path with a ".." component (also "..." or ".. ", which Windows reads the same) can end up anywhere. */
+bool has_parent_component(const std::string &path)
+{
+    size_t start = 0;
+    for (size_t i = 0; i <= path.size(); i++)
+        if (i == path.size() || path[i] == '/' || path[i] == '\\')
+        {
+            size_t trimmed = i - start;
+            while (trimmed > 0 && (path[start + trimmed - 1] == '.' || path[start + trimmed - 1] == ' '))
+                trimmed--;
+            if (i - start > 1 && trimmed == 0)
+                return true;
+            start = i + 1;
+        }
+    return false;
+}
+
 } // namespace
 
 void WriteBatch::put(const std::string &path, const std::string &bytes)
@@ -98,6 +115,16 @@ bool WriteBatch::commit(std::string *error)
     std::vector<Step> steps;
     std::vector<fs::path> made_dirs;
     std::error_code ec;
+
+    // Nothing is written until every path is known to stay where it was meant to (security pass S07): the paths are
+    // built from a campaign's locations and names, which a campaign file chooses.
+    for (const Op &op : ops_)
+        if (has_parent_component(op.path))
+        {
+            if (error != nullptr)
+                *error = "refusing to write '" + op.path + "': it leads out of its folder";
+            return false;
+        }
 
     // Phase 1: stage every new file beside its target.
     for (const Op &op : ops_)

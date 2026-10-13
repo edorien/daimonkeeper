@@ -17,6 +17,7 @@
 #include "config.h"
 #include "config_campaigns.h"
 #include "config_keeperfx.h"
+#include "safe_path.h"
 #include "post_inc.h"
 
 /******************************************************************************/
@@ -95,6 +96,10 @@ const char *content_kind_folder(ContentKind kind)
 std::string content_resolve_location(const std::string &root, const std::string &location)
 {
     if (location.empty())
+        return std::string();
+    // the editor writes below these: a location from a campaign file may not lead out of the game's folders
+    // (security pass S07)
+    if (!path_cannot_escape(location.c_str()))
         return std::string();
     if (root.empty())
         return location;

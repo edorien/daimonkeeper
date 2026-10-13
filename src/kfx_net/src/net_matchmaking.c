@@ -133,6 +133,31 @@ void matchmaking_set_server(const char *host)
     matchmaking_enabled = true;
 }
 
+// TLS and protocol settings for every matchmaking transfer, set explicitly instead of left to libcurl's defaults: the
+// server's certificate and host name are verified (the defaults today, but they are the whole protection against an
+// on-path attacker handing out other players' addresses), nothing older than TLS 1.2 is spoken, only https/wss may be
+// used and no redirect is followed (so a server cannot bounce the game to http:// or to a local file). A setting libcurl
+// refuses fails the transfer: no matchmaking is better than matchmaking without the protections.
+TbBool matchmaking_secure_handle(void *curl_easy_handle)
+{
+    CURL *handle = curl_easy_handle;
+    CURLcode r = CURLE_OK;
+    r |= curl_easy_setopt(handle, CURLOPT_SSL_VERIFYPEER, 1L);
+    r |= curl_easy_setopt(handle, CURLOPT_SSL_VERIFYHOST, 2L);
+    r |= curl_easy_setopt(handle, CURLOPT_SSLVERSION, (long)CURL_SSLVERSION_TLSv1_2);
+    r |= curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION, 0L);
+#if LIBCURL_VERSION_NUM >= 0x075500 // 7.85.0
+    r |= curl_easy_setopt(handle, CURLOPT_PROTOCOLS_STR, "https,wss");
+#else
+    r |= curl_easy_setopt(handle, CURLOPT_PROTOCOLS, (long)(CURLPROTO_HTTPS | CURLPROTO_WSS));
+#endif
+    if (r != CURLE_OK) {
+        LbNetLog("Matchmaking: libcurl refused a security setting (%d); not connecting\n", (int)r);
+        return false;
+    }
+    return true;
+}
+
 static size_t write_to_buffer(char *data, size_t element_size, size_t element_count, void *userdata)
 {
     char *buffer = userdata;
@@ -152,6 +177,10 @@ static void resolve_public_address(int32_t address_family, char *output)
     output[0] = '\0';
     CURL *handle = curl_easy_init();
     if (!handle) return;
+    if (!matchmaking_secure_handle(handle)) {
+        curl_easy_cleanup(handle);
+        return;
+    }
     LbNetLog("Matchmaking: resolving address via \"%s\"\n", matchmaking_ip_url);
     curl_easy_setopt(handle, CURLOPT_URL, matchmaking_ip_url);
     curl_easy_setopt(handle, CURLOPT_IPRESOLVE, (long)address_family);
@@ -405,6 +434,11 @@ static int matchmaking_connect_thread(void *request)
     if (!curl_handle) {
         curl_handle = curl_easy_init();
         if (!curl_handle) {
+            SDL_UnlockMutex(mutex);
+            return -1;
+        }
+        if (!matchmaking_secure_handle(curl_handle)) {
+            websocket_cleanup();
             SDL_UnlockMutex(mutex);
             return -1;
         }

@@ -543,6 +543,9 @@ TbBool load_map_data_file(LevelNumber lv_num)
             mapblk = get_map_block_at(x,y);
             // The file stores the (negated) column index as a 16-bit value; the wrap through int16 is the encoding.
             mapblk->col_idx = (int16_t)(-(int64_t)lword(&buf[i]));
+            // a column that does not exist is column 0 (found by the map fuzzer: it indexes the column table)
+            if ((mapblk->col_idx < 0) || (mapblk->col_idx >= COLUMNS_COUNT))
+                mapblk->col_idx = 0;
             i += 2;
         }
     }

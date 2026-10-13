@@ -41,6 +41,10 @@ extern const struct ConfigFileData keeper_columns_file_data;
 #pragma pack(1)
 #define COLUMNS_COUNT          16384
 #define COLUMN_STACK_HEIGHT        8
+/** The textures a column's floor can have (TEXTURE_BLOCKS_COUNT; the size of kfx_sim_state.top_cube[]). */
+#define COLUMN_FLOOR_TEXTURES_COUNT 1544
+/** The cubes a column can stack (CUBE_ITEMS_MAX, config_cubes.h). */
+#define COLUMN_CUBES_COUNT      1024
 struct Column { // sizeof=0x18
     int64_t use;
     unsigned char bitfields;
@@ -69,10 +73,11 @@ static inline void column_from_legacy(struct Column *dst, const struct LegacyCol
     dst->use = src->use;
     dst->bitfields = src->bitfields;
     dst->solidmask = src->solidmask;
-    dst->floor_texture = src->floor_texture;
+    // a map's column file can hold any 16-bit number: these index the texture and cube tables (found by the map fuzzer)
+    dst->floor_texture = (src->floor_texture < COLUMN_FLOOR_TEXTURES_COUNT) ? src->floor_texture : 0;
     dst->orient = src->orient;
     for (int i = 0; i < COLUMN_STACK_HEIGHT; i++)
-        dst->cubes[i] = src->cubes[i];
+        dst->cubes[i] = (src->cubes[i] < COLUMN_CUBES_COUNT) ? src->cubes[i] : 0;
 }
 
 static inline void column_to_legacy(struct LegacyColumn *dst, const struct Column *src)

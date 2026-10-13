@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import orders  # noqa: E402
 import prompt  # noqa: E402
-from api import Api  # noqa: E402
+from api import Api, ApiError  # noqa: E402
 import experience  # noqa: E402
 import memory as memory_mod  # noqa: E402
 from memory import Memory  # noqa: E402
@@ -669,6 +669,66 @@ class EventTests(unittest.TestCase):
         self.assertEqual([e["data"]["seq"] for e in got], [7])
         self.assertEqual(api.drain_events("DECISION_DUE"), [])
         a.close(); b.close()
+
+
+class TokenTests(unittest.TestCase):
+    """DAIMON_API_TOKEN (security pass S02): presented first, only when there is one."""
+
+    def _serve_one(self, b, reply):
+        got = []
+
+        def server():
+            req = json.loads(b.makefile().readline())
+            got.append(req)
+            b.sendall((json.dumps(dict(reply, ack=req["ack"])) + "\n").encode())
+
+        t = threading.Thread(target=server, daemon=True)
+        t.start()
+        return got, t
+
+    def test_hello_with_the_token_before_anything_else(self):
+        a, b = socket.socketpair()
+        api = Api(token="s3cret")
+        api.sock = a
+        got, t = self._serve_one(b, {"success": True})
+        api.authenticate()
+        t.join(2)
+        self.assertEqual(got[0]["action"], "hello")
+        self.assertEqual(got[0]["token"], "s3cret")
+        a.close(); b.close()
+
+    def test_a_refused_token_raises(self):
+        a, b = socket.socketpair()
+        api = Api(token="wrong")
+        api.sock = a
+        self._serve_one(b, {"success": False, "error": "UNAUTHORIZED"})
+        with self.assertRaises(ApiError) as caught:
+            api.authenticate()
+        self.assertEqual(caught.exception.code, "UNAUTHORIZED")
+        a.close(); b.close()
+
+    def test_no_token_no_handshake(self):
+        a, b = socket.socketpair()
+        api = Api(token=None)
+        api.token = None                    # whatever DAIMON_API_TOKEN holds in this environment
+        api.sock = a
+        api.authenticate()                  # sends nothing, so nothing to answer
+        b.setblocking(False)
+        with self.assertRaises(BlockingIOError):
+            b.recv(1)
+        a.close(); b.close()
+
+    def test_the_environment_variable_is_the_default(self):
+        old = os.environ.get("DAIMON_API_TOKEN")
+        os.environ["DAIMON_API_TOKEN"] = "from-env"
+        try:
+            self.assertEqual(Api().token, "from-env")
+            self.assertEqual(Api(token="explicit").token, "explicit")
+        finally:
+            if old is None:
+                del os.environ["DAIMON_API_TOKEN"]
+            else:
+                os.environ["DAIMON_API_TOKEN"] = old
 
 
 class NewSectionsTests(unittest.TestCase):

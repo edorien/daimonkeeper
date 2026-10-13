@@ -5,7 +5,7 @@
     {"lua:AllyPlayers(PLAYER0, PLAYER_GOOD, 1)", 0x048c064730a942dcULL}, // 2530 bytes; ok:
     {"lua:AllyPlayers(PLAYER0, PLAYER_GOOD)", 0x5d48ae1859796ce0ULL}, // 0 bytes; error: [string "AllyPlayers(PLAYER0, PLAYER_GOOD)"]:1: bad argument #3 to 'AllyPlayers' (number expected, got no value)
     {"lua:StartMoney(PLAYER0, 5000)", 0xa0b2c6b00a396ef4ULL}, // 4 bytes; ok:
-    {"lua:StartMoney(ALL_PLAYERS, 0)", 0xdcf298ae650faca0ULL}, // 0 bytes; ok:
+    {"lua:StartMoney(ALL_PLAYERS, 0)", 0xf547145dc27533d1ULL}, // 0 bytes; error: [string "StartMoney(ALL_PLAYERS, 0)"]:1: bad argument #1 to 'StartMoney' (string expected, got nil)
     {"lua:MaxCreatures(PLAYER0, 3)", 0x172f6610dde3bdf7ULL}, // 1 bytes; ok:
     {"lua:AddCreatureToPool('TROLL', 4)", 0x6577adccbadefd86ULL}, // 1 bytes; ok:
     {"lua:AddCreatureToPool('NOT_A_CREATURE', 4)", 0x7294eaebbdc57f4eULL}, // 0 bytes; error: [string "AddCreatureToPool('NOT_A_CREATURE', 4)"]:1: bad argument #1 to 'AddCreatureToPool' (unrecognized command
@@ -20,7 +20,7 @@
     {"lua:WinGame()", 0xa80858014f3c40b6ULL}, // 51 bytes; ok:
     {"lua:LoseGame(PLAYER0)", 0x6fa2250f5454b27bULL}, // 18 bytes; ok:
     {"lua:return CountCreaturesAtActionPoint(1, PLAYER0, 'ANY_CREATURE')", 0x7d8bcf55b7a206c6ULL}, // 0 bytes; ok: 0
-    {"lua:return CountCreaturesAtActionPoint(1, ALL_PLAYERS, 'IMP')", 0x7d8bcf55b7a206c6ULL}, // 0 bytes; ok: 0
+    {"lua:return CountCreaturesAtActionPoint(1, ALL_PLAYERS, 'IMP')", 0x1792fc2ddccfa36eULL}, // 0 bytes; error: bad argument #2 to '?' (string expected, got nil)
     {"lua:SetTimer(PLAYER0, 'TIMER0')", 0x93108a5e8f14b3aeULL}, // 2 bytes; ok:
     {"lua:AddToTimer(PLAYER0, 'TIMER0', 100)", 0x206cccf5117f17f0ULL}, // 8 bytes; ok:
     {"lua:DisplayTimer(PLAYER0, 'TIMER0', 1000, true)", 0xb84aab25093a02bdULL}, // 2 bytes; ok:

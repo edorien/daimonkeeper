@@ -58,6 +58,7 @@
 #include "ports/ui_port.h"
 #include "ports/audio_port.h"
 #include "list_walk.h"
+#include "config_funcnames.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -436,6 +437,8 @@ Room_Update_Func const terrain_room_total_capacity_func_list[] = {
   NULL,
   NULL,
 };
+_Static_assert(sizeof(terrain_room_total_capacity_func_list) / sizeof(terrain_room_total_capacity_func_list[0]) >= ROOM_TOTAL_CAPACITY_FUNC_SLOTS,
+    "terrain_room_total_capacity_func_list must have a slot for every index in terrain_room_total_capacity_func_type[] (config_terrain.c)");
 
 Room_Update_Func const terrain_room_used_capacity_func_list[] = {
   NULL,
@@ -449,6 +452,8 @@ Room_Update_Func const terrain_room_used_capacity_func_list[] = {
   NULL,
   NULL,
 };
+_Static_assert(sizeof(terrain_room_used_capacity_func_list) / sizeof(terrain_room_used_capacity_func_list[0]) >= ROOM_USED_CAPACITY_FUNC_SLOTS,
+    "terrain_room_used_capacity_func_list must have a slot for every index in terrain_room_used_capacity_func_type[] (config_terrain.c)");
 
 void delete_room_structure(struct Room *room)
 {

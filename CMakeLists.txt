@@ -54,6 +54,7 @@ configure_file(${KEEPERFX_VER_DEFS_H_IN} ${KEEPERFX_VER_DEFS_H_OUT})
 # module set applies here.
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/build/cmake/modules)
 include(Helpers)
+include(Hardening)
 include(Platforms)
 include(Dependencies)
 
@@ -106,11 +107,12 @@ message(STATUS "We are using ${CMAKE_CXX_COMPILER_ID}")
 # library is compiled once. See docs/refactor-pass2/stage-02-logging-option.md.
 # ---------------------------------------------------------------------------
 
-# Kept identical to Makefile's WARNFLAGS (line 448) -- this list had drifted
+# Kept identical to Makefile's WARNFLAGS (line 448), except for -Wformat-security (security pass S09: a non-literal
+# format string is an error here, the unmaintained Makefile does not compile the game any more) -- this list had drifted
 # out of sync (missing -Wno-format-truncation/-Wno-maybe-uninitialized),
 # which only surfaces as build failures on GCC 13, i.e. exactly the
 # compiler CI's g++-mingw-w64-x86-64 install actually provides.
-set(WARNFLAGS -Wall -W -Wshadow -Wno-sign-compare -Wno-unused-parameter -Wno-maybe-uninitialized -Wno-strict-aliasing -Wno-unknown-pragmas -Wno-format-truncation -Werror)
+set(WARNFLAGS -Wall -W -Wformat-security -Wshadow -Wno-sign-compare -Wno-unused-parameter -Wno-maybe-uninitialized -Wno-strict-aliasing -Wno-unknown-pragmas -Wno-format-truncation -Werror)
 set(GNU_COMPILER_FLAG -march=x86-64 -fno-omit-frame-pointer -fmessage-length=0)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wimplicit")
 
@@ -303,11 +305,14 @@ endif()
 # download-a-tarball-once helper every other prebuilt dependency in this
 # file uses -- no `apt install lcov`/`pip install gcovr` needed.
 option(KFX_TEST_COVERAGE "Instrument kfx_* libraries for gcov/lcov coverage (native Linux, requires -DKFX_BUILD_TESTS=ON or -DKFX_FUNCTESTING=ON)" OFF)
+# Exploit-mitigation flags for the game's own code (build/cmake/modules/Hardening.cmake). After the coverage option:
+# the -O0 coverage build cannot take _FORTIFY_SOURCE.
+kfx_harden_compile(kfx_common_opts)
 if((KFX_BUILD_TESTS OR KFX_FUNCTESTING) AND KFX_TEST_COVERAGE)
     target_compile_options(kfx_common_opts INTERFACE --coverage -O0 -g)
     target_link_options(kfx_common_opts INTERFACE --coverage)
 
-    kfx_fetch(lcov "https://github.com/linux-test-project/lcov/releases/download/v1.16/lcov-1.16.tar.gz")
+    kfx_fetch(lcov "https://github.com/linux-test-project/lcov/releases/download/v1.16/lcov-1.16.tar.gz" ${KFX_SHA256_LCOV})
     # Derived from D (Dependencies.cmake), not a separately hardcoded path:
     # kfx_fetch(<dir> ...) always extracts to "${D}/<dir>", so this has to
     # track whatever D actually is rather than assume CMAKE_BINARY_DIR/deps.
@@ -586,7 +591,12 @@ if(WIN32)
 
     set(GNU_LINK_FLAG -mwindows -Wl,--enable-auto-import)
     target_link_options(keeperfx PRIVATE ${GNU_LINK_FLAG} -Wl,-Map,${PRODUCT_SLUG}.map)
-    target_link_libraries (keeperfx PUBLIC -static stdc++ winpthread -dynamic)
+    if(KFX_HARDEN)
+        # libssp, statically: the stack protector's __stack_chk_fail (a DLL would be one more file to ship)
+        target_link_libraries(keeperfx PUBLIC -static stdc++ winpthread ssp -dynamic)
+    else()
+        target_link_libraries(keeperfx PUBLIC -static stdc++ winpthread -dynamic)
+    endif()
 
     # System libraries -- kept identical to and in the same relative
     # position as Makefile's LINKLIB tail (`-lwinmm -lmingw32 -limagehlp
@@ -622,6 +632,9 @@ elseif(UNIX AND NOT APPLE)
     apply_keeperfx_debug_split(keeperfx)
 endif()
 
+# ASLR/DEP (Windows) and PIE/RELRO/NX-stack (Linux), explicit; scripts/check_hardening.py verifies the result.
+kfx_harden_link(keeperfx)
+
 # CPack-based release packaging (build/cmake/modules/Packaging.cmake, from
 # upstream's SDL3 migration) -- produces the same kind of release archive
 # as `make package`, taking the keeperfx binary from this CMake build and
@@ -637,3 +650,15 @@ include(Packaging)
 
 # Optional self-contained Linux/Steam Deck bundle (-DKFX_DECK_BUNDLE=ON).
 include(DeckBundle)
+
+# Fuzz harnesses (security pass S08, fuzz/README.md): kfx_fuzz, one binary with a target per parser, linking the whole
+# game minus main(). Build it with scripts/build-fuzz.sh fuzz, which gives it the sanitizers and a dependency cache of
+# its own. The kfx_* libraries are compiled with edge-coverage callbacks for the fuzzer to steer by, so every other
+# target in a tree that has this on would fail to link: use a tree of its own, without KFX_BUILD_TESTS.
+option(KFX_BUILD_FUZZ "Build the fuzz harnesses (kfx_fuzz); see fuzz/README.md. Native Linux, gcc, own build tree" OFF)
+if(KFX_BUILD_FUZZ)
+    if(KFX_BUILD_TESTS OR KFX_FUNCTESTING)
+        message(FATAL_ERROR "KFX_BUILD_FUZZ instruments the kfx_* libraries for the fuzz driver; KFX_BUILD_TESTS and KFX_FUNCTESTING cannot link against them")
+    endif()
+    add_subdirectory(fuzz)
+endif()

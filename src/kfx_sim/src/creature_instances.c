@@ -1782,6 +1782,12 @@ void script_set_creature_instance(ThingModel crmodel, int64_t slot, int64_t inst
 {
     struct CreatureModelConfig *crconf = creature_stats_get(crmodel);
 
+    // (a script gives the slot as a number: found by the level-script fuzzer with slot 0)
+    if ((slot < 1) || (slot > LEARNED_INSTANCES_COUNT))
+    {
+        ERRORLOG("Creature instance slot %" PRId64 " is outside 1..%d", (int64_t)slot, (int)LEARNED_INSTANCES_COUNT);
+        return;
+    }
     if (!creature_stats_invalid(crconf))
     {
         CrInstance old_instance = crconf->learned_instance_id[slot - 1];

@@ -197,6 +197,7 @@ const char *compat_issue_kind_name(enum CompatIssueKind kind)
     case CompatIssue_ConfigValue:   return "config value";
     case CompatIssue_LuaFunction:   return "Lua function";
     case CompatIssue_Limit:         return "over this build's limit:";
+    case CompatIssue_RefusedPath:   return "refused a path outside the game's folders:";
     default:                        return "feature";
     }
 }

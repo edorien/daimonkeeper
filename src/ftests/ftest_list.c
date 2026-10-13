@@ -26,6 +26,7 @@
 #include "tests/ftest_ai_seat_research.h"
 #include "tests/ftest_spectator_handoff.h"
 #include "tests/ftest_sim_state_continuity.h"
+#include "tests/ftest_state_corruption_fuzz.h"
 #include "tests/ftest_script_legacy_golden.h"
 #include "tests/ftest_lua_api_golden.h"
 #include "tests/ftest_console_cmd_golden.h"
@@ -287,6 +288,10 @@ struct ftest_onlyappendtests__config ftest_onlyappendtests__conf = {
 
     // place long-running tests in this list, to include them use the -includelongtests flag
     .long_running_tests_list = {
+        // A measurement for security pass S06 (docs/security-pass): corrupts live state in forked children and sees what
+        // the state validator lets through. Run it alone: -ftests state_corruption_fuzz -includelongtests; read the
+        // FUZZGAP and FUZZSUMMARY lines (ftest_state_corruption_fuzz.c has the environment).
+        { .test_name="state_corruption_fuzz",              .init_func=ftest_state_corruption_fuzz_init,           .pre_start_func=ftest_state_corruption_fuzz_pre_start, .level_file="original", .level=60, .frame_skip=8 },
         // A measurement, not a regression test (docs/newFeatures/texture-resolution/03-verification-and-phases.md
         // section A): run it alone, -ftests texture_density -includelongtests, and read its TRNTEX/GPUTEX lines.
         { .test_name="texture_density",                    .init_func=ftest_texture_density_init,                 .level_file="keeporig", .level=1,  .frame_skip=0 },

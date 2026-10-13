@@ -253,6 +253,9 @@ jobs:
         cmake --install out --prefix dist
         rm pkg/daimonkeeper*.7z
 
+    - name: Check exploit mitigations (ASLR, DEP, stack protector, fortify)
+      run: python3 scripts/check_hardening.py out/daimonkeeper.exe
+
     - name: Upload artifact
       id: upload
       uses: actions/upload-artifact@v4
@@ -306,6 +309,9 @@ jobs:
 
     - name: Build
       run: cmake --build build --target keeperfx -j"$(nproc)"
+
+    - name: Check exploit mitigations (ASLR, DEP, stack protector, fortify)
+      run: python3 scripts/check_hardening.py build/daimonkeeper.exe
 
   build-prototype-linux:
     name: "Build Prototype Linux x86_64"
@@ -393,6 +399,9 @@ jobs:
         cmake -S . -B out -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo \
           -DBUILD_NUMBER=$BUILD_NUMBER -DPACKAGE_SUFFIX=$PACKAGE_SUFFIX
         cmake --build out --target keeperfx -j"$(nproc)"
+
+    - name: Check exploit mitigations (PIE, RELRO, NX stack, stack protector, fortify)
+      run: python3 scripts/check_hardening.py out/daimonkeeper
 
     - name: Upload artifact
       id: upload

@@ -24,6 +24,7 @@
 #include "pre_inc.h"
 #include "cheat_mode.h"
 #include "game_commands.h"
+#include "packet_validate.h"
 #include "packets.h"
 #include "game_replay.h"
 #include "net_input_lag.h"
@@ -1163,6 +1164,10 @@ void process_user_packet(NetUserId user)
         MULTIPLAYER_LOG("process_user_packet: Skipping empty packet for user %" PRId64, (int64_t)(user));
         return;
     }
+    // The single place packets from the keyboard, a network peer, a replay file or an agent enter the game: an
+    // action this game does not have, one not allowed here, or a parameter outside its table loses its action
+    // (packet_validate.h). Done at the top so every handler below sees only values it can index with.
+    packet_validate_for_user(user, pckt);
     SYNCDBG(6, "Processing user %" PRId64 " packet of type %" PRId64 ".", (int64_t)(user), (int64_t)pckt->action);
     if (flag_is_set(kfx_sim_state.operation_flags, GOF_Paused))
         replay_record_paused_action(user, pckt);

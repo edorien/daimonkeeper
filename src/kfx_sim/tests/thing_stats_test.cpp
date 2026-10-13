@@ -255,6 +255,22 @@ TEST_CASE_METHOD(ResetSimState, "calculate_gold_digged_out_of_slab_with_single_h
     CHECK(calculate_gold_digged_out_of_slab_with_single_hit(10, slb) == 1);
 }
 
+TEST_CASE_METHOD(ResetSimState, "calculate_gold_digged_out_of_slab_with_single_hit does not divide by zero", "[kfx_sim][thing_stats]") {
+    // a configuration can leave a block health of 0, and a hit can be too light to yield any gold: each used to trap
+    kfx_sim_state.map_tiles_x = 4;
+    kfx_sim_state.map_tiles_y = 4;
+    kfx_config_state.conf.slab_conf.slab_cfgstats[0].gold_held = 100;
+    kfx_config_state.conf.slab_conf.slab_cfgstats[0].block_health_index = 0;
+    struct SlabMap *slb = get_slabmap_block(0, 0);
+    kfx_sim_state.block_health[0] = 0;
+    slb->health = 0;
+    CHECK(calculate_gold_digged_out_of_slab_with_single_hit(10, slb) == 1);
+    kfx_sim_state.block_health[0] = 5000;
+    CHECK(calculate_gold_digged_out_of_slab_with_single_hit(1, slb) == 1);  // 100/5000 == 0 gold: remainder of x % 0
+    slb->health = -5;
+    CHECK(calculate_gold_digged_out_of_slab_with_single_hit(0, slb) == 1);  // zero damage: health / 0
+}
+
 TEST_CASE_METHOD(ResetSimState, "calculate_gold_digged_out_of_slab_with_single_hit never returns less than 1 gold", "[kfx_sim][thing_stats]") {
     kfx_sim_state.map_tiles_x = 4;
     kfx_sim_state.map_tiles_y = 4;

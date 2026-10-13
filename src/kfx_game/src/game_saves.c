@@ -47,6 +47,10 @@
 #include "lvl_filesdk1.h"
 #include "moonphase.h"
 #include "state_versions.h"
+#include "state_validate.h"
+#include "game_state_validate.h"
+#include "config_state_validate.h"
+#include "ariadne_saved_state.h"
 #include "ports/script_port.h"
 #include "ports/ui_port.h"
 #include "ports/audio_port.h"
@@ -269,15 +273,23 @@ TbBool save_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
 
     // Adding Lua serialized data chunk
     {
-        size_t lua_data_len;
+        size_t lua_data_len = 0;
         const char* lua_data = script_lua_get_serialised_data(&lua_data_len);
 
-        hdr.id = SGC_LuaData;
-        hdr.ver = 0;
-        hdr.len = lua_data_len;
-        if (LbFileWrite(fhandle, &hdr, sizeof(struct FileChunkHeader)) == sizeof(struct FileChunkHeader))
-        if (LbFileWrite(fhandle, lua_data, lua_data_len) == lua_data_len)
-            chunks_done |= SGF_LuaData;
+        if ((lua_data == NULL) && (lua_data_len == KFX_LUA_SERIALISE_FAILED))
+        {
+            // e.g. a script function that can't be kept in a save (core/function_source.lua); the Lua error is logged
+            ERRORLOG("The scripts' data could not be serialised, so the game is not saved");
+        }
+        else
+        {
+            hdr.id = SGC_LuaData;
+            hdr.ver = KFX_LUA_DATA_VER;
+            hdr.len = lua_data_len;
+            if (LbFileWrite(fhandle, &hdr, sizeof(struct FileChunkHeader)) == sizeof(struct FileChunkHeader))
+            if (LbFileWrite(fhandle, lua_data, lua_data_len) == lua_data_len)
+                chunks_done |= SGF_LuaData;
+        }
         script_cleanup_serialized_data();
     }
 
@@ -387,12 +399,15 @@ TbBool save_packet_chunks(TbFileHandle fhandle,struct CatalogueEntry *centry)
     return true;
 }
 
+_Static_assert(KFX_CONFIG_STATE_SAVED_OFFSET == 0, "validate_save_chunks() reads the saved part of the configuration from the start of a struct KfxConfigState");
+
 static char save_refusal_reason[160];
 static TbBool save_refused;
 
 /**
  * The version and length a chunk must have to be loaded, by chunk ID.
- * @return false for chunks with no fixed expectation (LuaData, unknown IDs).
+ * @return false for chunks with no fixed expectation (LuaData, which is variable-length and checked
+ *   by version in validate_save_chunks(); unknown IDs).
  */
 static TbBool expected_chunk_layout(uint64_t id, uint64_t *ver, uint64_t *len)
 {
@@ -458,6 +473,85 @@ TbBool validate_save_chunks(TbFileHandle fhandle)
             snprintf(save_refusal_reason, sizeof(save_refusal_reason),
                 "chunk %08" PRIx64 " is version %" PRIu64 " (%" PRIu64 " bytes); this build expects version %" PRIu64 " (%" PRIu64 " bytes)",
                 (uint64_t)hdr.id, (uint64_t)hdr.ver, (uint64_t)hdr.len, ver, len);
+            ok = false;
+            break;
+        }
+        if (hdr.id == SGC_KfxSimState)
+        {
+            // The contents too, before anything is applied: a file is not trusted to keep its indexes and links
+            // inside the state (security pass S06). The chunk is read once here and once more by the load.
+            struct KfxSimState *candidate = (struct KfxSimState *)malloc(sizeof(struct KfxSimState));
+            char why[256] = "";
+            TbBool content_ok = (candidate != NULL)
+                && (LbFileRead(fhandle, candidate, sizeof(struct KfxSimState)) == (int64_t)sizeof(struct KfxSimState))
+                && sim_state_validate(candidate, why, sizeof(why));
+            free(candidate);
+            if (!content_ok)
+            {
+                snprintf(save_refusal_reason, sizeof(save_refusal_reason), "the simulation state is invalid: %s",
+                    (why[0] != '\0') ? why : "could not be read");
+                ok = false;
+                break;
+            }
+        }
+        if (hdr.id == SGC_AriadneState)
+        {
+            unsigned char *candidate = (unsigned char *)malloc((size_t)hdr.len);
+            char why[256] = "";
+            TbBool content_ok = (candidate != NULL)
+                && (LbFileRead(fhandle, candidate, (int64_t)hdr.len) == (int64_t)hdr.len)
+                && (hdr.len == (uint64_t)ariadne_saved_state_size())
+                && ariadne_saved_state_check(candidate, why, sizeof(why));
+            free(candidate);
+            if (!content_ok)
+            {
+                snprintf(save_refusal_reason, sizeof(save_refusal_reason), "the navigation mesh is invalid: %s",
+                    (why[0] != '\0') ? why : "could not be read");
+                ok = false;
+                break;
+            }
+        }
+        if (hdr.id == SGC_KfxConfigState)
+        {
+            // The configuration chooses functions and tables by number, so it is checked like the rest (S06b). The
+            // chunk holds the part of the struct a save carries; the rest of the candidate stays zero.
+            struct KfxConfigState *candidate = (struct KfxConfigState *)calloc(1, sizeof(struct KfxConfigState));
+            char why[256] = "";
+            TbBool content_ok = (candidate != NULL)
+                && (hdr.len == KFX_CONFIG_STATE_SAVED_LEN)
+                && (LbFileRead(fhandle, candidate, (int64_t)hdr.len) == (int64_t)hdr.len)
+                && config_state_validate(candidate, why, sizeof(why));
+            free(candidate);
+            if (!content_ok)
+            {
+                snprintf(save_refusal_reason, sizeof(save_refusal_reason), "the configuration is invalid: %s",
+                    (why[0] != '\0') ? why : "could not be read");
+                ok = false;
+                break;
+            }
+        }
+        if (hdr.id == SGC_KfxGameState)
+        {
+            struct KfxGameState *candidate = (struct KfxGameState *)malloc(sizeof(struct KfxGameState));
+            char why[256] = "";
+            TbBool content_ok = (candidate != NULL)
+                && (LbFileRead(fhandle, candidate, sizeof(struct KfxGameState)) == (int64_t)sizeof(struct KfxGameState))
+                && game_state_validate(candidate, why, sizeof(why));
+            free(candidate);
+            if (!content_ok)
+            {
+                snprintf(save_refusal_reason, sizeof(save_refusal_reason), "the game state is invalid: %s",
+                    (why[0] != '\0') ? why : "could not be read");
+                ok = false;
+                break;
+            }
+        }
+        if ((hdr.id == SGC_LuaData) && (hdr.ver != KFX_LUA_DATA_VER))
+        {
+            // variable length, so not in expected_chunk_layout(): its version is all there is to check
+            snprintf(save_refusal_reason, sizeof(save_refusal_reason),
+                "the script data is version %" PRIu64 "; this build expects version %" PRIu64 " (functions are no longer kept as bytecode)",
+                (uint64_t)hdr.ver, (uint64_t)KFX_LUA_DATA_VER);
             ok = false;
             break;
         }
@@ -756,12 +850,18 @@ int64_t load_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
                     //has to be loaded here as level num only filled while gamestruct loaded, and need it for setting serialised_data
                     script_open_lua_script(get_loaded_level_number());
 
-                    script_lua_set_serialised_data(lua_data, hdr.len);
-                    chunks_done |= SGF_LuaData;
+                    // The script data may be refused (a function that is not one of the loaded scripts' own, data of
+                    // another version): then the save is not loaded, rather than played with the level's initial
+                    // script state.
+                    if (script_lua_set_serialised_data(lua_data, hdr.len)) {
+                        chunks_done |= SGF_LuaData;
+                    } else {
+                        ERRORLOG("The saved game's script data was refused (see the Lua error above)");
+                    }
                 } else {
                     WARNLOG("Could not read LuaData chunk");
-                    free(lua_data);
                 }
+                free(lua_data);
             }
             break;
         case SGC_AgentMemory:

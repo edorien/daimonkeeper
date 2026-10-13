@@ -10,7 +10,9 @@
 ---@field triggerData table
 
 
-require "debug"
+-- Captured here: the debug library is removed from the globals before campaign, level and mod scripts run.
+local debug = require "debug"
+local function_source = require "core.function_source"
 
 -- Check if the function relies on a specific environment (e.g., game state)
 local function validateClosure(func)
@@ -57,6 +59,11 @@ local function validatefunc(func)
         local fname = getFunctionName(func)
         if fname == "<anonymous>" then
             validateClosure(func)
+            -- it is kept in saved games as its text (core/function_source.lua): say now if that isn't possible
+            local ok, err = pcall(function_source.check, func)
+            if not ok then
+                error(err, 0)
+            end
             return func
         elseif _G[fname] == nil then
              error("Function '" .. fname .. "' not found, make sure it is either defined globally or anonymously")

@@ -6,6 +6,7 @@
 
 
 #include "lua_triggers.h"
+#include "lua_sandbox.h"
 
 #include "lua_base.h"
 #include "lua_api.h"
@@ -131,6 +132,9 @@ void lua_on_game_start()
 void lua_on_game_tick()
 {
 	SYNCDBG(6,"Starting");
+	if (Lvl_script == NULL)
+		return;
+	lua_sandbox_new_turn(Lvl_script); // the scripts' instruction budget for this turn
 	lua_getglobal(Lvl_script, "OnGameTick");
 	if (lua_isfunction(Lvl_script, -1))
 	{

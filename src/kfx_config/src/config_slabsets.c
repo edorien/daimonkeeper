@@ -83,7 +83,8 @@ const struct NamedCommand slab_styles_commands[] = {
     {"NE_WATER", 24},
     {"SE_WATER", 25},
     {"ALL_WATER",26},
-    {"CENTER",   27}
+    {"CENTER",   27},
+    {NULL,        0}
 };
 
 static TbBool load_slabset_config_file(const char *fname, int64_t flags)

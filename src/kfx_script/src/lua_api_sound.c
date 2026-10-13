@@ -23,6 +23,7 @@
 #include "lua_api_sound.h"
 #include "sound_manager.h"
 #include "bflib_sound.h"
+#include "safe_path.h"
 #include "post_inc.h"
 
 /******************************************************************************/
@@ -42,7 +43,14 @@
 int lua_LoadCustomSound(lua_State* L) {
     const char* name = luaL_checkstring(L, 1);
     const char* filepath = luaL_checkstring(L, 2);
-    
+
+    // A script names the file: it must be a plain path inside the game's folders (security pass S04/S07)
+    if (!path_is_plain_relative(filepath)) {
+        WARNLOG("LoadCustomSound('%s'): the path must be relative to the game folder, without '..' or a drive", name);
+        lua_pushinteger(L, -1);
+        return 1;
+    }
+
     SoundSmplTblID sample_id = sound_manager_load_custom_sound(name, filepath);
     
     lua_pushinteger(L, sample_id);

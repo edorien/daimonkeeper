@@ -239,7 +239,7 @@ int64_t syntax_check(const std::string &text, size_t &line, std::string &message
     lua_State *L = luaL_newstate();
     if (L == nullptr)
         return 0;
-    int64_t status = luaL_loadbuffer(L, text.data(), text.size(), "=lua");
+    int64_t status = luaL_loadbufferx(L, text.data(), text.size(), "=lua", "t");
     if (status != 0)
     {
         std::string msg = lua_tostring(L, -1) ? lua_tostring(L, -1) : "syntax error";

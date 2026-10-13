@@ -64,6 +64,11 @@ TEST_CASE("LbMathOperation evaluates the bitwise and arithmetic opkinds", "[kfx_
     CHECK(LbMathOperation(MOp_MULTIPLY, 5, 3) == 15);
     CHECK(LbMathOperation(MOp_DIVIDE, 9, 3) == 3);
     CHECK(LbMathOperation(MOp_MODULO, 10, 3) == 1);
+    // operands from a saved game: these trap on x86 if divided (found by the state corruption fuzzer)
+    CHECK(LbMathOperation(MOp_DIVIDE, 9, 0) == 0);
+    CHECK(LbMathOperation(MOp_MODULO, 9, 0) == 0);
+    CHECK(LbMathOperation(MOp_DIVIDE, INT64_MIN, -1) == 0);
+    CHECK(LbMathOperation(MOp_MODULO, INT64_MIN, -1) == 0);
 }
 
 TEST_CASE("LbMathOperation falls back to first_operand for an unrecognized opkind", "[kfx_platform][bflib_math]") {

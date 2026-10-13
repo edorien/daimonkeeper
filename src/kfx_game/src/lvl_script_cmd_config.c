@@ -27,6 +27,7 @@
 #include "ports/ui_port.h"
 #include "lvl_script_commands_private.h"
 #include "lvl_script_commands_private.h"
+#include "config_state_validate.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -166,13 +167,15 @@ static void set_config_process(const struct NamedFieldSet* named_fields_set, str
         if( named_fields_set->named_fields[property_id + i].name == NULL ||
             (strcmp(named_fields_set->named_fields[property_id + i].name, named_fields_set->named_fields[property_id].name) != 0))
         {
-            return;
+            break;
         }
         else
         {
             assign_named_field_value(&named_fields_set->named_fields[property_id + i],context->value->longs[i+1],named_fields_set,id,src_str,ccf_SplitExecution|ccf_DuringLevel);
         }
     }
+    // a script can set a field to any number: ones that select a function or a table entry must name one that exists
+    config_state_repair(&kfx_config_state);
 }
 
 void set_trap_configuration_check(const struct ScriptLine* scline)

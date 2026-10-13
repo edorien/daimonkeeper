@@ -102,7 +102,7 @@ COMPONENTS = [
      [f"{LIN}/sdl3_mixer-src/LICENSE.txt"]),
     ("OpenAL Soft 1.24.3", "both", "GNU LGPL version 2 or later (PFFFT part: BSD-style)", "https://openal-soft.org",
      [f"{LIN}/openal_soft-src/COPYING", f"{LIN}/openal_soft-src/LICENSE-pffft"]),
-    ("FFmpeg 7.1 (Smacker video/audio decoding only; built without GPL or non-free parts)", "both",
+    ("FFmpeg 7.1.5 (Smacker video/audio decoding only; built without GPL or non-free parts)", "both",
      "GNU LGPL version 2.1 or later", "https://ffmpeg.org",
      ["deps/.cache-lin64/ffmpeg/src/ffmpeg_build/COPYING.LGPLv2.1"]),
     ("LuaJIT (OpenResty luajit2 v2.1-20260724)", "both", "MIT", "https://github.com/openresty/luajit2",

@@ -414,7 +414,8 @@ static void *expand(void *p, int sz, int newsz)
     if (!s)
         return 0;
 
-    memcpy(s, p, sz);
+    if (sz > 0)
+        memcpy(s, p, sz);
     FREE(p);
     return s;
 }

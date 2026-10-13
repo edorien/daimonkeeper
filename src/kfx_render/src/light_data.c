@@ -1550,6 +1550,13 @@ static char light_render_light(struct Light* lgt)
         int64_t row_offset = stl_x - coord_subtile(x_end) + kfx_sim_state.map_subtiles_x;
         int64_t* lightness = &lish.subtile_lightness[get_subtile_number(stl_x, stl_y)];
         struct ShadowCache *shdc = &lish.shadow_cache[lgt->shadow_index];
+        // (a light of radius 16 or more makes the cache position leave the 32 x 32 tables: nothing is lit from outside them;
+        // found by AddressSanitizer in the AI-seat ftests)
+        if ( (cache_y < 0) || (cache_y >= 32) )
+        {
+          lgt->mappos = original_mappos;
+          return lighting_tables_idx;
+        }
         lighting_tables_idx = shdc->lighting_bitmask[cache_y];
         if ( y_end >= y_start )
         {
@@ -1560,7 +1567,7 @@ static char light_render_light(struct Light* lgt)
             MapCoord x = x_start;
             for (int64_t i = cache_x; x <= x_end; i++)
             {
-              if ( (light_bitmask[i] & lighting_tables_idx) != 0 )
+              if ( (i >= 0) && (i < 32) && ((light_bitmask[i] & lighting_tables_idx) != 0) )
               {
                 struct Coord3d pos;
                 pos.x.val = x;

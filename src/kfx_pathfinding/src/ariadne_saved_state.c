@@ -8,6 +8,7 @@
  */
 /******************************************************************************/
 #include "pre_inc.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include "ariadne_saved_state.h"
 
@@ -16,6 +17,7 @@
 #include "ariadne.h"
 #include "kfx_pathfinding_state.h"
 #include "ariadne_tringls.h"
+#include "ariadne_state_check.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -75,6 +77,52 @@ void ariadne_saved_state_read(const void *buf)
     ariadne_update_restored_state_ready();
     set_nav_rule_default();
 }
+/* The checks over the live mesh: the pathfinding state's own numbers, then each module's tables. */
+static int check_live(struct StateCheck *c)
+{
+    ARI_RANGE(c, kfx_pathfinding_state.navigation_map_size_x, 0, MAX_SUBTILES_X, "ariadne.navigation_map_size_x", 0);
+    ARI_RANGE(c, kfx_pathfinding_state.navigation_map_size_y, 0, MAX_SUBTILES_Y, "ariadne.navigation_map_size_y", 0);
+    ARI_RANGE(c, kfx_pathfinding_state.map_subtiles_x, 0, MAX_SUBTILES_X, "ariadne.map_subtiles_x", 0);
+    ARI_RANGE(c, kfx_pathfinding_state.map_subtiles_y, 0, MAX_SUBTILES_Y, "ariadne.map_subtiles_y", 0);
+    return ariadne_tringls_check_saved_state(c) && ariadne_points_check_saved_state(c)
+        && ariadne_regions_check_saved_state(c) && ariadne_findcache_check_saved_state(c);
+}
+
+int ariadne_saved_state_check(const void *buf, char *why, size_t why_size)
+{
+    const size_t size = ariadne_saved_state_size();
+    unsigned char *backup = (unsigned char *)malloc(size);
+    if (backup == NULL)
+    {
+        if ((why != NULL) && (why_size > 0))
+            snprintf(why, why_size, "no memory to check the navigation mesh");
+        return 0;
+    }
+    // Try it on the live tables, then put the live mesh back exactly as it was (no post-read hooks: nothing is
+    // declared ready), whatever the verdict.
+    struct WriteCursor w = {backup};
+    visit_all(visit_write, &w);
+    struct ReadCursor r = {(const unsigned char *)buf};
+    visit_all(visit_read, &r);
+    if ((why != NULL) && (why_size > 0))
+        why[0] = '\0';
+    struct StateCheck chk = { why, why_size, NULL, 0 };
+    const int ok = check_live(&chk);
+    struct ReadCursor back = {backup};
+    visit_all(visit_read, &back);
+    free(backup);
+    return ok;
+}
+
+int64_t ariadne_live_state_survey(char *report, size_t report_size)
+{
+    struct StateSurveyEntry entries[STATE_SURVEY_MAX];
+    memset(entries, 0, sizeof(entries));
+    struct StateCheck chk = { NULL, 0, entries, 0 };
+    check_live(&chk);
+    return state_check_report(&chk, report, report_size);
+}
+
 /* What a level's mesh starts from: the saved state's parts as start-up left them, restored at a level's start
  * before the level builds its mesh, so no part of the previous level's mesh is left (refactor pass 5, S12; P5-F22
  * and P5-F28 were two such parts). Only the data: the level's own set-up follows. */

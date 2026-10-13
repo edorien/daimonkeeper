@@ -18,6 +18,7 @@
  */
 /******************************************************************************/
 #include "pre_inc.h"
+#include <stdint.h>
 #include "bflib_math.h"
 
 #include "bflib_basics.h"
@@ -742,9 +743,15 @@ int64_t LbMathOperation(unsigned char opkind, int64_t first_operand, int64_t sec
       return first_operand - second_operand;
     case MOp_MULTIPLY:
       return first_operand * second_operand;
+    // A script's condition names the operation and its operands, and a saved game can hold any of them: a zero
+    // divisor, and INT64_MIN / -1, trap on x86 instead of giving a result. Neither has a value, so they give 0.
     case MOp_DIVIDE:
+      if ((second_operand == 0) || ((second_operand == -1) && (first_operand == INT64_MIN)))
+        return 0;
       return first_operand / second_operand;
     case MOp_MODULO:
+      if ((second_operand == 0) || ((second_operand == -1) && (first_operand == INT64_MIN)))
+        return 0;
       return first_operand % second_operand;
     default:
       return first_operand;

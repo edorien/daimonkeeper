@@ -39,3 +39,31 @@ TEST_CASE("matchmaking is off by default and never targets upstream KeeperFX's s
     matchmaking_set_server("");
     CHECK_FALSE(matchmaking_enabled);
 }
+
+// The transfers matchmaking makes may only use https/wss, whatever URL ends up on a handle and whatever a server
+// answers: nothing here touches the network (an unsupported protocol is refused before any connection is tried).
+#include <curl/curl.h>
+
+TEST_CASE("a matchmaking handle refuses every protocol but https and wss", "[kfx_net][net_matchmaking]") {
+    for (const char *url : { "http://127.0.0.1:9/ip", "ftp://127.0.0.1:9/x", "file:///etc/hostname",
+                             "gopher://127.0.0.1:9/", "ws://127.0.0.1:9/ws", "dict://127.0.0.1:9/d:x" }) {
+        INFO(url);
+        CURL *handle = curl_easy_init();
+        REQUIRE(handle != nullptr);
+        REQUIRE(matchmaking_secure_handle(handle));
+        curl_easy_setopt(handle, CURLOPT_URL, url);
+        curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT_MS, 300L);
+        curl_easy_setopt(handle, CURLOPT_NOSIGNAL, 1L);
+        CHECK(curl_easy_perform(handle) == CURLE_UNSUPPORTED_PROTOCOL);
+        curl_easy_cleanup(handle);
+    }
+    // https is allowed: the transfer gets as far as trying to connect (to a port nobody listens on) and fails there.
+    CURL *handle = curl_easy_init();
+    REQUIRE(handle != nullptr);
+    REQUIRE(matchmaking_secure_handle(handle));
+    curl_easy_setopt(handle, CURLOPT_URL, "https://127.0.0.1:9/ip");
+    curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT_MS, 300L);
+    curl_easy_setopt(handle, CURLOPT_NOSIGNAL, 1L);
+    CHECK(curl_easy_perform(handle) != CURLE_UNSUPPORTED_PROTOCOL);
+    curl_easy_cleanup(handle);
+}

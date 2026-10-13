@@ -34,6 +34,7 @@
 #include "config_translation.h"
 #include "kfx_config_state.h"
 #include "config_funcnames.h"
+#include "config_state_validate.h"
 #include "ports/render_port.h"
 #include "post_inc.h"
 
@@ -313,6 +314,9 @@ void check_and_auto_fix_stats(void)
         }
     }
     SYNCDBG(9,"Finished");
+    // Last, for every table the models above do not cover: a value that selects a function or an entry of a table
+    // by number must name one that exists (a configuration file or a script can set any number).
+    config_state_repair(&kfx_config_state);
 }
 
 

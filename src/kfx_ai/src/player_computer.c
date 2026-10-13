@@ -83,6 +83,12 @@ GoldAmount get_computer_money_less_cost(const struct Computer2 *comp)
 
 int64_t set_autopilot_type(PlayerNumber plyr_idx, int64_t aptype)
 {
+    // aptype comes from a packet (PckA_SetComputerKind): 1 .. COMPUTER_ASSIST_TYPES_COUNT
+    if ((aptype < 1) || (aptype > COMPUTER_ASSIST_TYPES_COUNT))
+    {
+        ERRORLOG("Computer assist type %" PRId64 " is out of range", (int64_t)aptype);
+        return 0;
+    }
     setup_a_computer_player(plyr_idx, comp_player_conf.computer_assist_types[aptype-1]);
     return 1;
 }

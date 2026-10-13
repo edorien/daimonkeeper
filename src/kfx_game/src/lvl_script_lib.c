@@ -264,6 +264,11 @@ TbBool script_new_creature_type(const char *name)
 
 TbBool script_copy_creature_type(ThingModel source_id, const char* name)
 {
+    if ((source_id < 0) || (source_id >= kfx_config_state.conf.crtr_conf.model_count))
+    {
+        SCRPTERRLOG("Cannot copy creature type %" PRId64 ": there is no such model", (int64_t)source_id);
+        return false;
+    }
     if (kfx_config_state.conf.crtr_conf.model_count >= CREATURE_TYPES_MAX)
     {
         SCRPTERRLOG("Cannot increase creature type count for creature type '%s', already at maximum %" PRId64 " types.", name, (int64_t)(CREATURE_TYPES_MAX));

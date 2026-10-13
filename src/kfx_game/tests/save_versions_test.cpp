@@ -23,7 +23,9 @@
 #include "kfx_game_state.h"
 #include "kfx_config/tests/scoped_port_override.h"
 #include "ports/ui_port.h"
+#include "ariadne_tringls.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -31,6 +33,8 @@
 #include <vector>
 
 #include <unistd.h>
+
+extern "C" int64_t free_Triangles; // (ariadne_tringls.c: not in a header)
 
 namespace {
 // One file per process: ctest runs each test case as its own process, in
@@ -69,6 +73,9 @@ struct SaveFixture {
     ScopedPortOverride<UiPort> port{ui_port, set_ui_port};
     struct CatalogueEntry centry;
     SaveFixture() {
+        // an empty navigation mesh as a level starts one: this process's own globals have the free-triangle list at
+        // 0, pointing at a triangle that links to itself, which the mesh check refuses (ariadne_saved_state_check)
+        free_Triangles = -1;
         port->save_frontend_state = &fake_save_frontend_state;
         port->get_frontend_state_size = &fake_frontend_state_size;
         std::memset(&centry, 0, sizeof(centry));
@@ -133,6 +140,60 @@ TEST_CASE_METHOD(SaveFixture, "a state chunk with another version is refused", "
 TEST_CASE_METHOD(SaveFixture, "an unversioned (pre-S09, version 0) save is refused", "[kfx_game][save_versions]") {
     patch_header(SGC_KfxGameState, &FileChunkHeader::ver, 0);
     CHECK_FALSE(validate());
+}
+
+TEST_CASE_METHOD(SaveFixture, "the script data chunk is versioned, and one of another version is refused whole", "[kfx_game][save_versions]") {
+    // security pass S03: version 0 kept functions as Lua bytecode, which is no longer loaded; such a save must be
+    // refused before any state is applied, not part-way through the load
+    const int64_t pos = chunk_offset(SGC_LuaData);
+    REQUIRE(pos >= 0);
+    std::FILE *f = std::fopen(kSavePath, "rb");
+    REQUIRE(f);
+    struct FileChunkHeader hdr;
+    std::fseek(f, (long)pos, SEEK_SET);
+    REQUIRE(std::fread(&hdr, sizeof(hdr), 1, f) == 1);
+    std::fclose(f);
+    CHECK(hdr.ver == KFX_LUA_DATA_VER);
+
+    patch_header(SGC_LuaData, &FileChunkHeader::ver, 0);
+    CHECK_FALSE(validate());
+    CHECK(std::string(last_save_refusal_reason()).find("script data") != std::string::npos);
+    patch_header(SGC_LuaData, &FileChunkHeader::ver, KFX_LUA_DATA_VER + 1);
+    CHECK_FALSE(validate());
+    patch_header(SGC_LuaData, &FileChunkHeader::ver, KFX_LUA_DATA_VER);
+    CHECK(validate());
+}
+
+TEST_CASE_METHOD(SaveFixture, "a save whose simulation state links outside the state is refused whole", "[kfx_game][save_versions][security]") {
+    // security pass S06: the state in a file is not trusted. Put a thing into the saved state whose neighbour on the
+    // map is far outside the thing array, and expect validate_save_chunks() to refuse the file before any load.
+    const int64_t chunk = chunk_offset(SGC_KfxSimState);
+    REQUIRE(chunk >= 0);
+    struct Thing thing;
+    std::memset(&thing, 0, sizeof(thing));
+    thing.alloc_flags = TAlF_Exists;
+    thing.index = 5;
+    thing.class_id = TCls_Creature;
+    thing.model = 1;
+    const int64_t at = chunk + (int64_t)sizeof(struct FileChunkHeader) + (int64_t)offsetof(struct KfxSimState, things_data) + 5 * (int64_t)sizeof(struct Thing);
+
+    auto write_thing = [&](int64_t next_on_mapblk) {
+        thing.next_on_mapblk = next_on_mapblk;
+        std::FILE *f = std::fopen(kSavePath, "r+b");
+        REQUIRE(f);
+        std::fseek(f, (long)at, SEEK_SET);
+        REQUIRE(std::fwrite(&thing, sizeof(thing), 1, f) == 1);
+        std::fclose(f);
+    };
+
+    write_thing(0);
+    CHECK(validate());                      // a real thing, linked nowhere: fine
+    write_thing(1 << 30);
+    CHECK_FALSE(validate());
+    CHECK(std::string(last_save_refusal_reason()).find("simulation state is invalid") != std::string::npos);
+    CHECK(std::string(last_save_refusal_reason()).find("next_on_mapblk") != std::string::npos);
+    write_thing(0);
+    CHECK(validate());
 }
 
 TEST_CASE_METHOD(SaveFixture, "a state chunk of another size is refused", "[kfx_game][save_versions]") {

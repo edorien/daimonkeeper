@@ -389,6 +389,7 @@ const struct NamedCommand magic_cost_formula_commands[] = {
   {"none",       Cost_Default},
   {"digger",     Cost_Digger},
   {"dwarf",      Cost_Dwarf},
+  {NULL,         0},
 };
 
 const struct NamedCommand magic_use_func_commands[] = {

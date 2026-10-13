@@ -72,6 +72,7 @@
 #include "ports/audio_port.h"
 #include "ports/game_port.h"
 #include "list_walk.h"
+#include "config_funcnames.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -109,6 +110,8 @@ static Thing_Class_Func const object_update_functions[] = {
     object_update_power_sight,
     object_update_power_lightning,
 };
+_Static_assert(sizeof(object_update_functions) / sizeof(object_update_functions[0]) >= OBJECT_UPDATE_FUNC_SLOTS,
+    "object_update_functions must have a slot for every index in object_update_functions_desc[] (config_objects.c)");
 
 const int64_t lightning_spangles[] =   {TngEffElm_RedTwinkle3, TngEffElm_BlueTwinke2, TngEffElm_GreenTwinkle2, TngEffElm_YellowTwinkle2, TngEffElm_WhiteTwinkle2, TngEffElm_None,TngEffElm_PurpleTwinkle2,TngEffElm_BlackTwinkle2,TngEffElm_OrangeTwinkle2,};
 const int64_t twinkle_eff_elements[] = {TngEffElm_RedTwinkle,  TngEffElm_BlueTwinkle, TngEffElm_GreenTwinkle,  TngEffElm_YellowTwinkle,  TngEffElm_WhiteTwinkle,  TngEffElm_None,TngEffElm_PurpleTwinkle, TngEffElm_BlackTwinkle, TngEffElm_OrangeTwinkle, };
@@ -116,12 +119,17 @@ const int64_t twinkle_eff_elements[] = {TngEffElm_RedTwinkle,  TngEffElm_BlueTwi
 const int64_t gold_hoard_objects[] = {ObjMdl_GoldHoard1, ObjMdl_GoldHoard2, ObjMdl_GoldHoard3, ObjMdl_GoldHoard4, ObjMdl_GoldHoard5};
 const int64_t food_grow_objects[] = {ObjMdl_ChickenStb, ObjMdl_ChickenWob, ObjMdl_ChickenCrk};
 
-struct CallToArmsGraphics call_to_arms_graphics[10];
+// One per player colour: the 9 players, the neutral one and the unowned one -- config_spritecolors.c fills 9 + 2 of them
+// (found by AddressSanitizer: this array had 10 entries and the 11th write went past it).
+#define CALL_TO_ARMS_GRAPHICS_COUNT 11
+struct CallToArmsGraphics call_to_arms_graphics[CALL_TO_ARMS_GRAPHICS_COUNT];
 
 // Registered with ports/sim_port.h's SimPort; config_spritecolors.c
 // populates this array from animationIds.cfg at config-load time.
 void set_call_to_arms_graphics(PlayerNumber plyr_idx, int64_t birth_anim_idx, int64_t alive_anim_idx, int64_t leave_anim_idx)
 {
+    if ((plyr_idx < 0) || (plyr_idx >= CALL_TO_ARMS_GRAPHICS_COUNT))
+        return;
     call_to_arms_graphics[plyr_idx].birth_anim_idx = birth_anim_idx;
     call_to_arms_graphics[plyr_idx].alive_anim_idx = alive_anim_idx;
     call_to_arms_graphics[plyr_idx].leave_anim_idx = leave_anim_idx;

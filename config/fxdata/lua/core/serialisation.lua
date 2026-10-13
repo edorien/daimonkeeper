@@ -1,27 +1,47 @@
 -- serialization.lua
 -- Internal serialization logic for Lua<->C data.
 -- Used by the engine to serialize complex Lua state; not intended for API users.
+--
+-- What a saved game's script data can hold (security pass S03): tables, strings, numbers, booleans, objects of the
+-- classes registered below, built-in functions the game registered by name (seal()), and functions as *references*
+-- (core/function_source.lua) -- never bytecode. Loading never executes anything but the loaded game's own scripts.
 
 local binser = require 'external.binser'
-local base64 = require 'external.base64'
+local function_source = require 'core.function_source'
 require 'classes.Pos3d'
-local serialization_version = 2
+local serialization_version = 3
+-- Data of these versions can be read: 2 was the version before functions became references; it is read the same way,
+-- except that a function kept as bytecode (which it could hold) is refused.
+local readable_versions = { [2] = true, [3] = true }
 
+-- Captured here: the debug library is removed from the globals before campaign, level and mod scripts run.
+local debug = debug
 local registry = debug.getregistry()
-for _, name in ipairs({ "Player", "Thing", "Slab", "Camera", "Room", "Map", "Pos3d" }) do
+local engine_classes = { "Player", "Thing", "Slab", "Camera", "Room", "Map", "Pos3d" }
+for _, name in ipairs(engine_classes) do
     binser.registerResource(registry[name], "metatable:" .. name)
 end
 
+-- Built-in (C) functions that a saved game may refer to by name: the game's own API, and the harmless parts of the
+-- standard library. Everything that loads code, changes how tables or the environment behave, or reaches outside
+-- the game is left out, so a save cannot put such a function where a script will call it.
+local denied_globals = {
+    Game = true, _G = true, package = true, os = true, io = true, debug = true, ffi = true, jit = true,
+    load = true, loadstring = true, loadfile = true, dofile = true, require = true, module = true,
+    setfenv = true, getfenv = true, setmetatable = true, getmetatable = true, rawset = true,
+    newproxy = true, collectgarbage = true, __kfx_chunk_text = true, __kfx_chunk_names = true,
+}
+
 local registered_cfunctions = {}
 local scanned_tables = {}
-local function register_cfunctions(source, prefix)
+local function register_cfunctions(source, prefix, skip)
     if scanned_tables[source] then
         return
     end
     scanned_tables[source] = true
     local names = {}
     for name in pairs(source) do
-        if type(name) == "string" then
+        if type(name) == "string" and not (skip and skip[name]) then
             names[#names + 1] = name
         end
     end
@@ -39,39 +59,35 @@ local function register_cfunctions(source, prefix)
         end
     end
 end
-register_cfunctions(_G, "global:")
-register_cfunctions(registry, "registry:")
 
-local function restore_legacy_data(value, seen)
-    if type(value) == "table" then
-        if seen[value] then
-            return seen[value]
-        end
-        if value.__serialized_function then
-            local dumped = base64.decode(value.__serialized_function)
-            local func, err = load(dumped, nil, "b", _G)
-            assert(func, "Failed to load function: " .. tostring(err))
-            seen[value] = func
-            return func
-        end
+local M = {}
+local sealed = false
 
-        local out = {}
-        seen[value] = out
-        for k, v in pairs(value) do
-            out[restore_legacy_data(k, seen)] = restore_legacy_data(v, seen)
-        end
-
-        if out.__class == "Player" then
-            setmetatable(out, registry.Player)
-        elseif out.__class == "Thing" then
-            setmetatable(out, registry.Thing)
-        elseif out.__class == "Slab" then
-            setmetatable(out, registry.Slab)
-        end
-        return out
+--- Fixes which built-in functions a saved game may refer to. Called once by the game, after its own scripts have
+--- loaded and the library lock-down (lua_sandbox.c) has removed what untrusted scripts must not reach, and before any
+--- campaign, level or mod script runs -- so the set is the same when a game is saved and when it is loaded.
+function M.seal()
+    if sealed then
+        return
     end
-    return value
+    sealed = true
+    register_cfunctions(_G, "global:", denied_globals)
+    for _, name in ipairs(engine_classes) do
+        if registry[name] then
+            register_cfunctions(registry[name], "registry:" .. name .. ".")
+        end
+    end
 end
+
+binser.setFunctionCodec(
+    function(f)
+        local kind, what = function_source.describe(f)
+        if not kind then
+            error("a function in the saved data can't be saved: " .. tostring(what), 0)
+        end
+        return kind, what
+    end,
+    function_source.resolve)
 
 function GetSerializedData()
     local ok, result = pcall(function()
@@ -86,14 +102,21 @@ end
 
 function SetSerializedData(serialized_data)
     local ok, result = pcall(function()
+        function_source.begin_restore()
         local values = binser.deserialize(serialized_data)
-        if values[2] == serialization_version then
-            return values[1]
+        if not readable_versions[values[2]] then
+            error("saved script data has version " .. tostring(values[2]) .. ", which this game does not read", 0)
         end
-        return restore_legacy_data(values[1], {})
+        if type(values[1]) ~= "table" then
+            error("saved script data holds no game table", 0)
+        end
+        return values[1]
     end)
+    function_source.end_restore()
     if not ok then
         error("binser load failed: " .. result)
     end
     Game = result
 end
+
+return M

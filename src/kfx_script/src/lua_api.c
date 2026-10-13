@@ -497,7 +497,7 @@ static int lua_Add_to_party(lua_State *L)
 static int lua_Delete_from_party(lua_State *L)
 {
     int64_t party_id          = luaL_checkParty(L,  1);
-    const char* creature   = lua_tostring(L,  2);
+    const char* creature   = luaL_checkstring(L,  2);
     int64_t experience  = lua_tointeger(L, 3);
 
     int64_t creature_id = get_rid(creature_desc, creature);
@@ -612,7 +612,7 @@ static int lua_Display_information_with_pos(lua_State *L)
 
 static int lua_Quick_objective(lua_State *L)
 {
-    const char *msg_text = lua_tostring(L, 1);
+    const char *msg_text = luaL_checkstring(L, 1);
     TbMapLocation target = luaL_optLocation(L, 2);
 
     for (PlayerNumber plyr_idx = 0; plyr_idx < PLAYERS_COUNT; plyr_idx++)
@@ -625,7 +625,7 @@ static int lua_Quick_objective(lua_State *L)
 static int lua_Quick_information(lua_State *L)
 {
     int64_t slot = luaL_checkIntMinMax(L, 1, 0,QUICK_MESSAGES_COUNT-1);
-    const char *msg_text = lua_tostring(L, 2);
+    const char *msg_text = luaL_checkstring(L, 2);
     TbMapLocation target = luaL_optLocation(L, 3);
     snprintf(kfx_sim_state.quick_messages[slot], MESSAGE_TEXT_LEN, "%s", msg_text);
 
@@ -638,7 +638,7 @@ static int lua_Quick_information(lua_State *L)
 
 static int lua_Quick_objective_with_pos(lua_State *L)
 {
-    const char *msg_text = lua_tostring(L, 1);
+    const char *msg_text = luaL_checkstring(L, 1);
     MapSubtlCoord stl_x = luaL_checkstl_x(L, 2);
     MapSubtlCoord stl_y = luaL_checkstl_y(L, 3);
 
@@ -652,7 +652,7 @@ static int lua_Quick_objective_with_pos(lua_State *L)
 static int lua_Quick_information_with_pos(lua_State *L)
 {
     int64_t slot = luaL_checkIntMinMax(L, 1, 0,QUICK_MESSAGES_COUNT-1);
-    const char *msg_text = lua_tostring(L, 2);
+    const char *msg_text = luaL_checkstring(L, 2);
     MapSubtlCoord stl_x = luaL_checkstl_x(L, 3);
     MapSubtlCoord stl_y = luaL_checkstl_y(L, 4);
     snprintf(kfx_sim_state.quick_messages[slot], MESSAGE_TEXT_LEN, "%s", msg_text);
@@ -708,7 +708,7 @@ static int lua_Display_player_information_with_pos(lua_State* L)
 
 static int lua_Quick_player_objective(lua_State* L)
 {
-    const char* msg_text = lua_tostring(L, 1);
+    const char* msg_text = luaL_checkstring(L, 1);
     PlayerNumber plyr_idx = luaL_checkPlayerSingle(L, 2);
     TbMapLocation target = luaL_optLocation(L, 3);
 
@@ -720,7 +720,7 @@ static int lua_Quick_player_information(lua_State* L)
 {
     int64_t slot = luaL_checkIntMinMax(L, 1, 0, QUICK_MESSAGES_COUNT - 1);
     PlayerNumber plyr_idx = luaL_checkPlayerSingle(L, 2);
-    const char* msg_text = lua_tostring(L, 3);
+    const char* msg_text = luaL_checkstring(L, 3);
     TbMapLocation target = luaL_optLocation(L, 4);
     snprintf(kfx_sim_state.quick_messages[slot], MESSAGE_TEXT_LEN, "%s", msg_text);
 
@@ -730,7 +730,7 @@ static int lua_Quick_player_information(lua_State* L)
 
 static int lua_Quick_player_objective_with_pos(lua_State* L)
 {
-    const char* msg_text = lua_tostring(L, 1);
+    const char* msg_text = luaL_checkstring(L, 1);
     PlayerNumber plyr_idx = luaL_checkPlayerSingle(L, 2);
     MapSubtlCoord stl_x = luaL_checkstl_x(L, 3);
     MapSubtlCoord stl_y = luaL_checkstl_y(L, 4);
@@ -743,7 +743,7 @@ static int lua_Quick_player_information_with_pos(lua_State* L)
 {
     int64_t slot = luaL_checkIntMinMax(L, 1, 0, QUICK_MESSAGES_COUNT - 1);
     PlayerNumber plyr_idx = luaL_checkPlayerSingle(L, 2);
-    const char* msg_text = lua_tostring(L, 3);
+    const char* msg_text = luaL_checkstring(L, 3);
     MapSubtlCoord stl_x = luaL_checkstl_x(L, 4);
     MapSubtlCoord stl_y = luaL_checkstl_y(L, 5);
     snprintf(kfx_sim_state.quick_messages[slot], MESSAGE_TEXT_LEN, "%s", msg_text);
@@ -798,7 +798,7 @@ static int lua_get_game_timestamp(lua_State *L)
 
 static int lua_Quick_message(lua_State *L)
 {
-    const char *msg = lua_tostring(L, 1);
+    const char *msg = luaL_checkstring(L, 1);
     int64_t id;
     char type;
     luaL_checkMessageIcon(L, 2, &type, &id);
@@ -839,7 +839,7 @@ static int lua_Heart_lost_objective(lua_State *L)
 static int lua_Heart_lost_quick_objective(lua_State *L)
 {
     int64_t slot = luaL_checkIntMinMax(L, 1, 0,QUICK_MESSAGES_COUNT-1);
-    const char *msg = lua_tostring(L, 2);
+    const char *msg = luaL_checkstring(L, 2);
     TbMapLocation target = luaL_checkLocation(L, 3);
 
     snprintf(kfx_sim_state.quick_messages[slot], MESSAGE_TEXT_LEN, "%s", msg);
@@ -997,8 +997,8 @@ static int lua_Reveal_map_rect(lua_State *L)
     struct PlayerRange player_range = luaL_checkPlayerRange(L, 1);
     MapSubtlCoord stl_x    = luaL_checkstl_x(L, 2);
     MapSubtlCoord stl_y    = luaL_checkstl_y(L, 3);
-    MapSubtlDelta width    = lua_tointeger(L,4);
-    MapSubtlDelta height   = lua_tointeger(L,5);
+    MapSubtlDelta width    = luaL_checkIntMinMax(L, 4, 0, 1024);
+    MapSubtlDelta height   = luaL_checkIntMinMax(L, 5, 0, 1024);
 
     for (PlayerNumber i = player_range.start_idx; i < player_range.end_idx; i++)
     {
@@ -1011,8 +1011,8 @@ static int lua_Conceal_map_rect(lua_State *L)
     struct PlayerRange player_range = luaL_checkPlayerRange(L, 1);
     MapSubtlCoord stl_x    = luaL_checkstl_x(L, 2);
     MapSubtlCoord stl_y    = luaL_checkstl_y(L, 3);
-    MapSubtlDelta width    = lua_tointeger(L,4);
-    MapSubtlDelta height   = lua_tointeger(L,5);
+    MapSubtlDelta width    = luaL_checkIntMinMax(L, 4, 0, 1024);
+    MapSubtlDelta height   = luaL_checkIntMinMax(L, 5, 0, 1024);
     TbBool conceal_all     = lua_toboolean(L,6);
 
     for (PlayerNumber i = player_range.start_idx; i < player_range.end_idx; i++)
@@ -1687,7 +1687,7 @@ static int lua_Make_unsafe(lua_State *L)
 
 static int lua_Set_box_tooltip(lua_State *L)
 {
-    int64_t box_id = luaL_checkinteger(L, 1);
+    int64_t box_id = luaL_checkIntMinMax(L, 1, 0, CUSTOM_BOX_COUNT - 1);
     const char* tooltip = luaL_checkstring(L, 2);
 
     snprintf(kfx_sim_state.box_tooltip[box_id], MESSAGE_TEXT_LEN, "%s", tooltip);
@@ -1695,7 +1695,7 @@ static int lua_Set_box_tooltip(lua_State *L)
 }
 static int lua_Set_box_tooltip_id(lua_State *L)
 {
-    int64_t box_id = luaL_checkinteger(L, 1);
+    int64_t box_id = luaL_checkIntMinMax(L, 1, 0, CUSTOM_BOX_COUNT - 1);
     int64_t tooltip_id = luaL_checkinteger(L, 2);
 
     snprintf(kfx_sim_state.box_tooltip[box_id], MESSAGE_TEXT_LEN, "%s", get_string(tooltip_id));
@@ -2091,7 +2091,7 @@ static int lua_get_creature_by_criterion(lua_State *L)
 
 static int lua_print(lua_State *L)
 {
-    //const char* msg = lua_tostring(L, 1);
+    //const char* msg = luaL_checkstring(L, 1);
     //JUSTLOG("%s",msg);
 
     int64_t nargs = lua_gettop(L);
@@ -2140,6 +2140,12 @@ static int lua_get_things_of_class(lua_State *L)
     ThingClass class_id = luaL_checkNamedCommand(L,1,class_commands);
 
     const struct StructureList* slist = get_list_for_thing_class(class_id);
+    // (a class with no list of its own, such as "any": nothing to walk)
+    if (slist == NULL)
+    {
+        lua_newtable(L);
+        return 1;
+    }
     int64_t k = 0;
 
     lua_newtable(L);
@@ -2281,7 +2287,7 @@ static int lua_get_slab(lua_State *L)
 
 static int lua_run_dkscript_command(lua_State *L)
 {
-    const char* map_command_const = lua_tostring(L, 1);
+    const char* map_command_const = luaL_checkstring(L, 1);
     //lua strings are constant, script_scan_line doesn't like const, so copy it to a temp buffer
     char map_command[256];
     strncpy(map_command, map_command_const, sizeof(map_command) - 1);

@@ -131,7 +131,8 @@ uint64_t LbSystemClockMilliseconds(void);
 #define JUSTMSG(format, ...) LbJustLog(format "\n", ##__VA_ARGS__)
 #define SCRPTMSG(format, ...) LbScriptLog(format "\n", ##__VA_ARGS__)
 #define NETMSG(format, ...) LbNetLog(format "\n", ##__VA_ARGS__)
-#define NOMSG(format, ...)
+// (No NOMSG here: nothing used it, and NOMSG is a Windows header switch -- defined before <windows.h> it removes the
+// MSG types, which breaks any file whose includes reach <windows.h> after this header.)
 
 // Debug function-like macros - for code logging (with function name)
 #define ERRORLOG(format, ...) LbErrorLog("[%" PRIu64 "] %s: " format "\n", get_gameturn(), __func__ , ##__VA_ARGS__)

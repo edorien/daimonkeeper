@@ -189,12 +189,20 @@ void slabs_fill_iterate_from_slab(MapSlabCoord src_slab_x, MapSlabCoord src_slab
 {
     int64_t max_slb_dim_x = (kfx_sim_state.map_subtiles_x / STL_PER_SLB);
     int64_t max_slb_dim_y = (kfx_sim_state.map_subtiles_y / STL_PER_SLB);
-    MapSlabCoord* stack_x = malloc(max_slb_dim_x * max_slb_dim_y);
-    MapSlabCoord* stack_y = malloc(max_slb_dim_x * max_slb_dim_y);
-    char* visited = malloc(max_slb_dim_x * max_slb_dim_y);
+    if ((src_slab_x < 0) || (src_slab_x >= max_slb_dim_x) || (src_slab_y < 0) || (src_slab_y >= max_slb_dim_y))
+        return;
+    // A slab is marked when it is taken off the stack, so it can be put on it up to four times first (once by each
+    // neighbour taken before it): room for four per slab and the first. (It was allocated one *byte* per slab for 8-byte
+    // coordinates: a script's slab fill overflowed it -- found by the Lua API fuzzer. The order slabs are visited in is
+    // unchanged, since the result of a fill can depend on it.)
+    const int64_t cells = max_slb_dim_x * max_slb_dim_y;
+    const int64_t stack_size = 4 * cells + 1;
+    MapSlabCoord* stack_x = malloc(stack_size * sizeof(MapSlabCoord));
+    MapSlabCoord* stack_y = malloc(stack_size * sizeof(MapSlabCoord));
+    char* visited = malloc(cells);
     if (stack_x != NULL && stack_y != NULL && visited != NULL)
     {
-        memset(visited, 0, max_slb_dim_x * max_slb_dim_y);
+        memset(visited, 0, cells);
         int64_t stack_head = 0;
         stack_x[0] = src_slab_x;
         stack_y[0] = src_slab_y;

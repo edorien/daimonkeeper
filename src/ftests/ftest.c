@@ -24,6 +24,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "state_validate.h"
+#include "game_state_validate.h"
+#include "config_state_validate.h"
+#include "kfx_game_state.h"
+#include "ariadne_saved_state.h"
+#include "kfx_sim_state.h"
 #include "post_inc.h"
 
 
@@ -461,6 +467,78 @@ TbBool ftest_init()
     return true;
 }
 
+
+/**
+ * Security pass S06: the simulation state of every ftest, throughout its run, must pass sim_state_validate() -- the
+ * check a save or a resync has to pass before it replaces the live state. A real level is the best test of its
+ * bounds (a false refusal here would be a refused save in the game). Every 250 turns and when the test is done;
+ * KFX_FTEST_NO_STATE_VALIDATE=1 turns it off.
+ */
+static int s_state_validation_disabled = -1;
+
+void ftest_disable_state_validation(void)
+{
+    s_state_validation_disabled = 1;
+}
+
+static void ftest_validate_state(const char *when)
+{
+    static GameTurn last_turn = (GameTurn)-1;
+    if (s_state_validation_disabled < 0)
+        s_state_validation_disabled = (getenv("KFX_FTEST_NO_STATE_VALIDATE") != NULL);
+    if (s_state_validation_disabled)
+        return;
+    if (strcmp(when, "periodic") == 0)
+    {
+        const GameTurn turn = get_gameturn();
+        if ((turn == 0) || (turn % 250 != 0) || (turn == last_turn))
+            return;
+        last_turn = turn;
+    }
+    if (getenv("KFX_FTEST_STATE_SURVEY") != NULL)
+    {
+        // calibration: every kind of violation in one go, not a failure
+        static char report[8192];
+        if (sim_state_survey(&kfx_sim_state, report, sizeof(report)) > 0)
+            FTESTLOG("STATE-SURVEY (%s, turn %" PRIu64 "):\n%s", when, (uint64_t)get_gameturn(), report);
+        if (game_state_survey(&kfx_game_state, report, sizeof(report)) > 0)
+            FTESTLOG("STATE-SURVEY game state (%s, turn %" PRIu64 "):\n%s", when, (uint64_t)get_gameturn(), report);
+        if (config_state_survey(&kfx_config_state, report, sizeof(report)) > 0)
+            FTESTLOG("STATE-SURVEY configuration (%s, turn %" PRIu64 "):\n%s", when, (uint64_t)get_gameturn(), report);
+        if (ariadne_live_state_survey(report, sizeof(report)) > 0)
+            FTESTLOG("STATE-SURVEY navigation mesh (%s, turn %" PRIu64 "):\n%s", when, (uint64_t)get_gameturn(), report);
+        return;
+    }
+    char why[256];
+    if (!sim_state_validate(&kfx_sim_state, why, sizeof(why)))
+    {
+        FTEST_FAIL_TEST("simulation state invalid (%s, turn %" PRIu64 "): %s", when, (uint64_t)get_gameturn(), why);
+    }
+    else if (!game_state_validate(&kfx_game_state, why, sizeof(why)))
+    {
+        FTEST_FAIL_TEST("game state invalid (%s, turn %" PRIu64 "): %s", when, (uint64_t)get_gameturn(), why);
+    }
+    else if (!config_state_validate(&kfx_config_state, why, sizeof(why)))
+    {
+        FTEST_FAIL_TEST("configuration invalid (%s, turn %" PRIu64 "): %s", when, (uint64_t)get_gameturn(), why);
+    }
+    else
+    {
+        // the navigation mesh: write the live mesh out and check that copy as a save or a resync would carry it
+        const size_t mesh_size = ariadne_saved_state_size();
+        unsigned char *mesh = (unsigned char *)malloc(mesh_size);
+        if (mesh != NULL)
+        {
+            ariadne_saved_state_write(mesh);
+            if (!ariadne_saved_state_check(mesh, why, sizeof(why)))
+            {
+                FTEST_FAIL_TEST("navigation mesh invalid (%s, turn %" PRIu64 "): %s", when, (uint64_t)get_gameturn(), why);
+            }
+            free(mesh);
+        }
+    }
+}
+
 FTestFrameworkState ftest_update(FTestFrameworkState* const out_prev_state)
 {
     struct ftest_donottouch__variables* const vars = &ftest_donottouch__vars;
@@ -555,6 +633,8 @@ FTestFrameworkState ftest_update(FTestFrameworkState* const out_prev_state)
         }
 
         const uint64_t ftest_actions_length = sizeof(vars->actions_func_list) / sizeof(vars->actions_func_list[0]);
+        if(!setup_already_failed && (vars->current_action < ftest_actions_length))
+            ftest_validate_state("periodic");
         if(!setup_already_failed && vars->current_action < ftest_actions_length)
         {
             //get next valid test action
@@ -607,6 +687,11 @@ FTestFrameworkState ftest_update(FTestFrameworkState* const out_prev_state)
 
         TbBool test_failed = flag_is_set(start_params.functest_flags, FTF_TestFailed);
         TbBool is_done_actions = vars->current_action >= ftest_actions_length || test_failed; // actions completed, OR test failed
+        if(is_done_actions && !test_failed && flag_is_set(start_params.functest_flags, FTF_LevelLoaded))
+        {
+            ftest_validate_state("end of test");
+            test_failed = flag_is_set(start_params.functest_flags, FTF_TestFailed);
+        }
         if(is_done_actions)
         {
             if(!test_failed)

@@ -156,15 +156,32 @@ void LbNetwork_SetServerPort(int64_t port)
     server_port = port;
 }
 
-TbError process_login_message(NetUserId source, char *read_pos)
+TbError process_login_message(NetUserId source, char *read_pos, const char *end_pos)
 {
     if (source == SERVER_ID) {
-        netstate.my_id = (NetUserId)read_pos[0];
+        // The host tells us which user we are. Both the number and the length of the message come from the host's
+        // machine: a negative or large number indexed netstate.users[] and wrote our version there (found by the
+        // network fuzzer), a short message was read past its end.
+        if ((end_pos - read_pos) < (ptrdiff_t)(1 + sizeof(struct GameVersionPacket))) {
+            WARNLOG("Login message from the host is too short");
+            return Lb_OK;
+        }
+        const NetUserId assigned = (NetUserId)(uint8_t)read_pos[0];
+        if (assigned >= (NetUserId)netstate.max_users) {
+            WARNLOG("The host assigned user ID %" PRId64 ", which is not a user of this game", (int64_t)assigned);
+            return Lb_OK;
+        }
+        netstate.my_id = assigned;
         LbNetLog("Login: assigned local user ID %d\n", (int)netstate.my_id);
         read_pos += 1;
         netstate.users[netstate.my_id].version = net_current_version;
-        const struct GameVersionPacket *server_version = (const struct GameVersionPacket *)read_pos;
-        netstate.users[SERVER_ID].version = *server_version;
+        struct GameVersionPacket server_version;
+        memcpy(&server_version, read_pos, sizeof(server_version));
+        netstate.users[SERVER_ID].version = server_version;
+        return Lb_OK;
+    }
+    if ((source < 0) || (source >= (NetUserId)netstate.max_users)) {
+        WARNLOG("Login message from a source that is not a user: %" PRId64, (int64_t)source);
         return Lb_OK;
     }
     struct NetUser *user = &netstate.users[source];
@@ -200,8 +217,12 @@ TbError process_login_message(NetUserId source, char *read_pos)
         netstate.sp->drop_user(source, NetJoin_Accepted);
         return Lb_OK;
     }
-    const struct GameVersionPacket *user_version = (const struct GameVersionPacket *)read_pos;
-    user->version = *user_version;
+    if ((end_pos - read_pos) < (ptrdiff_t)sizeof(user->version)) {
+        NETDBG(6, "Connected peer sent a login without its version");
+        netstate.sp->drop_user(source, NetJoin_Version);
+        return Lb_OK;
+    }
+    memcpy(&user->version, read_pos, sizeof(user->version));
     // Only this game's own version (upstream #5373 also lets KeeperFX's stable release join: not this game's).
     if (!net_versions_match(&user->version, &net_current_version)) {
         netstate.sp->drop_user(source, NetJoin_Version);
@@ -235,19 +256,29 @@ TbError process_user_update_message(NetUserId source, char *read_pos, const char
         WARNLOG("Unexpected USERUPDATE");
         return Lb_OK;
     }
+    if ((end_pos - read_pos) < 2) {
+        WARNLOG("USERUPDATE from the host is too short");
+        return Lb_OK;
+    }
     NetUserId user_id = (NetUserId)read_pos[0];
     read_pos += 1;
     if (user_id < 0 || user_id >= netstate.max_users) {
-        ERRORLOG("Critical error: Out of range user ID %" PRId64 " received from server, could be used for buffer overflow attack", (int64_t)(user_id));
-        abort();
+        ERRORLOG("Out of range user ID %" PRId64 " received from the host in USERUPDATE, ignored", (int64_t)(user_id));
+        return Lb_OK;
     }
     struct NetUser *user = &netstate.users[user_id];
+    // (the stage a user has reached is one of three; the message can say anything)
+    if (((uint8_t)read_pos[0] != USER_UNUSED) && ((uint8_t)read_pos[0] != USER_CONNECTED) && ((uint8_t)read_pos[0] != USER_LOGGEDIN)) {
+        WARNLOG("USERUPDATE from the host has a stage %d that does not exist", (int)(uint8_t)read_pos[0]);
+        return Lb_OK;
+    }
     user->progress = (enum NetUserProgress)read_pos[0];
     read_pos += 1;
     const char *name;
     if (!read_network_message_text(&read_pos, &name, sizeof(user->name) - 1)) {
-        ERRORLOG("Critical error: Unterminated name in USERUPDATE");
-        abort();
+        // (this was an abort(): the host could end the game of everyone who joined it with one short message)
+        ERRORLOG("Unterminated name in USERUPDATE, ignored");
+        return Lb_OK;
     }
     strcpy(user->name, name);
     if (read_pos + sizeof(user->version) <= end_pos) {
