@@ -6,6 +6,7 @@
 #include "PaletteEffect.h"
 #include "config_lenses.h"
 #include "player_data.h"
+#include "packet_data.h"
 #include "vidmode.h"
 #include "vidfade.h"
 #include "kfx_sim_state.h"
@@ -49,4 +50,41 @@ TEST_CASE("view_palette gives the palette each ViewPalette names", "[kfx_render]
     engine_palette = saved[0];
     blue_palette = saved[1];
     lightning_palette = saved[2];
+}
+
+// An External seat moves the local player to the seat's user (net_add_external_seat()); the palette restores that
+// name the player's user (lightning flash, possession leave, a load, the level start) must still reach the screen.
+TEST_CASE("PaletteSetUserPalette reaches the screen for the local player's seat user", "[kfx_render][palette_effect]") {
+    unsigned char game[PALETTE_SIZE] = {1}, other[PALETTE_SIZE] = {2};
+    unsigned char *const saved_engine = engine_palette;
+    const unsigned char saved_me = my_player_number;
+    engine_palette = game;
+    std::memset(&local_state, 0, sizeof(local_state));
+    local_state.main_palette = other;
+    my_player_number = 0;
+    struct PlayerInfo *me = get_player(0);
+    const unsigned char saved_alloc = me->allocflags;
+    const NetUserId saved_user = me->user_id;
+    me->allocflags |= PlaF_Allocated;
+
+    SECTION("the seat's user is the screen's") {
+        me->user_id = SOLO_HUMAN_ID + 1;
+        PaletteSetUserPalette(me->user_id, game);
+        CHECK(local_state.main_palette == game);
+    }
+    SECTION("this machine's user still is") {
+        me->user_id = SOLO_HUMAN_ID + 1;
+        PaletteSetUserPalette(get_local_user(), game);
+        CHECK(local_state.main_palette == game);
+    }
+    SECTION("another user's palette stays off the screen") {
+        me->user_id = SOLO_HUMAN_ID + 1;
+        PaletteSetUserPalette(SOLO_HUMAN_ID + 2, game);
+        CHECK(local_state.main_palette == other);
+    }
+
+    me->user_id = saved_user;
+    me->allocflags = saved_alloc;
+    my_player_number = saved_me;
+    engine_palette = saved_engine;
 }

@@ -413,6 +413,11 @@ TbBool RendererWorldFrameAddShadowTri(const struct PolyPoint *a, const struct Po
     return ((s_world_capturing || s_overlay_capturing) && s_world_recorder.AddShadowTri(a, b, c, mask, shade, scale, coverage != 0)) ? 1 : 0;
 }
 
+TbBool RendererWorldFrameAddShadowSprite(const struct PolyPoint *const corners[4], const struct WorldFrameShadowSpriteOp *frame, int64_t shade)
+{
+    return ((s_world_capturing || s_overlay_capturing) && (frame != nullptr) && s_world_recorder.AddShadowSprite(corners, *frame, shade)) ? 1 : 0;
+}
+
 void RendererWorldFrameAddSprite(const unsigned char *rle, int32_t src_w, int32_t src_h,
                                  int32_t dst_x, int32_t dst_y, int32_t dst_w, int32_t dst_h,
                                  const uint16_t *xmap, const uint16_t *ymap,

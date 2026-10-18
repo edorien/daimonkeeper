@@ -26,7 +26,9 @@
 # gameplay simulation via src/ftests/ instead of isolated unit tests) and
 # merges both into out/coverage-merged/ (scripts/merge_coverage.sh, §7.6)
 # -- the two sources hit mostly different lines (§7.7), so the merged
-# report is substantially more complete than either alone:
+# report is substantially more complete than either alone. After a successful
+# pass the instrumented trees (out/coverage, out/coverage-ftest) are removed;
+# the report stays (out/coverage-merged, or out/coverage-unit for unit-only):
 #
 #   KFX_FTEST_DATA_DIR=/path/to/keeperfx/install ./build-package.sh
 #
@@ -134,6 +136,19 @@ build_coverage() {
     echo "==> [coverage] Report: $build_dir/coverage-html/index.html"
 }
 
+# The instrumented trees are several GB and only needed to produce the report; after a successful run drop them.
+# A merged report (out/coverage-merged) is standalone; a unit-test-only report lives inside out/coverage, so keep
+# that one (moved to out/coverage-unit/) when nothing supersedes it.
+prune_coverage_trees() {
+    if [ "$1" = unit ]; then
+        rm -rf out/coverage-unit
+        mkdir -p out/coverage-unit
+        mv out/coverage/coverage-html out/coverage-unit/coverage-html
+    fi
+    echo "==> [coverage] Removing the instrumented build trees (out/coverage, out/coverage-ftest)"
+    rm -rf out/coverage out/coverage-ftest
+}
+
 # docs/Architecture/testing-harness.md §7: a second, independent coverage
 # source -- runs the real compiled game through src/ftests/'s registered
 # functional tests instead of Catch2 unit tests -- merged with the
@@ -186,13 +201,17 @@ fi
 
 if [ "${SKIP_COVERAGE:-0}" != "1" ]; then
     build_coverage
-    COVERAGE_STATUS="built -> out/coverage/coverage-html/index.html (unit tests only; set KFX_FTEST_DATA_DIR for a merged report)"
+    COVERAGE_STATUS="built -> out/coverage-unit/coverage-html/index.html (unit tests only; set KFX_FTEST_DATA_DIR for a merged report)"
 
     if [ -n "${KFX_FTEST_DATA_DIR:-}" ]; then
         build_ftest_coverage
         echo "==> [coverage-merged] Merging unit-test + ftest reports"
         scripts/merge_coverage.sh out/coverage out/coverage-ftest out/coverage-merged
+        rm -rf out/coverage-unit
         COVERAGE_STATUS="built -> out/coverage-merged/coverage-html/index.html (merged unit-test + ftest)"
+        prune_coverage_trees merged
+    else
+        prune_coverage_trees unit
     fi
 fi
 

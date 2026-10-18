@@ -76,6 +76,8 @@ docs/latex
 /deps/.cache-mingw64/
 /deps/.cache-mingw32/
 /deps/.cache-lin64/
+# build-fuzz.sh: the sanitizer builds keep their own dependency cache here (deps/sanitize/.cache-lin64)
+/deps/sanitize/
 /deps/*-mingw32
 /deps/*-mingw32.tar.gz
 /deps/*-mingw
@@ -114,3 +116,4 @@ third_party/
 /docs/merge-checks/lua-sandbox-evaluation-2026-10-12.md
 docs/merge-checks/
 /docs/legacy/
+/docs/plans/

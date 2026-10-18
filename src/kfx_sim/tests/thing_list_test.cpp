@@ -189,3 +189,11 @@ TEST_CASE_METHOD(kfx_test::ResetSimAndConfig, "thing_is_shootable's creature bra
     CHECK_FALSE(thing_is_shootable(creatng, 1, HitTF_OwnedCreatures));
     CHECK(thing_is_shootable(creatng, 1, HitTF_OwnedCreatures | HitTF_PreventDmgCreatrs));
 }
+
+TEST_CASE_METHOD(ResetState, "spiral searches stop at the end of spiral_step[] however long a length they're given", "[kfx_sim][thing_list]") {
+    // A map script's action point range sets this length (AT_ACTION_POINT
+    // criteria); it used to index spiral_step[] unchecked.
+    const int64_t too_long = (int64_t)SPIRAL_STEPS_COUNT * 1000;
+    CHECK(do_to_things_spiral_near_map_block(0, 0, too_long, [](struct Thing *) -> TbBool { return true; }) == 0);
+    CHECK(thing_is_invalid(get_thing_spiral_near_map_block_with_filter(0, 0, too_long, near_map_block_creature_filter_diagonal_random, nullptr)));
+}

@@ -293,6 +293,9 @@ struct KeeperFxUiConfig {
     // ROUGH_TERRAIN_CORNERS: radius rough rock corners are rounded to, map units (0 keeps them square,
     // 384 makes a lone tile a circle; inside corners' bays stop at 320). 0..384, default 320.
     int64_t rough_terrain_corners;
+    // SHADOW_STYLE: creature shadows, shadow_style_type[] -- 1 = hard (the classic silhouette), 2 = soft (default:
+    // blurred, from the HD art's alpha when an asset pack has the frame). Live, both renderers; parity tests draw hard.
+    int64_t shadow_style;
 };
 extern struct KeeperFxUiConfig keeperfx_ui_config;
 
@@ -323,6 +326,8 @@ extern const struct NamedCommand renderer_type[];
 extern const struct NamedCommand lighting_type[];
 extern const struct NamedCommand texture_filter_type[];
 extern const struct NamedCommand asset_pack_memory_type[];
+extern const struct NamedCommand shadow_style_type[];
+enum ShadowStyle { ShadowStyle_Hard = 1, ShadowStyle_Soft = 2 };
 extern const struct NamedCommand rough_terrain_type[];
 extern const struct NamedCommand log_level_type[];
 extern const struct NamedCommand hud_position_type[];

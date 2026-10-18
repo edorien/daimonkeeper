@@ -13,13 +13,17 @@
 #
 #   ./build-coverage-core.sh
 #   CORE_FILES=/other/install ./build-coverage-core.sh   # different data dir
-#   SKIP_UNIT=1 ./build-coverage-core.sh                 # reuse out/coverage/, redo ftest + merge
+#   SKIP_UNIT=1 ./build-coverage-core.sh                 # reuse an existing out/coverage/, redo ftest + merge
 #   SKIP_FTEST=1 ./build-coverage-core.sh                # unit pass only
 #   ./build-coverage-core.sh -j 8                        # run 8 tests at a time (default 4)
 #
 # -j N (or TEST_JOBS=N): how many tests run at once -- ctest's unit tests, and
 # the ftests, each a game process of its own (scripts/run_ftest_coverage.sh).
 # Compiling always uses every core.
+#
+# After a fully successful run out/coverage and out/coverage-ftest are deleted (several GB); the merged report in
+# out/coverage-merged stays (SKIP_FTEST=1 keeps its unit-only report in out/coverage-unit). A failing ftest leaves
+# both trees in place for inspection. So SKIP_UNIT=1 needs out/coverage to exist (e.g. after a failed run).
 #
 set -euo pipefail
 
@@ -66,7 +70,12 @@ if [ "${SKIP_UNIT:-0}" != "1" ]; then
 fi
 
 if [ "${SKIP_FTEST:-0}" = "1" ]; then
-    echo "Unit-only report: out/coverage/coverage-html/index.html"
+    # A unit-only report lives inside the tree: keep it, drop the multi-GB tree around it.
+    rm -rf out/coverage-unit
+    mkdir -p out/coverage-unit
+    mv out/coverage/coverage-html out/coverage-unit/coverage-html
+    rm -rf out/coverage
+    echo "Unit-only report: out/coverage-unit/coverage-html/index.html"
     exit 0
 fi
 
@@ -90,11 +99,16 @@ scripts/merge_coverage.sh out/coverage out/coverage-ftest out/coverage-merged
 
 echo
 echo "===================================================================="
-echo "Unit report:   out/coverage/coverage-html/index.html"
-echo "Ftest report:  out/coverage-ftest/coverage-html/index.html"
 echo "Merged report: out/coverage-merged/coverage-html/index.html"
-echo "===================================================================="
 if [ "$FTEST_FAILED" = "1" ]; then
+    # Keep the trees: the failing test's log and the per-tree reports are in them.
+    echo "Unit report:   out/coverage/coverage-html/index.html"
+    echo "Ftest report:  out/coverage-ftest/coverage-html/index.html"
+    echo "===================================================================="
     echo "Some ftests failed (out/coverage-ftest/ftest-coverage-results.txt; logs in out/coverage-ftest/ftest-coverage-logs/)." >&2
     exit 1
 fi
+# Everything passed and the merged report is standalone: the instrumented trees are only needed to make it.
+rm -rf out/coverage out/coverage-ftest out/coverage-unit
+echo "(instrumented build trees out/coverage and out/coverage-ftest removed)"
+echo "===================================================================="

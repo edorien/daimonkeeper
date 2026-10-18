@@ -5,6 +5,7 @@ Run it on demand and before a release; it needs network access.
 
     python3 scripts/check_dep_vulns.py              # report; exit 1 if a patch release of a pinned library fixes an advisory
     python3 scripts/check_dep_vulns.py --verbose    # also list the advisories only a newer minor/major release fixes
+    python3 scripts/check_dep_vulns.py --latest     # also list newer upstream releases (GitHub; information only)
     python3 scripts/check_dep_vulns.py --offline    # only print what is pinned (and the cross-checks), no network
     python3 scripts/check_dep_vulns.py --json       # machine-readable report
 
@@ -30,6 +31,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 import urllib.error
@@ -162,10 +164,63 @@ def relevant(vulns: list[dict], package: str, pin: str) -> dict[str, list[dict]]
     return out
 
 
+# Newer upstream releases (information only; never fails the run): name -> (GitHub repo, regex over the tag name whose
+# groups form the version, or None for a library pinned to a commit). The newest tag matching the regex is "latest".
+UPSTREAM = {
+    "curl": ("curl/curl", r"curl-(\d+)_(\d+)_(\d+)$"),
+    "zlib / minizip": ("madler/zlib", r"v(\d+)\.(\d+)\.(\d+)$"),
+    "libspng": ("randy408/libspng", r"v(\d+)\.(\d+)\.(\d+)$"),
+    "openal-soft": ("kcat/openal-soft", r"(\d+)\.(\d+)\.(\d+)$"),
+    "miniupnpc": ("miniupnp/miniupnp", r"miniupnpc_(\d+)_(\d+)_(\d+)$"),
+    "SDL3": ("libsdl-org/SDL", r"release-(3)\.(\d+)\.(\d+)$"),
+    "SDL3_mixer": ("libsdl-org/SDL_mixer", r"release-(3)\.(\d+)\.(\d+)$"),
+    "SDL3_image": ("libsdl-org/SDL_image", r"release-(3)\.(\d+)\.(\d+)$"),
+    "LuaJIT (OpenResty fork)": ("openresty/luajit2", r"v(2\.1)-(\d+)$"),
+    "ENet6": ("SirLynix/enet6", r"v(\d+)\.(\d+)\.(\d+)$"),
+    "libnatpmp": ("miniupnp/libnatpmp", None),
+    "centijson": ("mity/centijson", None),
+    "astronomy engine": ("cosinekitty/astronomy", None),
+}
+
+
+def github(path: str):
+    headers = {"User-Agent": "daimonkeeper-dep-check", "Accept": "application/vnd.github+json"}
+    token = os.environ.get("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = "Bearer " + token
+    with urllib.request.urlopen(urllib.request.Request("https://api.github.com/" + path, headers=headers), timeout=30) as r:
+        return json.load(r)
+
+
+def newer_release(name: str, pin: str) -> str | None:
+    """A line about a newer upstream release (or commits), None if the pin is current or the library is unknown."""
+    if name not in UPSTREAM:
+        return None
+    repo, regex = UPSTREAM[name]
+    if regex is None:  # pinned to a commit
+        ahead = github(f"repos/{repo}/compare/{pin}...HEAD")["ahead_by"]
+        return f"{ahead} commits newer on the default branch" if ahead else None
+    pin_key = [int(x) for x in re.findall(r"\d+", pin)]
+    best_key: list[int] = []
+    best_tag = ""
+    for page in (1, 2, 3):
+        tags = github(f"repos/{repo}/tags?per_page=100&page={page}")
+        if not tags:
+            break
+        for t in tags:
+            m = re.match(regex, t["name"])
+            if m:
+                key = [int(x) for g in m.groups() for x in re.findall(r"\d+", g)]
+                if key > best_key:
+                    best_key, best_tag = key, t["name"]
+    return f"{best_tag} is out" if best_key > pin_key else None
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--offline", action="store_true", help="print the pinned versions only")
     ap.add_argument("--verbose", action="store_true", help="also list advisories only a newer series fixes")
+    ap.add_argument("--latest", action="store_true", help="also list newer upstream releases (GitHub, information only)")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
     text = DEPS.read_text()
@@ -182,6 +237,11 @@ def main() -> int:
             except (urllib.error.URLError, TimeoutError) as e:
                 entry["problems"].append(f"OSV query failed: {e}")
                 bad = True
+        if args.latest and not args.offline and pin:
+            try:
+                entry["newer"] = newer_release(name, pin)
+            except (urllib.error.URLError, TimeoutError, KeyError) as e:
+                entry["newer"] = f"(could not ask GitHub: {e})"
         report.append(entry)
     if args.json:
         json.dump(report, sys.stdout, indent=2)
@@ -204,6 +264,8 @@ def main() -> int:
                         print(f"    ... {len(adv[kind]) - len(shown)} more {kind} (--verbose lists them all)")
             else:
                 print(head + "not covered by OSV -- check " + e["notes"])
+            if e.get("newer"):
+                print("    newer upstream: " + e["newer"])
             for p in e["problems"]:
                 print("    PROBLEM: " + p)
     if any(e["advisories"] and e["advisories"]["patch"] for e in report):

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Seed corpora for the fuzz targets (security pass S08, fuzz/README.md).
 
-    scripts/fuzz_seeds.py [out-dir]       default out/scratch/fuzz/corpus; one folder per target
+    scripts/fuzz_seeds.py [out-dir]       default out/fuzz/corpus; one folder per target
 
 The repository's own config/ files and the content of core_files/ (the original game's data and the community
 campaigns kept there; git-ignored) are the seeds. Targets whose first input byte selects a file (config_file,
@@ -10,7 +10,7 @@ map_file) write theirs themselves: kfx_fuzz <target> seeds <dir>; this script ru
 import os, shutil, subprocess, sys, glob
 
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(root, "out/scratch/fuzz/corpus")
+out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(root, "out/fuzz/corpus")
 fuzz_bin = os.path.join(root, "out/fuzz/fuzz/kfx_fuzz")
 
 def put(target, src, tag, limit=60000, prefix=b""):

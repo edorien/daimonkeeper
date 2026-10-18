@@ -223,14 +223,19 @@ static TbBool shadow_setup(struct ShadowTriangle *t, enum ShadowShape shape,
 
 int64_t vec_map_scale = 1;
 TbBool vec_map_coverage = false;
+struct ShadowCoverRect vec_map_cover_rect;
 
 /** A coverage map's value (vec_map_scale texels per original texel): the original texel u, v pick (8 bits each, as
- *  the original's), then the sub-texel within it from their fractions. */
-static KFX_FORCE_INLINE unsigned char cover_at(const unsigned char *map, uint32_t u, uint32_t v, int64_t k)
+ *  the original's), then the sub-texel within it from their fractions; 0 outside the stored rectangle `r`. */
+static KFX_FORCE_INLINE unsigned char cover_at(const unsigned char *map, uint32_t u, uint32_t v, int64_t k, const struct ShadowCoverRect *r)
 {
-    const uint64_t tx = ((u >> 16) & 0xFF) * (uint64_t)k + (((uint64_t)(u & 0xFFFF) * (uint64_t)k) >> 16);
-    const uint64_t ty = ((v >> 16) & 0xFF) * (uint64_t)k + (((uint64_t)(v & 0xFFFF) * (uint64_t)k) >> 16);
-    return map[ty * 256 * (uint64_t)k + tx];
+    // ((u >> 16) & 0xFF) * k + ((u & 0xFFFF) * k >> 16), in one multiply.
+    const uint64_t tx = ((uint64_t)(u & 0xFFFFFF) * (uint64_t)k) >> 16;
+    const uint64_t ty = ((uint64_t)(v & 0xFFFFFF) * (uint64_t)k) >> 16;
+    const uint64_t rx = tx - (uint64_t)r->x, ry = ty - (uint64_t)r->y;
+    if ((rx >= (uint64_t)r->w) || (ry >= (uint64_t)r->h))
+        return 0;
+    return map[ry * (uint64_t)r->stride + rx];
 }
 
 /** The pixel shaded as far as `cover` (0..255) of it is under the shadow. */
@@ -274,20 +279,25 @@ static void shadow_draw(const struct ShadowTriangle *t)
         TbPixel *o = poly_screen + (t->top + i + 1) * vec_screen_width + x;
         if (vec_map_coverage)
         {
+            // Locals: the pixel writes could alias the globals, which would be read again every pixel.
+            const struct ShadowCoverRect rect = vec_map_cover_rect;
+            const int64_t scale = vec_map_scale;
+            const uint8_t shade = (uint8_t)vec_shade;
             for (; x < right; x++, o++)
             {
-                const unsigned char c = cover_at(map, u, v, vec_map_scale);
+                const unsigned char c = cover_at(map, u, v, scale, &rect);
                 if (c != 0)
-                    *o = cover_shade(*o, (uint8_t)vec_shade, c);
+                    *o = cover_shade(*o, shade, c);
                 u += row_u_step;
                 v += row_v_step;
             }
             continue;
         }
+        const uint8_t hard_shade = (uint8_t)vec_shade;
         for (; x < right; x++, o++)
         {
             if (map[((v >> 8) & 0xFF00) | ((u >> 16) & 0xFF)])
-                *o = render_shade(*o, (uint8_t)vec_shade);
+                *o = render_shade(*o, hard_shade);
             u += row_u_step;
             v += row_v_step;
         }
@@ -299,7 +309,7 @@ void trig(struct PolyPoint *point_a, struct PolyPoint *point_b, struct PolyPoint
     // gpu-v2 Phase C.2: creature shadows record into the GPU world frame
     // instead, while one is being built (the vec window is then the frame's
     // window -- see RendererWorldFrameBegin()).
-    if (vec_mode == VM_SpriteTranslucent && RendererWorldFrameCapturing()
+    if (vec_mode == VM_SpriteTranslucent && RendererWorldFrameCapturing() && !vec_map_coverage
         && RendererWorldFrameAddShadowTri(point_a, point_b, point_c, vec_map, vec_shade, vec_map_scale, vec_map_coverage))
         return;
     if (vec_mode != VM_SpriteTranslucent) {

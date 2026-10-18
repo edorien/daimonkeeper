@@ -198,7 +198,7 @@ void process_pause_packet(int64_t curr_pause, int64_t new_pause)
           if ((kfx_render_state.palette_flags[get_local_user()] & RPF_LightningPaletteIsActive) != 0)
           {
               PaletteSetUserPalette(player->user_id, engine_palette);
-              kfx_render_state.palette_flags[player->user_id] &= ~RPF_LightningPaletteIsActive;
+              kfx_render_state.palette_flags[get_local_user()] &= ~RPF_LightningPaletteIsActive;
           }
       }
   }

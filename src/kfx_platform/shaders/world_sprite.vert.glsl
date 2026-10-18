@@ -12,12 +12,14 @@ layout(location = 3) in vec2 in_info1;    // LUT row, mode
 layout(location = 4) in vec4 in_rgba;     // one-colour silhouette colour
 layout(location = 5) in float in_depth;
 layout(location = 6) in float in_view_depth; // hyperbolic view depth, for lit sprites   // 0 near .. 1 far (WorldFrameOp::depth)
+layout(location = 7) in vec4 in_aux;      // shadows from frames: the frame's width, height, HD scale, mirrored
 
 layout(location = 0) out vec2 v_local;
 layout(location = 1) flat out vec4 v_info0;
 layout(location = 2) flat out vec2 v_info1;
 layout(location = 3) flat out vec4 v_rgba;
 layout(location = 4) flat out float v_depth; // 0 near .. 1 far (hyperbolic) -- for lit sprites' position reconstruction
+layout(location = 5) flat out vec4 v_aux;
 
 // SDL_GPU's SPIR-V convention: vertex-stage uniform buffers are set = 1.
 layout(set = 1, binding = 0) uniform ViewportUniforms {
@@ -35,4 +37,5 @@ void main()
     v_info1 = in_info1;
     v_rgba = in_rgba;
     v_depth = in_view_depth;
+    v_aux = in_aux;
 }

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Groups the crashes kfx_fuzz saved (security pass S08, fuzz/README.md).
 
-    scripts/fuzz_triage.py [crash-dir ...]      default: every folder under out/scratch/fuzz/crashes
+    scripts/fuzz_triage.py [crash-dir ...]      default: every folder under out/fuzz/crashes
 
 Each crash <name> has <name>.txt, the sanitizer report or backtrace of a rerun. Crashes are grouped by what happened
 (the sanitizer's one-line summary, or the signal/timeout) and the first three frames in the game's own code.
@@ -10,7 +10,7 @@ Prints the groups, most common first, with the smallest input of each.
 import glob, os, re, sys, collections
 
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-dirs = sys.argv[1:] or sorted(glob.glob(os.path.join(root, "out/scratch/fuzz/crashes/*")))
+dirs = sys.argv[1:] or sorted(glob.glob(os.path.join(root, "out/fuzz/crashes/*")))
 groups = collections.defaultdict(list)
 for d in dirs:
     for log in glob.glob(os.path.join(d, "*.txt")):

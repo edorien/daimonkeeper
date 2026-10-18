@@ -162,7 +162,8 @@ pack before drawing.
 
 ## Shadows
 
-With a pack loaded (or **Generate Missing HD Art** on), creature shadows are soft: their outline comes from your art's alpha (at the pack's scale),
-blurred by about an original texel, and the floor under them darkens gradually rather than in hard steps. A frame
-your pack doesn't cover casts its original silhouette, softened the same way. The shadow keeps the original's place,
+With **Shadow Style** set to Soft (`SHADOW_STYLE=SOFT`, the default; Hard draws the classic sharp silhouettes), creature
+shadows are soft: with a pack loaded their outline comes from your art's alpha (at the pack's scale), blurred by about an
+original texel, and the floor under them darkens gradually rather than in hard steps. A frame your pack doesn't cover
+(and every frame, with no pack) casts its original silhouette, softened the same way. The shadow keeps the original's place,
 size and darkness, so give your art the same silhouette and the shadow will match it.

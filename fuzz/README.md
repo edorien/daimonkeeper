@@ -5,7 +5,7 @@ Security pass S08. Everything here is for development and CI; none of it is part
 ## Two sanitizer trees
 
 `scripts/build-fuzz.sh` builds in trees of its own, with a dependency cache of its own
-(`out/scratch/sanitize-deps`): the shared `deps/.cache-lin64` is rebuilt and relinked by every tree configured against
+(`deps/sanitize`): the shared `deps/.cache-lin64` is rebuilt and relinked by every tree configured against
 it, so a build with other compiler flags must not use it.
 
 | command | tree | what |

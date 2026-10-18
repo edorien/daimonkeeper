@@ -43,6 +43,11 @@ public:
     bool AddShadowTri(const struct PolyPoint* a, const struct PolyPoint* b, const struct PolyPoint* c,
                       const unsigned char* tex, int64_t shade, int64_t scale = 1, bool coverage = false);
 
+    // A creature shadow drawn from its frame's texels (WorldFrameShadowSpriteOp): the four corners as the CPU path
+    // receives them (U/V 16.16), the frame as `frame` describes it (rle/src_w/src_h/base/flip/soft/hd_* fields used;
+    // x/y/u/v/shade filled here). Returns false if ignored (a corner off the 16.16 range, no frame).
+    bool AddShadowSprite(const struct PolyPoint* const corners[4], const WorldFrameShadowSpriteOp& frame, int64_t shade);
+
     // The depth stamped on ops recorded from now on (0 near .. 1 far, see
     // WorldFrameOp::depth). With monotone depth on (the default) each op's
     // depth is clamped to be <= the previous op's, which keeps the depth

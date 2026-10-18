@@ -189,6 +189,26 @@ bool WorldFrameRecorder::AddShadowTri(const struct PolyPoint* a, const struct Po
     return true;
 }
 
+bool WorldFrameRecorder::AddShadowSprite(const struct PolyPoint* const corners[4], const WorldFrameShadowSpriteOp& frame, int64_t shade)
+{
+    if (frame.rle == nullptr || frame.src_w <= 0 || frame.src_h <= 0)
+        return false;
+    WorldFrameOp op;
+    op.kind = WF_OP_SHADOW_SPRITE;
+    WorldFrameShadowSpriteOp& s = op.u.shadow_sprite;
+    s = frame;
+    for (int i = 0; i < 4; ++i)
+    {
+        s.x[i] = static_cast<int32_t>(corners[i]->X);
+        s.y[i] = static_cast<int32_t>(corners[i]->Y);
+        s.u[i] = static_cast<float>(static_cast<double>(corners[i]->U) / 65536.0);
+        s.v[i] = static_cast<float>(static_cast<double>(corners[i]->V) / 65536.0);
+    }
+    s.shade = static_cast<uint32_t>(shade < 0 ? 0 : (shade > 63 ? 63 : shade));
+    push(op);
+    return true;
+}
+
 void WorldFrameRecorder::SetLighting(const WorldFrameLighting& lighting, const uint8_t* grid, int64_t grid_w, int64_t grid_h)
 {
     m_lighting = lighting;

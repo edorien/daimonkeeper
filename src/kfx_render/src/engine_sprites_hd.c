@@ -1016,13 +1016,13 @@ TbBool sprite_hd_alpha_source(int64_t kspr_idx, const unsigned char *rle, int64_
 
 TbBool sprite_hd_soft_shadows(void)
 {
-    return hd_draw_frame && (hd_synth_shift == 0) && !hd_parity_mode && ((sprite_pack_entry_count() > 0) || hd_fill_active());
+    return (keeperfx_ui_config.shadow_style == ShadowStyle_Soft) && (hd_synth_shift == 0) && !hd_parity_mode;
 }
 
 TbBool sprite_hd_shadow_art(int64_t kspr_idx, const unsigned char *rle, int64_t width, int64_t full_height, const TbPixel **texels,
-    int64_t *stride, int64_t *scale)
+    int64_t *stride, int64_t *scale, uint64_t *id)
 {
-    if (!sprite_hd_soft_shadows() || (rle == NULL) || (width <= 0) || (full_height <= 0))
+    if (!hd_draw_frame || !sprite_hd_soft_shadows() || (rle == NULL) || (width <= 0) || (full_height <= 0))
         return false;
     uint64_t uid = 0;
     const struct SpriteHdLevels *lv = hd_frame_levels(kspr_idx, rle, width, full_height, false, &uid);
@@ -1033,7 +1033,20 @@ TbBool sprite_hd_shadow_art(int64_t kspr_idx, const unsigned char *rle, int64_t 
     *stride = (width + lv->spill[0] + lv->spill[2]) * ls;
     *texels = lv->level[0] + lv->spill[1] * ls * (*stride) + lv->spill[0] * ls;
     *scale = ls;
+    *id = uid * SPRITE_HD_MAX_LEVELS;
     return true;
+}
+
+TbBool sprite_hd_shadow_source(int64_t kspr_idx, const unsigned char *rle, int64_t width, int64_t full_height, int64_t scale,
+    struct TbHdSpriteSource *out)
+{
+    if (!hd_draw_frame || !sprite_hd_soft_shadows() || (rle == NULL) || (width <= 0) || (full_height <= 0))
+        return false;
+    uint64_t uid = 0;
+    const struct SpriteHdLevels *lv = hd_frame_levels(kspr_idx, rle, width, full_height, false, &uid);
+    if ((lv == NULL) || (lv->levels == 0))
+        return false;
+    return hd_fill_source(lv, uid, rle, width, full_height, full_height, scale, false, out);
 }
 
 /******************************************************************************/

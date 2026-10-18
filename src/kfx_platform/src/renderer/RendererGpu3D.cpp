@@ -56,9 +56,45 @@ bool RendererGpu3D::init_gpu_device()
         WARNLOG("If `vulkaninfo` fails with 'undefined symbol: wl_fixes_interface', launch via scripts/run-keeperfx-vulkan.sh");
         return false;
     }
-    SYNCLOG("RendererGpu3D: SDL_GPU device ready (%s)",
-        SDL_GetStringProperty(SDL_GetGPUDeviceProperties(m_device), SDL_PROP_GPU_DEVICE_NAME_STRING, "?"));
+    const SDL_PropertiesID dev_props = SDL_GetGPUDeviceProperties(m_device);
+    const char* dev_name = SDL_GetStringProperty(dev_props, SDL_PROP_GPU_DEVICE_NAME_STRING, "?");
+    const char* drv_name = SDL_GetStringProperty(dev_props, SDL_PROP_GPU_DEVICE_DRIVER_NAME_STRING, "");
+    if (device_is_cpu_rasteriser(dev_name, drv_name))
+    {
+        // Every shader, upload and copy would run on the CPU, slower than the software renderer. SDL only gets
+        // here when the GPU's own driver failed to load. The tests (no GPU on CI) allow it.
+        const char* allow = SDL_getenv("KFX_ALLOW_CPU_VULKAN");
+        if ((allow == nullptr) || (allow[0] == '\0') || (allow[0] == '0'))
+        {
+            WARNLOG("RendererGpu3D: the only Vulkan device is a CPU rasteriser (%s): the GPU's driver failed to load. "
+                "Using the software renderer. On Linux with an AMDGPU driver package, launch via scripts/run-keeperfx-vulkan.sh", dev_name);
+            SDL_DestroyGPUDevice(m_device);
+            m_device = nullptr;
+            return false;
+        }
+        WARNLOG("RendererGpu3D: Vulkan on a CPU rasteriser (%s), allowed by KFX_ALLOW_CPU_VULKAN", dev_name);
+    }
+    SYNCLOG("RendererGpu3D: SDL_GPU device ready (%s)", dev_name);
     return true;
+}
+
+// llvmpipe/lavapipe (Mesa), SwiftShader: Vulkan implemented on the CPU.
+bool RendererGpu3D::device_is_cpu_rasteriser(const char* device_name, const char* driver_name)
+{
+    static const char* const cpu_names[] = { "llvmpipe", "lavapipe", "softpipe", "swiftshader" };
+    for (const char* text : { device_name, driver_name })
+    {
+        if (text == nullptr)
+            continue;
+        for (const char* cpu : cpu_names)
+        {
+            const size_t n = SDL_strlen(cpu);
+            for (const char* p = text; *p != '\0'; ++p)
+                if (SDL_strncasecmp(p, cpu, n) == 0)
+                    return true;
+        }
+    }
+    return false;
 }
 
 bool RendererGpu3D::init_pipeline()
@@ -943,6 +979,12 @@ void RendererGpu3D::SubmitWorldFrame(const WorldFrame& frame)
             GpuSpriteRenderer::DrawCall draws[1];
             if (frame.pixels != nullptr && op.u.shadow.pix_off + static_cast<int64_t>(op.u.shadow.w) * op.u.shadow.h <= frame.pixel_count &&
                 m_sprites.AddShadow(op.u.shadow, frame.pixels + op.u.shadow.pix_off, off_x, off_y, op.depth, op.view_depth, draws) == 1)
+                push_sprite_run(draws[0]);
+        }
+        else if (op.kind == WF_OP_SHADOW_SPRITE)
+        {
+            GpuSpriteRenderer::DrawCall draws[1];
+            if (m_sprites.AddShadowSprite(op.u.shadow_sprite, off_x, off_y, op.depth, draws) == 1)
                 push_sprite_run(draws[0]);
         }
     }

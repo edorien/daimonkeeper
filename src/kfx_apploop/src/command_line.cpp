@@ -90,8 +90,9 @@ int64_t process_command_line(int64_t argc, char *argv[])
       if ( (par == NULL) || ((par[0] != '-') && (par[0] != '/')) )
           return -1;
       char parstr[CMDLN_MAXLEN+1];
-      char pr2str[CMDLN_MAXLEN+1];
-      char pr3str[CMDLN_MAXLEN+1];
+      // Empty when the option is the last argument(s), not left uninitialised.
+      char pr2str[CMDLN_MAXLEN+1] = "";
+      char pr3str[CMDLN_MAXLEN+1] = "";
       snprintf(parstr, CMDLN_MAXLEN, "%s", par + 1);
       if (narg + 1 < argc)
       {
@@ -180,8 +181,8 @@ int64_t process_command_line(int64_t argc, char *argv[])
       } else
       if ( strcasecmp(parstr,"campaign") == 0 )
       {
-        strcpy(start_params.selected_campaign, pr2str);
-        strcpy(start_params.autostart_multiplayer_campaign, pr2str);
+        snprintf(start_params.selected_campaign, sizeof(start_params.selected_campaign), "%s", pr2str);
+        snprintf(start_params.autostart_multiplayer_campaign, sizeof(start_params.autostart_multiplayer_campaign), "%s", pr2str);
         narg++;
       } else
       if ( strcasecmp(parstr,"altinput") == 0 )
@@ -348,7 +349,7 @@ int64_t process_command_line(int64_t argc, char *argv[])
       }
       else if ( strcasecmp(parstr,"config") == 0 )
       {
-        strcpy(start_params.config_file, pr2str);
+        snprintf(start_params.config_file, sizeof(start_params.config_file), "%s", pr2str);
         start_params.overrides[Clo_ConfigFile] = true;
         narg++;
       }

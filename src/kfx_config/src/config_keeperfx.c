@@ -89,6 +89,7 @@ struct KeeperFxUiConfig keeperfx_ui_config = {
     .rough_terrain_depth = 96,
     .rough_terrain_corners = 320,
     .panel_corner = 2, // HudMinimalCorner_UpperRight -- matches the pre-decoupling diagonally-opposite default
+    .shadow_style = 2, // ShadowStyle_Soft
 };
 static NetworkIsActiveFn g_network_is_active_fn = NULL;
 
@@ -195,6 +196,13 @@ const struct NamedCommand asset_pack_memory_type[] = {
   {"24GB", 10},
   {"32GB", 11},
   {NULL,    0},
+  };
+
+// SHADOW_STYLE (docs/plans/sprite-atlas-thrash.md, decision D5), 1-based like the others: enum ShadowStyle.
+const struct NamedCommand shadow_style_type[] = {
+  {"HARD", ShadowStyle_Hard},
+  {"SOFT", ShadowStyle_Soft},
+  {NULL,   0},
   };
 
 // ROUGH_TERRAIN (docs/newFeatures/terrain-v2/), 1-based like the others.
@@ -346,6 +354,7 @@ const struct NamedCommand conf_commands[] = {
   {"ASSET_PACK"                    , 76},
   {"ASSET_PACK_MEMORY"             , 77}, // read through its options-screen row
   {"ASSET_PACK_FILL"               , 78}, // likewise
+  {"SHADOW_STYLE"                  , 79}, // likewise
   {NULL,                   0},
   };
 

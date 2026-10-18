@@ -115,6 +115,7 @@
 #include "tests/ftest_texture_hd_switch.h"
 #include "tests/ftest_sprite_hd_switch.h"
 #include "tests/ftest_sprite_density.h"
+#include "tests/ftest_render_bench.h"
 #include "tests/ftest_terrain_rough_reinforce.h"
 #include "tests/ftest_thing_pointed_at_creature.h"
 // append your test include here, eg: #include "tests/ftest_your_test_header.h"
@@ -298,6 +299,9 @@ struct ftest_onlyappendtests__config ftest_onlyappendtests__conf = {
         // A measurement too (docs/refactor/sprites/, HD sprite packs Phase 0): -ftests sprite_density -includelongtests,
         // then read its SPRDEN lines.
         { .test_name="sprite_density",                     .init_func=ftest_sprite_density_init,                  .level_file="keeporig", .level=1,  .frame_skip=0 },
+        // A measurement too (docs/plans/sprite-atlas-thrash.md, Phase 0): -ftests render_bench -includelongtests, then read
+        // its RBENCH and RPROF lines (ftest_render_bench.h has the environment).
+        { .test_name="render_bench",                       .init_func=ftest_render_bench_init,                    .level_file="keeporig", .level=6,  .frame_skip=0 },
         // Half of a two-process test: needs scripts/ai_bridge_smoke.py talking to the in-game API; run it through
         // scripts/run_ftest_ai_bridge_smoke.sh, not by hand (docs/refactor/AI/LLM/05-testing-and-rollout.md).
         // Half of a two-process test too: scripts/run_ftest_ai_bridge_reference.sh runs it with scripts/ai_bridge_reference_e2e.py.

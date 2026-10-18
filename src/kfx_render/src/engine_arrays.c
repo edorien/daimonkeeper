@@ -1126,9 +1126,12 @@ static TbBool load_ceiling_table(void)
                 continue;
         }
         memset(numstr, 0, sizeof(numstr));
-        for (i=0; i < sizeof(numstr); i++)
+        // Keep the terminator: a longer number is cut short, and the rest
+        // of it skipped rather than read as the next value.
+        for (i=0; ; i++)
         {
-            numstr[i] = nchr;
+            if (i < sizeof(numstr) - 1)
+                numstr[i] = nchr;
             do_next = LbFileRead(fh, &nchr, 1);
             if (do_next != 1)
                 break;

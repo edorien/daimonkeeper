@@ -66,12 +66,12 @@ jobs:
                   libzstd-dev \
                   zlib1g-dev
 
-    # build-fuzz.sh keeps its dependency cache in out/scratch/sanitize-deps (the sanitizers change how every
+    # build-fuzz.sh keeps its dependency cache in deps/sanitize (the sanitizers change how every
     # dependency is compiled, so it cannot share deps/.cache-lin64)
     - name: Cache third-party dependencies
       uses: actions/cache@v4
       with:
-        path: out/scratch/sanitize-deps
+        path: deps/sanitize
         key: ${{ runner.os }}-kfx-deps-sanitize-${{ hashFiles('build/cmake/modules/Dependencies.cmake', 'scripts/build-fuzz.sh') }}
 
     - name: Build the unit tests with AddressSanitizer and UBSan
@@ -93,7 +93,7 @@ jobs:
     - name: Fail if the fuzzers found anything
       run: |
         set -eux
-        if [ -d out/scratch/fuzz/crashes ] && [ -n "$(find out/scratch/fuzz/crashes -type f ! -name '*.txt' | head -1)" ]; then
+        if [ -d out/fuzz/crashes ] && [ -n "$(find out/fuzz/crashes -type f ! -name '*.txt' | head -1)" ]; then
           scripts/fuzz_triage.py
           exit 1
         fi
@@ -103,4 +103,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: fuzz-crashes
-        path: out/scratch/fuzz/crashes
+        path: out/fuzz/crashes

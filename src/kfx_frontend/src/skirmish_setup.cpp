@@ -19,6 +19,7 @@
 #include "config_terrain.h"
 #include "config_trapdoor.h"
 #include "level_script_override.h"
+#include "level_start_options.h"
 #include "map_content_reader.h"
 #include "net_game.h"
 #include "thing_objects.h" // ObjMdl_SoulCountainer (the Dungeon Heart)
@@ -256,6 +257,7 @@ void skirmish_setup_reset_choices()
     s_state.choices = script_setup_default_choices(s_state.analysis);
     s_state.teams.assign((size_t)s_state.players, 0);
     s_state.external_slots.clear();
+    s_state.reveal_map = false;
 }
 
 static SetupChoices choices_with_allies()
@@ -273,6 +275,8 @@ bool skirmish_setup_is_changed()
 {
     if (!s_state.enabled())
         return false;
+    if (s_state.reveal_map)
+        return true;
     return !script_setup_choices_are_default(s_state.analysis, choices_with_allies());
 }
 
@@ -552,7 +556,10 @@ bool skirmish_setup_rule_summary(const SetupWinLoseRule &rule, std::string &out)
 extern "C" void skirmish_setup_install_for_play(LevelNumber lvnum)
 {
     level_script_override_clear();
+    level_start_options_clear();
     net_pending_external_seats_clear();
+    if (s_state.enabled() && s_state.lvnum == lvnum && s_state.reveal_map)
+        level_start_reveal_map_request(lvnum);
     if (s_state.enabled() && s_state.lvnum == lvnum)
         for (const int64_t slot : s_state.external_slots)
             if (slot != s_state.human_slot)

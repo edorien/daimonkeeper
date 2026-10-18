@@ -7,6 +7,7 @@
 #include "net_game.h"
 #include "config_campaigns.h" // SkirmishSetupOption
 #include "level_script_override.h"
+#include "level_start_options.h"
 #include "lvl_script.h"
 #include "lvl_filesdk1.h"
 #include "kfx_game_state.h"
@@ -288,4 +289,30 @@ TEST_CASE_METHOD(Fixture, "an External slot is remembered, exclusive with the ot
     CHECK(skirmish_setup_controller_choice(1, nullptr) == SkirmishCtl_LevelDefault);
     skirmish_setup_install_for_play(kLevel);
     CHECK(net_pending_external_seats_count() == 0);
+}
+
+TEST_CASE_METHOD(Fixture, "Reveal map: asked for this level at Play only, not part of the script override, cleared by a reset", "[kfx_frontend][skirmish_setup]") {
+    level_start_options_clear();
+    skirmish_setup_install_for_play(kLevel);
+    CHECK_FALSE(level_start_reveal_map_requested(kLevel)); // off by default
+
+    skirmish_setup().reveal_map = true;
+    CHECK(skirmish_setup_is_changed()); // the Reset button / "applies at Play" caption show
+    skirmish_setup_install_for_play(kLevel + 1); // not the level the tab holds
+    CHECK_FALSE(level_start_reveal_map_requested(kLevel));
+    CHECK_FALSE(level_start_reveal_map_requested(kLevel + 1));
+
+    skirmish_setup_install_for_play(kLevel);
+    CHECK(level_start_reveal_map_requested(kLevel));
+    CHECK_FALSE(level_script_override_is_set()); // the script itself is untouched
+    CHECK_FALSE(skirmish_setup_build().active);
+
+    skirmish_setup_install_for_play(kLevel + 1); // installing for another level clears the old request
+    CHECK_FALSE(level_start_reveal_map_requested(kLevel));
+
+    skirmish_setup_reset_choices();
+    CHECK_FALSE(skirmish_setup().reveal_map);
+    skirmish_setup_install_for_play(kLevel);
+    CHECK_FALSE(level_start_reveal_map_requested(kLevel));
+    level_start_options_clear();
 }

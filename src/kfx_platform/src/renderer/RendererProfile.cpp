@@ -12,12 +12,22 @@
 
 #define RPROF_REPORT_FRAMES 120
 
+static int rprof_env(void)
+{
+    const char *v = getenv("KFX_RPROF");
+    return (v != NULL && v[0] == '1') ? 1 : 0;
+}
+int rprof_forced = rprof_env();
+
 static const char *const stage_names[RPS_COUNT] = {
-    "drawlist", "submit", "build", "encode", "gpuwait", "readback", "present"
+    "drawlist", "submit", "build", "encode", "gpuwait", "readback", "present", "shadows"
 };
 static const char *const counter_names[RPC_COUNT] = {
-    "ops", "polys", "sprites", "shadows", "verts", "draws", "blk_up", "spr_quads", "atlas_B", "lookups"
+    "ops", "polys", "sprites", "shadows", "verts", "draws", "blk_up", "spr_quads", "atlas_B", "lookups",
+    "mask_B", "hd_B", "clears", "skipped"
 };
+// Rare events: the report shows their total over its frames, not a per-frame average.
+static bool counter_is_total(int i) { return i == RPC_ATLAS_CLEARS || i == RPC_SKIPPED; }
 
 struct StageAcc { uint64_t start; double frame_ms; double sum_ms; double max_ms; int64_t hits; };
 static StageAcc s_stage[RPS_COUNT];
@@ -103,7 +113,8 @@ void RendererProfileFrame(const char *renderer_name)
     {
         if (s_counter_sum[i] <= 0)
             continue;
-        n += snprintf(line + n, sizeof(line) - (size_t)n, " %s %.0f", counter_names[i], s_counter_sum[i] / s_frames);
+        n += snprintf(line + n, sizeof(line) - (size_t)n, counter_is_total(i) ? " %s %.0f total" : " %s %.0f", counter_names[i],
+            counter_is_total(i) ? s_counter_sum[i] : s_counter_sum[i] / s_frames);
     }
     JUSTMSG("%s", line);
 

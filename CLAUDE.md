@@ -53,12 +53,12 @@ KFX_FTEST_DATA_DIR=/path/to/keeperfx/install ./build-package.sh   # also ftest c
 
 It runs `make pkg-enginegfx` and `make pkg-assemble` once (stages the shared game data into `pkg/`), then per platform the CMake configure+build (both variants) into `out/<os>/` and three `cmake --install ... --component <c>` calls — `runtime`, `gamedata` (the `pkg/`-staging `install(CODE ...)` block in `Packaging.cmake`, tagged the same way as the SDL3 libs) and `mcp` (`scripts/llm_bridge/`) — into `dist/<os>/`. If `x86_64-w64-mingw32-gcc` isn't on `PATH` the Windows pass is skipped with a warning rather than aborting. The coverage pass writes `out/coverage/coverage-html/index.html`; with `KFX_FTEST_DATA_DIR` set it also builds `out/coverage-ftest/` and merges both into `out/coverage-merged/`. Needs network access on a first run: `pkg-enginegfx` clones `dkfans/FXGraphics` into `gfx/` only when no checkout is there (a git worktree symlinks its main checkout's `gfx/` instead — `scripts/ensure_gfx.sh`; `REFRESH_GFX=1` pulls upstream's latest), plus the usual first-run dependency fetches, once per build tree.
 
-For **coverage only** (no packages, no `make pkg-*`, no `dist/` output), `build-coverage-core.sh` runs the unit-test coverage, the ftest coverage and the merge, pre-pointed at the git-ignored local game data in `core_files/` (it exits early if that doesn't contain `daimonkeeper.cfg` or `keeperfx.cfg`, and `data/`):
+For **coverage only** (no packages, no `make pkg-*`, no `dist/` output), `build-coverage-core.sh` runs the unit-test coverage, the ftest coverage and the merge, pre-pointed at the git-ignored local game data in `core_files/` (it exits early if that doesn't contain `daimonkeeper.cfg` or `keeperfx.cfg`, and `data/`). After a fully successful run it deletes the instrumented trees `out/coverage` and `out/coverage-ftest` (several GB); the report stays in `out/coverage-merged` (`build-package.sh` does the same after its coverage pass, keeping a unit-only report in `out/coverage-unit`):
 
 ```bash
 ./build-coverage-core.sh                              # unit + ftest coverage, merged report
 CORE_FILES=/other/install ./build-coverage-core.sh    # different game-data directory
-SKIP_UNIT=1 ./build-coverage-core.sh                  # reuse out/coverage/, redo ftest + merge
+SKIP_UNIT=1 ./build-coverage-core.sh                  # reuse an existing out/coverage/ (kept only after a failed run), redo ftest + merge
 SKIP_FTEST=1 ./build-coverage-core.sh                 # unit-test coverage only
 ./build-coverage-core.sh -j 8                         # 8 tests at a time (ctest, and ftest game processes; default 4)
 ```

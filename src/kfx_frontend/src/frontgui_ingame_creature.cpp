@@ -364,6 +364,17 @@ void creature_list(void)
     int64_t top = kfx_frontend_state.top_of_breed_list;
     const int64_t visible = owned < 1 ? 1 : (owned > 6 ? 6 : owned);
 
+    // Breeds lost since the list was scrolled: the legacy panel pulled the window back every frame
+    // (gui_activity_background, maintain_activity_up/down); here nothing else does.
+    {
+        const int64_t max_top = owned > 6 ? owned - 6 : 0;
+        if (top > max_top)
+        {
+            top = max_top;
+            kfx_frontend_state.top_of_breed_list = (char)top;
+        }
+    }
+
     if (owned > 6)
     {
         const double wheel = ImGui::GetIO().MouseWheel;

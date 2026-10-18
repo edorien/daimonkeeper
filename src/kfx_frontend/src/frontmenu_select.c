@@ -51,6 +51,7 @@
 #include "config_keeperfx.h" // features_enabled, Ft_AdvAmbSound
 #include "skirmish_setup.h"
 #include "level_script_override.h"
+#include "level_start_options.h"
 #include "net_game.h"
 #include "post_inc.h"
 
@@ -607,6 +608,7 @@ int64_t frontend_freeplay_enter_resolve(void)
     else
     {
         level_script_override_clear();
+        level_start_options_clear(); // a Skirmish page's one-shot start options belong to Skirmish only
         // Arms the local player's own seat as External when the scenario screen's "Seat control" dropdown is
         // set to LLM -- same mechanism and same consumption point (net_claim_pending_external_seats(),
         // main_game.c::startup_network_game_tail()) as the campaign select screen's own dropdown

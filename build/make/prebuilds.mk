@@ -41,7 +41,7 @@ DKILLCONV_PACKAGE=$(notdir $(DKILLCONV_DOWNLOAD))
 
 # Tools and libraries to be used for the target system
 # Currently, the target is always windows-mingw32
-SDL_DOWNLOAD=https://github.com/libsdl-org/SDL/releases/download/release-3.4.12/SDL3-devel-3.4.12-mingw.tar.gz
+SDL_DOWNLOAD=https://github.com/libsdl-org/SDL/releases/download/release-3.4.18/SDL3-devel-3.4.18-mingw.tar.gz
 SDL_MIXER_DOWNLOAD=https://github.com/libsdl-org/SDL_mixer/releases/download/release-3.2.4/SDL3_mixer-devel-3.2.4-mingw.tar.gz
 SDL_IMAGE_DOWNLOAD=https://github.com/libsdl-org/SDL_image/releases/download/release-3.4.4/SDL3_image-devel-3.4.4-mingw.tar.gz
 SDL_PACKAGE=$(notdir $(SDL_DOWNLOAD))

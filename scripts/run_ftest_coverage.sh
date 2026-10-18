@@ -38,6 +38,10 @@
 # runner at the same time needs another base). The pair's line, "<base> rc=", fails when either half does or when
 # their "NETHASH <turn> <hash>" lines differ (rc=3: the machines' games went apart).
 #
+# Progress: each test prints a "start" line when a worker takes it and a "[done/total]" line with its rc and
+# duration when it finishes, and every FTEST_HEARTBEAT seconds (default 60; 0 = off) a line lists what is still
+# running and for how long -- a golden or continuity test can take many minutes with nothing else to show.
+#
 # A process that leaves no log (-log names one in its run directory) gets rc=4, whatever it exited with: the game
 # runs on without one when it can't set it up (a full path past its limit, an unwritable directory), and a test
 # without its log -- no FTest:, GOLDEN or NETHASH lines -- has shown nothing. Its stderr says why.
@@ -154,6 +158,38 @@ next_test() {
     echo "$i"
 }
 
+# Progress reporting. A worker records what it is running in $RUNNING/<worker> ("<item> <start-seconds>"); a
+# background heartbeat lists those files.
+RUNNING="$LOG_DIR/.running"
+rm -rf "$RUNNING"
+mkdir -p "$RUNNING"
+TOTAL=${#ITEMS[@]}
+RUN_START=$SECONDS
+fmt_dur() { printf '%dm%02ds' $(($1 / 60)) $(($1 % 60)); }
+done_count() { wc -l < "$RESULTS"; }
+progress_start() { # worker item
+    echo "$2 $SECONDS" > "$RUNNING/$1"
+    echo "  [$(done_count)/$TOTAL] start $2"
+}
+progress_done() { # worker item rc
+    local began
+    read -r _ began < "$RUNNING/$1"
+    rm -f "$RUNNING/$1"
+    echo "  [$(done_count)/$TOTAL] done  $2 rc=$3 ($(fmt_dur $((SECONDS - began))))"
+}
+heartbeat() {
+    local f item began list
+    while sleep "${FTEST_HEARTBEAT:-60}"; do
+        list=""
+        for f in "$RUNNING"/*; do
+            [ -f "$f" ] || continue
+            read -r item began < "$f"
+            list+=" $item($(fmt_dur $((SECONDS - began))))"
+        done
+        echo "  ... [$(done_count)/$TOTAL] elapsed $(fmt_dur $((SECONDS - RUN_START))), running:${list:- (none)}"
+    done
+}
+
 # Moves a finished process's log (<run-dir>/<log>) to $LOG_DIR. No log: says so, with the process's stderr
 # (<log>.stderr, removed either way), and fails.
 collect_log() {
@@ -171,9 +207,10 @@ collect_log() {
 
 # A multiplayer pair: the host in the worker's directory, the client in the pair's own, then their NETHASH lines.
 run_pair() {
-    local dir=$1 b=$2 p port pdir hrc jrc rc
+    local dir=$1 b=$2 w=$3 p port pdir hrc jrc rc
     for ((p = 0; p < ${#PAIRS[@]}; p++)); do [ "${PAIRS[$p]}" = "$b" ] && break; done
     port=$((${FTEST_NET_PORT_BASE:-5600} + p))
+    progress_start "$w" "$b@pair"
     pdir="$BUILD_DIR/ftest-coverage-runs/pair$p"
     empty_save_dir "$dir"
     empty_save_dir "$pdir"
@@ -206,7 +243,7 @@ run_pair() {
         rc=3
     fi
     echo "$b rc=$rc" >> "$RESULTS"
-    echo "  $b rc=$rc (host $hrc, client $jrc)"
+    progress_done "$w" "$b@pair" "$rc (host $hrc, client $jrc)"
 }
 
 # Worker w runs tests from its own run directory until none are left.
@@ -216,7 +253,7 @@ run_worker() {
         local item=${ITEMS[$i]} t log shard=""
         t=${item%@*}
         if [ "$item" = "$t@pair" ]; then
-            run_pair "$dir" "$t"
+            run_pair "$dir" "$t" "$w"
             continue
         fi
         log="ftcov_$t.log"
@@ -228,18 +265,28 @@ run_worker() {
         [ -n "${FTEST_THEN:-}" ] && run="$t,$FTEST_THEN"
         empty_save_dir "$dir"
         rm -f "$dir/$log"
+        progress_start "$w" "$item"
         (cd "$dir" && KFX_FTEST_GOLDEN_SHARD="$shard" timeout "$FTEST_TIMEOUT" "./$BINARY" -ftests "$run" \
             -exitonfailedtest -headless ${FTEST_ARGS:-} -log "$log" > /dev/null 2> "$log.stderr")
         rc=$?
         collect_log "$dir" "$log" || rc=4
         echo "$item rc=$rc" >> "$RESULTS"
-        echo "  $item rc=$rc"
+        progress_done "$w" "$item" "$rc"
     done
 }
+HEARTBEAT_PID=""
+if [ "${FTEST_HEARTBEAT:-60}" != 0 ]; then
+    heartbeat &
+    HEARTBEAT_PID=$!
+fi
+WORKER_PIDS=()
 for ((w = 0; w < JOBS; w++)); do
     run_worker "$w" &
+    WORKER_PIDS+=($!)
 done
-wait
+wait "${WORKER_PIDS[@]}"
+[ -n "$HEARTBEAT_PID" ] && kill "$HEARTBEAT_PID" 2> /dev/null
+rm -rf "$RUNNING"
 
 # A sharded golden: one results line (the worst shard's), one log (the shards', then their printed hashes in the
 # cases' order).

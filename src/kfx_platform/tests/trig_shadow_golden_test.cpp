@@ -220,6 +220,7 @@ TEST_CASE("Soft shadows: a coverage map at 2-4x that is the mask upscaled shades
             vec_map = cover.data();
             vec_map_scale = k;
             vec_map_coverage = true;
+            vec_map_cover_rect = ShadowCoverRect{ 0, 0, 256 * k, 256 * k, 256 * k };
             same += (draw_and_hash(target, t) == want);
         }
         vec_map = target.sprite.data();
@@ -228,6 +229,39 @@ TEST_CASE("Soft shadows: a coverage map at 2-4x that is the mask upscaled shades
         INFO("x" << k);
         CHECK(same == all.size());
     }
+}
+
+TEST_CASE("Soft shadows: a stored rectangle of the coverage shades as the whole map with zeros round it", "[kfx_platform][trig_golden]")
+{
+    // soft_shadow_coverage() keeps only the rectangle a frame covers (docs/plans/sprite-atlas-thrash.md, Phase 1):
+    // vec_map at its corner, its own stride, everything outside uncovered.
+    Target target;
+    const std::vector<Tri> all = cases();
+    const int64_t k = 4, x0 = 37, y0 = 21, w = 300, h = 410;
+    std::vector<unsigned char> whole((size_t)(256 * k * 256 * k), 0), rect((size_t)(w * h));
+    for (int64_t y = 0; y < h; y++)
+        for (int64_t x = 0; x < w; x++)
+        {
+            const unsigned char c = (unsigned char)(((x * 7 + y * 3) % 5 == 0) ? 0 : 1 + (x + y) % 255);
+            rect[(size_t)(y * w + x)] = c;
+            whole[(size_t)((y0 + y) * 256 * k + x0 + x)] = c;
+        }
+    size_t same = 0;
+    for (const Tri &t : all)
+    {
+        vec_map_scale = k;
+        vec_map_coverage = true;
+        vec_map = whole.data();
+        vec_map_cover_rect = ShadowCoverRect{ 0, 0, 256 * k, 256 * k, 256 * k };
+        const uint64_t want = draw_and_hash(target, t);
+        vec_map = rect.data();
+        vec_map_cover_rect = ShadowCoverRect{ x0, y0, w, h, w };
+        same += (draw_and_hash(target, t) == want);
+    }
+    vec_map = target.sprite.data();
+    vec_map_scale = 1;
+    vec_map_coverage = false;
+    CHECK(same == all.size());
 }
 
 TEST_CASE("Soft shadows: partial coverage shades part of the way", "[kfx_platform][trig_golden]")
@@ -241,6 +275,7 @@ TEST_CASE("Soft shadows: partial coverage shades part of the way", "[kfx_platfor
     vec_map = cover.data();
     vec_map_scale = k;
     vec_map_coverage = true;
+    vec_map_cover_rect = ShadowCoverRect{ 0, 0, 256 * k, 256 * k, 256 * k };
     draw_and_hash(target, t);
     vec_map = target.sprite.data();
     vec_map_scale = 1;

@@ -54,6 +54,9 @@ public:
     const char* GetName() const override { return "gpu3d (vulkan)"; }
     bool WantsWorldFrame() const override { return m_device != nullptr && m_pipeline != nullptr; }
     bool HasWorldLayer() const override { return m_world_frame_valid; }
+    // True when a Vulkan device is a CPU rasteriser (llvmpipe, lavapipe, SwiftShader): Init() refuses one unless
+    // KFX_ALLOW_CPU_VULKAN is set, and RendererInit() falls back to the software renderer.
+    static bool device_is_cpu_rasteriser(const char* device_name, const char* driver_name);
 
     // Delegated wholesale to the internal RendererSoftware -- see class
     // comment. Kept as thin one-line forwards, not reimplemented, so this

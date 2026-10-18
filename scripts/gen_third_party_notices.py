@@ -94,7 +94,7 @@ DEALINGS IN THE SOFTWARE.
 # the block from the line containing the first marker to the line containing the last one
 # (keep_last=False leaves that last line out, e.g. a closing "*/").
 COMPONENTS = [
-    ("SDL3 3.4.12", "both", "zlib", "https://libsdl.org",
+    ("SDL3 3.4.18", "both", "zlib", "https://libsdl.org",
      [f"{LIN}/sdl3-src/LICENSE.txt"]),
     ("SDL3_image 3.4.4", "both", "zlib", "https://github.com/libsdl-org/SDL_image",
      [f"{LIN}/sdl3_image-src/LICENSE.txt"]),
@@ -105,7 +105,7 @@ COMPONENTS = [
     ("FFmpeg 7.1.5 (Smacker video/audio decoding only; built without GPL or non-free parts)", "both",
      "GNU LGPL version 2.1 or later", "https://ffmpeg.org",
      ["deps/.cache-lin64/ffmpeg/src/ffmpeg_build/COPYING.LGPLv2.1"]),
-    ("LuaJIT (OpenResty luajit2 v2.1-20260724)", "both", "MIT", "https://github.com/openresty/luajit2",
+    ("LuaJIT (OpenResty luajit2 v2.1-20260914)", "both", "MIT", "https://github.com/openresty/luajit2",
      [f"{LIN}/luajit_src-src/COPYRIGHT"]),
     ("libcurl 8.22.0", "both", "curl licence (MIT-style)", "https://curl.se",
      [f"{LIN}/curl_src-src/COPYING"]),

@@ -11,14 +11,14 @@
 #                                  original game's data in core_files/ (run the ftests with scripts/run_ftest_coverage.sh
 #                                  out/asan-ft <results-file>, FTEST_TIMEOUT=3600, FTEST_JOBS=8)
 #
-# Both share out/scratch/sanitize-deps (the dependencies are built once, with the sanitizers). Environment:
+# Both share deps/sanitize (the dependencies are built once, with the sanitizers). Environment:
 # KFX_FUZZ_JOBS (default: all cores), BUILD_DIR to override the tree.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 MODE="${1:-asan}"
 JOBS="${KFX_FUZZ_JOBS:-$(nproc)}"
-DEPS_ROOT="$PWD/out/scratch/sanitize-deps"
+DEPS_ROOT="$PWD/deps/sanitize"
 
 # -O1: the sanitizers' recommended level (usable speed, readable reports). The undefined-behaviour checks are the ones
 # that find memory errors and wrong-size accesses; signed overflow and shifts are left out -- the game's hashes and

@@ -10,6 +10,9 @@
 
 #include "player_complookup.h"
 #include "kfx_sim_state.h"
+#include "kfx_config_state.h"
+#include "config_terrain.h"
+#include "slab_data.h"
 
 #include <cstring>
 
@@ -85,4 +88,43 @@ TEST_CASE_METHOD(ResetSimState, "smaller_gold_vein_lookup_idx keeps refining to 
     get_gold_lookup(1)->num_gold_slabs = 3; // smaller than index 0 -- should win
 
     CHECK(smaller_gold_vein_lookup_idx(10, 2) == 1);
+}
+
+extern "C" void check_treasure_map(unsigned char *treasure_map, int64_t *vein_list, int64_t *gold_next_idx, MapSlabCoord veinslb_x, MapSlabCoord veinslb_y);
+
+TEST_CASE_METHOD(ResetSimState, "check_treasure_map aims a ring-shaped vein at one of its own slabs, not a stale vein_list entry", "[kfx_sim][player_complookup]") {
+    // A 3x3 ring of gold around a rock slab at (2,2): the vein's centre isn't
+    // gold, so the nearest vein slab is used instead. That search read one
+    // entry past the end of vein_list (and skipped entry 0); here the entry
+    // past the end is the centre slab itself, left over "from an earlier vein".
+    std::memset(&kfx_config_state, 0, sizeof(kfx_config_state));
+    kfx_config_state.conf.slab_conf.slab_types_count = SlbT_GOLD + 1;
+    kfx_config_state.conf.slab_conf.slab_cfgstats[SlbT_GOLD].gold_held = 1;
+    kfx_sim_state.map_tiles_x = 5;
+    kfx_sim_state.map_tiles_y = 5;
+
+    unsigned char treasure_map[25];
+    for (MapSlabCoord y = 0; y < 5; y++) {
+        for (MapSlabCoord x = 0; x < 5; x++) {
+            SlabCodedCoords slb_num = get_slab_number(x, y);
+            bool ring = x >= 1 && x <= 3 && y >= 1 && y <= 3 && !(x == 2 && y == 2);
+            kfx_sim_state.slabmap[slb_num].kind = ring ? SlbT_GOLD : SlbT_ROCK;
+            treasure_map[slb_num] = ring ? 0x00 : 0x01;
+        }
+    }
+    int64_t vein_list[32];
+    for (int64_t &entry : vein_list) {
+        entry = get_slab_number(2, 2);
+    }
+
+    int64_t gold_next_idx = 0;
+    check_treasure_map(treasure_map, vein_list, &gold_next_idx, 1, 1);
+
+    REQUIRE(gold_next_idx == 1);
+    struct GoldLookup *gldlook = get_gold_lookup(0);
+    CHECK(gldlook->num_gold_slabs == 8);
+    const MapSlabCoord slb_x = subtile_slab(gldlook->stl_x);
+    const MapSlabCoord slb_y = subtile_slab(gldlook->stl_y);
+    CHECK(kfx_sim_state.slabmap[get_slab_number(slb_x, slb_y)].kind == SlbT_GOLD);
+    CHECK((slb_x - 2) * (slb_x - 2) + (slb_y - 2) * (slb_y - 2) == 1); // a ring slab next to the centre
 }

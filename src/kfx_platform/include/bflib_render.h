@@ -271,6 +271,10 @@ void gtblock_set_clipping_window(unsigned char *screen_addr, int64_t clip_width,
  *  vec_map_coverage its values are coverage 0..255 (soft shadows, docs/refactor/sprites/ Phase 10), else set/unset. */
 extern int64_t vec_map_scale;
 extern TbBool vec_map_coverage;
+/** With vec_map_coverage: only a rectangle of the coverage is stored -- vec_map points at its texel (x, y) (in the
+ *  256 * vec_map_scale square), rows `stride` texels apart; texels outside its w x h are uncovered. */
+struct ShadowCoverRect { int64_t x, y, w, h, stride; };
+extern struct ShadowCoverRect vec_map_cover_rect;
 /** Draws one creature shadow triangle (vec_mode VM_SpriteTranslucent, vec_map the shadow sprite, vec_shade its
  *  darkness) into poly_screen: bflib_render_shadow.c. */
 void trig(struct PolyPoint *point_a, struct PolyPoint *point_b, struct PolyPoint *point_c);

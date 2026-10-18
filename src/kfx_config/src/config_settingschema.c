@@ -774,6 +774,9 @@ static const char *asset_pack_memory_label(int64_t index)
 }
 
 // ASSET_PACK_FILL: generated HD art for what no asset pack covers.
+// SHADOW_STYLE: config values are 1-based (enum ShadowStyle).
+static int64_t get_shadow_style(void) { return keeperfx_ui_config.shadow_style; }
+static void set_shadow_style(int64_t val) { keeperfx_ui_config.shadow_style = val; }
 static TbBool get_asset_pack_fill(void) { return keeperfx_ui_config.asset_pack_fill != 0; }
 static void set_asset_pack_fill(TbBool val) { keeperfx_ui_config.asset_pack_fill = val ? 1 : 0; }
 
@@ -1354,6 +1357,15 @@ const struct SettingOption setting_options[] = {
         .help_stridx = GUIStr_HelpVideoShadows,
         .get_int = &get_video_shadows, .set_int = &set_video_shadows, .int_min = 0, .int_max = 3,
         .persist_via_save_settings = true,
+    },
+    {
+        // docs/plans/sprite-atlas-thrash.md (D5): applies live, both renderers.
+        .cfg_key = "SHADOW_STYLE", .type = SOptT_Enum, .category = SCat_Graphics, .apply_class = SApply_Live,
+        .label_literal = "Shadow Style",
+        .help_literal = "Creature shadows. Hard: the classic sharp silhouette. Soft: blurred edges, shaped by the "
+                        "HD art when an asset pack has it.",
+        .enum_table = shadow_style_type, .get_enum = &get_shadow_style, .set_enum = &set_shadow_style,
+        .cfg_read_by_row = true,
     },
     {
         .type = SOptT_Int, .category = SCat_Graphics, .apply_class = SApply_Live,

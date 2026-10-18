@@ -81,6 +81,7 @@ static std::vector<unsigned char> rle_encode(int w, int h, const std::vector<uns
 
 int main()
 {
+    SDL_setenv_unsafe("KFX_ALLOW_CPU_VULKAN", "1", 0); // CI and headless runs only have llvmpipe
     SDL_Init(SDL_INIT_VIDEO);
     const int W = 64, H = 64;
     lbWindow = SDL_CreateWindow("gpu3d-verify", W, H, SDL_WINDOW_HIDDEN);
@@ -337,6 +338,74 @@ int main()
                 ok &= px_is(cap, 28, 28, 191, 0, 0, "soft shadow, half cover: half as dark");
             }
             SDL_DestroySurface(cap);
+        }
+    }
+
+    {   // Shadows drawn from their frame's texels (WF_OP_SHADOW_SPRITE, docs/plans/sprite-atlas-thrash.md Phase 2). Hard:
+        // pixel for pixel what the mask path draws from the 256-wide buffer the engine would fill (the frame's texel
+        // (sx, sy) at (base_x + sx, base_y + sy), mirrored at base_x - sx), plain and mirrored. The quad and its two
+        // triangles as the engine makes them: P1 (u 0, v max), P2 (0, 0), P3 (max, 0), P4 (max, max).
+        const int FW = 16, FH = 16;
+        std::vector<unsigned char> fpx((size_t)FW * FH);
+        for (int y = 0; y < FH; y++) for (int x = 0; x < FW; x++)
+            fpx[(size_t)(y * FW + x)] = (x == 5 || (x > 9 && y < 4) || (x + y == 20)) ? 0 : (unsigned char)(1 + (x * 7 + y) % 200);
+        std::vector<unsigned char> frle = rle_encode(FW, FH, fpx);
+        struct PolyPoint p1 = { 20, 36, (int64_t)8 << 16, (int64_t)28 << 16, 0, 0 }, p2 = { 20, 20, (int64_t)8 << 16, (int64_t)8 << 16, 0, 0 };
+        struct PolyPoint p3 = { 36, 20, (int64_t)28 << 16, (int64_t)8 << 16, 0, 0 }, p4 = { 36, 36, (int64_t)28 << 16, (int64_t)28 << 16, 0, 0 };
+        const struct PolyPoint* const corners[4] = { &p1, &p2, &p3, &p4 };
+        for (int flip = 0; flip < 2; flip++) {
+            const int base_x = flip ? 25 : 10, base_y = 10;
+            static unsigned char mask[256 * 256];
+            memset(mask, 0, sizeof(mask));
+            for (int y = 0; y < FH; y++) for (int x = 0; x < FW; x++)
+                if (fpx[(size_t)(y * FW + x)]) mask[(base_y + y) * 256 + (flip ? base_x - x : base_x + x)] = 1;
+            struct PolyPoint t0 = { 0, 0, 0, 0, sh, 0 }, t1 = { W, 0, 0, 0, sh, 0 }, t2 = { 0, H, 0, 0, sh, 0 };
+            WorldFrameRecorder rm, rf;
+            rm.AddPoly(&t0, &t1, &t2, atlas);
+            rf.AddPoly(&t0, &t1, &t2, atlas);
+            bool rec_ok = rm.AddShadowTri(&p1, &p2, &p3, mask, 16) && rm.AddShadowTri(&p1, &p3, &p4, mask, 16);
+            WorldFrameShadowSpriteOp so = {};
+            so.rle = frle.data(); so.src_w = FW; so.src_h = FH; so.base_x = base_x; so.base_y = base_y; so.flip = (uint32_t)flip;
+            rec_ok &= rf.AddShadowSprite(corners, so, 16);
+            SDL_Surface* cm = run_frame(rm);
+            SDL_Surface* cf = run_frame(rf);
+            int diffs = 0, dark = 0;
+            for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) {
+                Uint8 ar, ag, ab, aa, br, bg, bb, ba;
+                SDL_ReadSurfacePixel(cm, x, y, &ar, &ag, &ab, &aa);
+                SDL_ReadSurfacePixel(cf, x, y, &br, &bg, &bb, &ba);
+                diffs += (ar != br || ag != bg || ab != bb);
+                dark += (br < 200);
+            }
+            const bool same_px = rec_ok && diffs == 0 && dark > 100;
+            printf("  %-44s %s (%d dark)\n", flip ? "shadow from frame, hard, mirrored" : "shadow from frame, hard", same_px ? "ok, as the mask" : "MISMATCH", dark);
+            ok &= same_px;
+            SDL_DestroySurface(cm);
+            SDL_DestroySurface(cf);
+        }
+        // Soft, from a solid 16x16 frame's silhouette and from 2x HD texels (opaque inside): full cover in the middle
+        // (factor 0.5 over red), part at the edge, none well outside.
+        std::vector<unsigned char> solid((size_t)FW * FH, 9);
+        std::vector<unsigned char> srle = rle_encode(FW, FH, solid);
+        std::vector<TbPixel> shd((size_t)FW * 2 * FH * 2, TbPixel_RGBA(255, 255, 255, 255));
+        for (int use_hd = 0; use_hd < 2; use_hd++) {
+            WorldFrameRecorder rs;
+            struct PolyPoint t0 = { 0, 0, 0, 0, sh, 0 }, t1 = { W, 0, 0, 0, sh, 0 }, t2 = { 0, H, 0, 0, sh, 0 };
+            rs.AddPoly(&t0, &t1, &t2, atlas);
+            WorldFrameShadowSpriteOp so = {};
+            so.rle = srle.data(); so.src_w = FW; so.src_h = FH; so.base_x = 10; so.base_y = 10; so.soft = 1;
+            if (use_hd) { so.hd_texels = shd.data(); so.hd_id = 777; so.hd_w = FW * 2; so.hd_h = FH * 2; so.hd_stride = FW * 2; so.hd_scale = 2; }
+            const bool rec_ok = rs.AddShadowSprite(corners, so, 16);
+            SDL_Surface* cs = run_frame(rs);
+            Uint8 mr, mg, mb, ma, er, eg, eb, ea, orr, og, ob, oa;
+            SDL_ReadSurfacePixel(cs, 28, 28, &mr, &mg, &mb, &ma); // the frame's middle
+            SDL_ReadSurfacePixel(cs, 21, 28, &er, &eg, &eb, &ea); // its left edge (buffer u 10 is at x 21.6)
+            SDL_ReadSurfacePixel(cs, 10, 10, &orr, &og, &ob, &oa); // outside
+            const bool soft_ok = rec_ok && mr >= 126 && mr <= 130 && er > 130 && er < 250 && orr == 255;
+            printf("  %-44s %s (middle %d, edge %d, outside %d)\n", use_hd ? "shadow from frame, soft, HD texels" : "shadow from frame, soft, silhouette",
+                soft_ok ? "ok" : "MISMATCH", mr, er, orr);
+            ok &= soft_ok;
+            SDL_DestroySurface(cs);
         }
     }
 
@@ -1335,8 +1404,9 @@ int main()
         }
         // The HD atlas grows: a 300x300 original at x7 is 2100x2100 texels, one to a 4096x4096 layer. (a) Three draw their
         // HD texels (all white here, so the HD path shows), the array growing from 1 layer to 4. (b) With growth capped
-        // at those 4 layers, the next three: the first fills the last free layer (white), the other two draw their
-        // originals (the fallback), exactly as their indexed twins do.
+        // at those 4 layers, the next three evict what the last frame used (least recently used) and draw HD too.
+        // (c) Five in one frame: four fit the four layers (none used this frame yet), the fifth draws its original (the
+        // fallback), exactly as its indexed twin does.
         {
             const int O = 300, BS = 7;
             std::vector<unsigned char> big((size_t)O * O);
@@ -1346,14 +1416,15 @@ int main()
             for (int y = 0; y < O * BS; y++) for (int x = 0; x < O * BS; x++)
                 hbig[(size_t)y * O * BS + x] = big[(size_t)((y / BS) * O + x / BS)] ? TbPixel_RGBA(255, 255, 255, 255) : TbPixel_Transparent;
             // 12x12 on screen, at x 0, 21, 42 (the frame's window places them; measured below).
-            const int SW = 12, SX = 21;
+            const int SW = 12;
+            int SX = 21;
             std::vector<uint16_t> bx(SW), by(SW), hbx(SW), hby(SW);
             for (int i = 0; i < SW; i++) { bx[i] = by[i] = (uint16_t)(i * 3 + 1); hbx[i] = hby[i] = (uint16_t)((bx[i] * BS + (BS - 1) / 2) * HD_MAP_SUBTEXELS + HD_MAP_SUBTEXELS / 2); }
             uint32_t row[256];
             curve_row(&none, nullptr, row);
-            auto three = [&](uint64_t first_id, SDL_Surface** idx_shot) {
+            auto draw_n = [&](uint64_t first_id, int n, SDL_Surface** idx_shot) {
                 WorldFrameRecorder ri, rh;
-                for (int k = 0; k < 3; k++) {
+                for (int k = 0; k < n; k++) {
                     ri.AddSprite(rbig.data(), O, O, SX * k, 30, SW, SW, bx.data(), by.data(), nullptr, WFS_SOLID, 0);
                     rh.AddSpriteHd(hbig.data(), nullptr, first_id + (uint64_t)k, O * BS, O * BS, O * BS, BS, rbig.data(), O, O, SX * k, 30, SW, SW,
                         hbx.data(), hby.data(), row, 0, nullptr, WFS_SOLID, 0);
@@ -1392,18 +1463,26 @@ int main()
             };
             GpuSpriteRenderer::hd_layer_limit = 0;
             SDL_Surface* ci = nullptr;
-            SDL_Surface* ca = three(1000, &ci);
+            SDL_Surface* ca = draw_n(1000, 3, &ci);
             const bool grew = ca && ci && white(ca, ci, 0) && white(ca, ci, 1) && white(ca, ci, 2);
             printf("  %-44s %s\n", "(a) three 2100x2100 HD frames, atlas grown", grew ? "ok, all HD" : "MISMATCH");
             ok &= grew;
             if (ca) SDL_DestroySurface(ca);
             if (ci) SDL_DestroySurface(ci);
             GpuSpriteRenderer::hd_layer_limit = 4;
-            SDL_Surface* cb = three(2000, &ci);
-            const bool fell_back = cb && ci && white(cb, ci, 0) && as_indexed(cb, ci, 1) && as_indexed(cb, ci, 2);
-            printf("  %-44s %s\n", "(b) atlas capped: 1 HD, 2 originals", fell_back ? "ok, the originals as indexed" : "MISMATCH");
-            ok &= fell_back;
+            SDL_Surface* cb = draw_n(2000, 3, &ci);
+            const bool evicted = cb && ci && white(cb, ci, 0) && white(cb, ci, 1) && white(cb, ci, 2);
+            printf("  %-44s %s\n", "(b) atlas capped: last frame's evicted", evicted ? "ok, all HD" : "MISMATCH");
+            ok &= evicted;
             if (cb) SDL_DestroySurface(cb);
+            if (ci) SDL_DestroySurface(ci);
+            SX = 12;
+            SDL_Surface* cc = draw_n(3000, 5, &ci);
+            const bool fell_back = cc && ci && white(cc, ci, 0) && white(cc, ci, 1) && white(cc, ci, 2) && white(cc, ci, 3)
+                && as_indexed(cc, ci, 4);
+            printf("  %-44s %s\n", "(c) capped, 5 in a frame: 4 HD, 1 original", fell_back ? "ok, the original as indexed" : "MISMATCH");
+            ok &= fell_back;
+            if (cc) SDL_DestroySurface(cc);
             if (ci) SDL_DestroySurface(ci);
             GpuSpriteRenderer::hd_layer_limit = 0;
         }

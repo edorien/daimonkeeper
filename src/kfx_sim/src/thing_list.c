@@ -2481,6 +2481,19 @@ struct Thing *get_thing_near_revealed_map_block_with_filter(MapCoord x, MapCoord
 }
 
 /**
+ * Trims a spiral length to the spiral_step[] table. Lengths can come from
+ * content (an action point's range in a map script).
+ */
+static int64_t clamp_spiral_len(int64_t spiral_len)
+{
+    if (spiral_len > SPIRAL_STEPS_COUNT) {
+        WARNLOG("Spiral length %" PRId64 " trimmed to max %" PRId64, spiral_len, (int64_t)SPIRAL_STEPS_COUNT);
+        return SPIRAL_STEPS_COUNT;
+    }
+    return spiral_len;
+}
+
+/**
  * Returns filtered creature from slabs around given coordinates.
  * Uses "spiral" checking of surrounding subtiles, up to given number of subtiles.
  * The thing which will return highest nonnegative value from given filter function
@@ -2492,6 +2505,7 @@ struct Thing *get_thing_near_revealed_map_block_with_filter(MapCoord x, MapCoord
 struct Thing *get_thing_spiral_near_map_block_with_filter(MapCoord x, MapCoord y, int64_t spiral_len, Thing_Maximizer_Filter filter, MaxTngFilterParam param)
 {
     SYNCDBG(19,"Starting");
+    spiral_len = clamp_spiral_len(spiral_len);
     struct Thing* retng = INVALID_THING;
     int64_t maximizer = 0;
     for (int64_t around_val = 0; around_val < spiral_len; around_val++)
@@ -2526,6 +2540,7 @@ struct Thing *get_thing_spiral_near_map_block_with_filter(MapCoord x, MapCoord y
 int64_t count_things_spiral_near_map_block_with_filter(MapCoord x, MapCoord y, int64_t spiral_len, Thing_Maximizer_Filter filter, MaxTngFilterParam param)
 {
     SYNCDBG(19,"Starting");
+    spiral_len = clamp_spiral_len(spiral_len);
     int64_t count = 0;
     int64_t maximizer = 0;
     for (int64_t around_val = 0; around_val < spiral_len; around_val++)
@@ -2559,6 +2574,7 @@ int64_t count_things_spiral_near_map_block_with_filter(MapCoord x, MapCoord y, i
 int64_t do_to_things_spiral_near_map_block(MapCoord x, MapCoord y, int64_t spiral_len, Thing_Bool_Modifier do_cb)
 {
     SYNCDBG(19,"Starting");
+    spiral_len = clamp_spiral_len(spiral_len);
     int64_t count = 0;
     for (int64_t around_val = 0; around_val < spiral_len; around_val++)
     {

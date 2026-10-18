@@ -7,8 +7,10 @@
 /* gpu-v2 Phase C.5: frame-time measurement for the renderer backends.
  *
  * Active only at the Debug log level and above (the LOG_LEVEL option,
- * docs/refactor-pass2/stage-02-logging-option.md): below it every RPROF_*
- * macro is a single predictable branch, and no timing or report happens.
+ * docs/refactor-pass2/stage-02-logging-option.md), or with the environment
+ * variable KFX_RPROF=1 at any level (measurements that the Debug level's own
+ * logging would slow down): otherwise every RPROF_* macro is a single
+ * predictable branch, and no timing or report happens.
  *
  * Stages are wall-clock CPU intervals (SDL_GetPerformanceCounter). Every
  * RPROF_FRAME() (one per game-frame present) closes the current frame; every
@@ -35,6 +37,7 @@ enum RendererProfileStage {
     RPS_GPUWAIT,      /*   fence wait for the world pass (KFX_GPU_PROF_SYNC=1 only) */
     RPS_READBACK,     /* eye-lens GPU->CPU read-back (RendererCopyFrameRect) */
     RPS_PRESENT,      /* RendererPresentGameFrame(): compositing + ImGui + present (+ vsync) */
+    RPS_SHADOWS,      /*   inside drawlist: creature shadows (mask drawing, soft coverage, rasterising or recording) */
     RPS_COUNT
 };
 
@@ -49,6 +52,10 @@ enum RendererProfileCounter {
     RPC_SPRITE_QUADS,   /* sprite/shadow vertices uploaded */
     RPC_ATLAS_BYTES,    /* sprite index-atlas bytes uploaded */
     RPC_LOOKUP_ENTRIES, /* scaling-lookup entries uploaded */
+    RPC_MASK_BYTES,     /* shadow-mask bytes uploaded (to the index atlas) */
+    RPC_HD_BYTES,       /* HD sprite atlas bytes uploaded */
+    RPC_ATLAS_CLEARS,   /* sprite atlas clears or page evictions -- reported as a total over the report's frames */
+    RPC_SKIPPED,        /* sprite/shadow ops not drawn (atlas or upload budget full) -- a total, like clears */
     RPC_COUNT
 };
 
@@ -58,8 +65,10 @@ void RendererProfileCount(int counter, int64_t amount);
 /* Closes a frame; `renderer_name` labels the report. */
 void RendererProfileFrame(const char *renderer_name);
 int  RendererProfileSyncGpu(void); /* KFX_GPU_PROF_SYNC=1 */
-/* True while the profiler runs (Debug log level and above). */
-#define RPROF_ACTIVE()             KFX_DEBUG_ON(0)
+/* KFX_RPROF=1: the profiler runs whatever the log level. */
+extern int rprof_forced;
+/* True while the profiler runs (Debug log level and above, or KFX_RPROF=1). */
+#define RPROF_ACTIVE()             (KFX_DEBUG_ON(0) || rprof_forced)
 #define RPROF_BEGIN(stage)         do { if (RPROF_ACTIVE()) RendererProfileBegin(stage); } while (0)
 #define RPROF_END(stage)           do { if (RPROF_ACTIVE()) RendererProfileEnd(stage); } while (0)
 #define RPROF_COUNT(counter, n)    do { if (RPROF_ACTIVE()) RendererProfileCount((counter), (int64_t)(n)); } while (0)

@@ -111,13 +111,21 @@ const TbPixel *sprite_hd_zip_true_colour(int64_t slot);
 /** A frame drawn with alpha ramps (EngineSpriteDrawUsingAlpha): with KFX_SPRITE_ALPHA_LOG=<file>, each frame's index
  *  is appended to that file the first time (which frames additive HD art is for, docs/refactor/sprites/ Phase 9). */
 void sprite_hd_note_alpha_frame(int64_t kspr_idx);
-/** Whether creature shadows are soft this frame (Phase 10): an HD sprite pack is loaded and HD draws (not in parity
- *  mode, which draws exactly the originals, nor with the synthetic store). */
+/** Whether creature shadows are soft (Phase 10): SHADOW_STYLE is SOFT, not in parity mode (which draws exactly the
+ *  originals) nor with the synthetic store. Their shape is the HD art's alpha where a pack has the frame, else the
+ *  original's silhouette. */
 TbBool sprite_hd_soft_shadows(void);
 /** A frame's HD art for its soft shadow: the finest level's texels of the original's crop (stride texels a row, scale
- *  texels per original texel), or false (draw the shadow from the original's silhouette). */
+ *  texels per original texel, `id` naming them -- never reused for other texels), or false (draw the shadow from the
+ *  original's silhouette). */
 TbBool sprite_hd_shadow_art(int64_t kspr_idx, const unsigned char *rle, int64_t width, int64_t full_height, const TbPixel **texels,
-    int64_t *stride, int64_t *scale);
+    int64_t *stride, int64_t *scale, uint64_t *id);
+/** A soft shadow's HD texels for the GPU (docs/plans/sprite-atlas-thrash.md, Phase 2): the same texels and id a sprite
+ *  draw of frame kspr_idx at `scale` (global_scaler: 32 = one texel a pixel) takes, so the shadow shares its atlas
+ *  entry. False when there are none (no pack frame, hard shadows, or the original is nearer than every level). */
+struct TbHdSpriteSource;
+TbBool sprite_hd_shadow_source(int64_t kspr_idx, const unsigned char *rle, int64_t width, int64_t full_height, int64_t scale,
+    struct TbHdSpriteSource *out);
 /** The custom sprites changed (keeper_sprites_publish_custom_frames()): their HD frames are dropped. */
 void sprite_hd_forget_custom(void);
 const struct SpriteHdStats *sprite_hd_stats(void);

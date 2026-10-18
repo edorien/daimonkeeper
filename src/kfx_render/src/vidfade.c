@@ -389,6 +389,17 @@ TbBool user_freeze_palette_active(NetUserId user)
     return ((kfx_render_state.palette_flags[user] & RPF_FreezePaletteIsActive) != 0);
 }
 
+/** Whether `user` is whoever's screen this is: this machine's user, or the user the local player has now. An External
+ *  seat moves the local player to the seat's user (net_add_external_seat()), so a restore asked for by player->user_id
+ *  must still reach the screen the human is watching. */
+static TbBool palette_user_is_local_view(NetUserId user)
+{
+    if (user == get_local_user())
+        return true;
+    const struct PlayerInfo *me = get_my_player();
+    return (me != NULL) && player_exists(me) && (me->user_id == user);
+}
+
 void PaletteSetUserPalette(NetUserId user, unsigned char *pal)
 {
     struct UserState* ustate = get_user_state(user);
@@ -403,7 +414,7 @@ void PaletteSetUserPalette(NetUserId user, unsigned char *pal)
     {
       kfx_render_state.palette_flags[user] &= ~RPF_FreezePaletteIsActive; // flag Freeze palette is not active
     }
-    if (user != get_local_user())
+    if (!palette_user_is_local_view(user))
         return;
     if ( (local_state.lens_palette == 0) || ((pal != local_state.main_palette) && (pal == local_state.lens_palette)) )
     {

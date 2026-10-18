@@ -46,6 +46,7 @@
 #include "game_lifecycle.h"
 #include "ariadne_saved_state.h"
 #include "lvl_script.h"
+#include "level_start_options.h"
 #include "config_sounds.h"
 #include "config_slabsets.h"
 #include "lvl_filesdk1.h"
@@ -702,6 +703,9 @@ static CoroutineLoopState startup_network_game_tail(CoroutineLoop *context)
     post_init_level();
     post_init_players();
     computer_players_set_dungeons(); // as after a load (P5-F21)
+    // What the Skirmish page asked for at Play that is not part of the level script (the whole map revealed): once
+    // the keepers and their dungeons exist, and always consumed so a later game does not inherit it.
+    level_start_options_apply(get_loaded_level_number());
     post_init_packets();
     if (kfx_sim_state.game_kind == GKind_LocalGame) {
         // Slots the Skirmish page marked External (docs/refactor/AI/LLM/01 M5): after the script has run, so the

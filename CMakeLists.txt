@@ -460,21 +460,27 @@ if(KFX_FUNCTESTING AND KFX_TEST_COVERAGE)
         COMMAND ${CMAKE_COMMAND} -E env "KFX_FTEST_CORE_FILES=${KFX_FTEST_DATA_DIR}"
             "${CMAKE_SOURCE_DIR}/scripts/run_ftest_coverage.sh" "${CMAKE_BINARY_DIR}"
             "${CMAKE_BINARY_DIR}/ftest-coverage-results.txt"
+        COMMAND ${CMAKE_COMMAND} -E echo "==> Capturing coverage counters (lcov)"
         COMMAND ${CMAKE_COMMAND} -E env perl "${KFX_LCOV_BIN}"
             --capture --directory "${CMAKE_BINARY_DIR}"
             --output-file "${CMAKE_BINARY_DIR}/coverage.raw.info"
             --gcov-tool gcov --quiet
             --rc "lcov_excl_line=${KFX_LCOV_EXCL_LINE_PATTERN}"
+        COMMAND ${CMAKE_COMMAND} -E echo "==> Extracting src/kfx_* coverage"
         COMMAND perl "${KFX_LCOV_BIN}"
             --extract "${CMAKE_BINARY_DIR}/coverage.raw.info"
             "${CMAKE_SOURCE_DIR}/src/kfx_*/src/*"
             --output-file "${CMAKE_BINARY_DIR}/coverage.info" --quiet
+        COMMAND ${CMAKE_COMMAND} -E echo "==> Rendering HTML report (genhtml)"
         COMMAND perl "${KFX_GENHTML_BIN}"
             "${CMAKE_BINARY_DIR}/coverage.info"
             --output-directory "${CMAKE_BINARY_DIR}/coverage-html" --quiet
         COMMAND "${CMAKE_SOURCE_DIR}/scripts/run_ftest_coverage.sh" --check
             "${CMAKE_BINARY_DIR}/ftest-coverage-results.txt"
         DEPENDS keeperfx
+        # Ninja buffers a command's output until it finishes unless the target runs in the console
+        # pool: this one runs for a long time and prints per-test progress as it goes.
+        USES_TERMINAL
         # Every COMMAND above uses fully-qualified paths (KFX_LCOV_BIN,
         # ${CMAKE_BINARY_DIR}/..., ${CMAKE_SOURCE_DIR}/...), including
         # keeperfx itself now that StageFtestData.cmake stages its data

@@ -14,6 +14,7 @@
 #include "kfx_config_state.h"
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 
@@ -55,43 +56,45 @@ TEST_CASE_METHOD(ResetConfigState, "clear_sacrifice_recipes resets every slot's 
     CHECK(kfx_config_state.conf.rules[0].sacrifices.sacrifice_recipes[5].victims[0] == 0);
 }
 
-TEST_CASE("sac_compare_fn returns a plain bool (0/1), not a real three-way qsort comparator", "[kfx_config][config_rules]") {
-    // A real quirk found while testing, not fixed: qsort's comparator
-    // contract needs negative/zero/positive, but this returns only
-    // `a < b` -- 0 or 1, never negative. Documented here as the actual
-    // observed return values, not the three-way contract a caller might
-    // assume from the name/usage. add_sacrifice_victim() below is
-    // deliberately not asserting a specific sorted order as a result --
-    // with a non-conforming comparator, qsort's output is
-    // implementation-defined, not something this test should bake in as
-    // "the" expected behavior.
-    ThingModel a = 5, b = 10;
-    CHECK(sac_compare_fn(&a, &b) == 1); // a < b -> true(1)
-    CHECK(sac_compare_fn(&b, &a) == 0); // b < a is false -> 0
-    CHECK(sac_compare_fn(&a, &a) == 0); // equal -> false(0), same as "b < a" above -- not a real tri-state result
+TEST_CASE("sac_compare_fn is a three-way comparator: models descending, empty slots last", "[kfx_config][config_rules]") {
+    // Was `return a < b` (0 or 1, never negative), which isn't a valid
+    // qsort comparator (upstream #4703).
+    ThingModel a = 5, b = 10, zero = 0;
+    CHECK(sac_compare_fn(&a, &b) > 0);
+    CHECK(sac_compare_fn(&b, &a) < 0);
+    CHECK(sac_compare_fn(&a, &a) == 0);
+    CHECK(sac_compare_fn(&zero, &a) > 0);
+    CHECK(sac_compare_fn(&a, &zero) < 0);
+    CHECK(sac_compare_fn(&zero, &zero) == 0);
+
+    ThingModel victims[MAX_SACRIFICE_VICTIMS] = {0, 3, 7, 0, 5, 7};
+    qsort(victims, MAX_SACRIFICE_VICTIMS, sizeof(victims[0]), &sac_compare_fn);
+    const ThingModel expected[MAX_SACRIFICE_VICTIMS] = {7, 7, 5, 3, 0, 0};
+    for (int64_t i = 0; i < MAX_SACRIFICE_VICTIMS; i++) {
+        CHECK(victims[i] == expected[i]);
+    }
 }
 
-TEST_CASE("add_sacrifice_victim inserts a new victim into the first free slot", "[kfx_config][config_rules]") {
+TEST_CASE("add_sacrifice_victim inserts a new victim and keeps the list sorted", "[kfx_config][config_rules]") {
     struct SacrificeRecipe sac;
     std::memset(&sac, 0, sizeof(sac));
 
-    CHECK(add_sacrifice_victim(&sac, 30));
-    // qsort's non-conforming comparator (see sac_compare_fn's own test)
-    // means the exact post-sort array order is implementation-defined,
-    // not asserted here -- only that the inserted value is present
-    // somewhere and the free-slot search advances correctly.
-    bool found_30 = false;
-    for (int64_t i = 0; i < MAX_SACRIFICE_VICTIMS; i++) {
-        if (sac.victims[i] == 30) found_30 = true;
-    }
-    CHECK(found_30);
-
     CHECK(add_sacrifice_victim(&sac, 10));
-    int64_t nonzero_count = 0;
-    for (int64_t i = 0; i < MAX_SACRIFICE_VICTIMS; i++) {
-        if (sac.victims[i] != 0) nonzero_count++;
+    CHECK(sac.victims[0] == 10);
+    CHECK(sac.victims[1] == 0);
+
+    CHECK(add_sacrifice_victim(&sac, 30));
+    CHECK(sac.victims[0] == 30);
+    CHECK(sac.victims[1] == 10);
+    CHECK(sac.victims[2] == 0);
+
+    CHECK(add_sacrifice_victim(&sac, 20));
+    CHECK(sac.victims[0] == 30);
+    CHECK(sac.victims[1] == 20);
+    CHECK(sac.victims[2] == 10);
+    for (int64_t i = 3; i < MAX_SACRIFICE_VICTIMS; i++) {
+        CHECK(sac.victims[i] == 0);
     }
-    CHECK(nonzero_count == 2); // both victims present, no slot lost or duplicated
 }
 
 TEST_CASE("add_sacrifice_victim rejects a new victim once every slot is full", "[kfx_config][config_rules]") {

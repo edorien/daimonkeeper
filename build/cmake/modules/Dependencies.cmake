@@ -75,14 +75,14 @@ set(KFX_SHA256_ENET6 58276a1c17aebd090886229de8537f93317a9abe880b8377ce800891778
 set(KFX_SHA256_ZLIB 9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23)
 set(KFX_SHA256_SPNG 47ec02be6c0a6323044600a9221b049f63e1953faf816903e7383d4dc4234487)
 set(KFX_SHA256_OPENAL cb5e6197a1c0da0edcf2a81024953cc8fa8545c3b9474e48c852af709d587892)
-set(KFX_SHA256_LUAJIT f5b09359b2939ccc769949acf42e0ad2721fa9bb7678c34789059cb44977fc8a)
+set(KFX_SHA256_LUAJIT a658a5596230c1564295b34303d64dee708956744de622f762e6a503b1a89236)
 set(KFX_SHA256_MINIUPNP 8cf2c833b3e76fc4893ff29c2a376e3394962449e5970e373c0a91421724d222)
 set(KFX_SHA256_NATPMP be1864ed4e54a122590fd2de3824b085386b6e4aa9a91738c277c280ab8bf188)
 set(KFX_SHA256_CURL 222c6b5c1f368ac63aed59bce2774eb5def9e8e67e46e800be182e684d2845a3)
-set(KFX_SHA256_SDL3_SRC f07b958a9ac5020fb7a44cadb957f658b2149c3c8abb4f63145fac9303249db7)
+set(KFX_SHA256_SDL3_SRC 9c75cf16330322c217dedd2e0609f1124f1b54b8633e763467b4684d0f4334a3)
 set(KFX_SHA256_SDL3_IMAGE_SRC 29751304a13d25ac513f24305fa25b06a6edd9607718c90129b8350d35fc5573)
 set(KFX_SHA256_SDL3_MIXER_SRC 182a07c745375e113dc740d43964ff21b0be29f29f59876c4dbc4db3d32f6901)
-set(KFX_SHA256_SDL3_MINGW ea8071241b934e1feec0337f7d78807a5004de9a500dba1942aaf615a988d7a2)
+set(KFX_SHA256_SDL3_MINGW 049b9dd711e3fb3f8d84feb998dfec54a75e17cf539c4a80ff4d058d839771cf)
 set(KFX_SHA256_SDL3_IMAGE_MINGW f9e3b3e0b74f7c1ffd8bcbdeda40eb2fc0d56d0afc874a804beb2b8df471b6a4)
 set(KFX_SHA256_SDL3_MIXER_MINGW 2ff5f59be4683e0afb4339c4fa73c6228651e52d37b040ecf80da08edb3cecd6)
 set(KFX_SHA256_LCOV 987031ad5528c8a746d4b52b380bc1bffe412de1f2b9c2ba5224995668e3240b)
@@ -122,6 +122,18 @@ function(kfx_fetch dir url)
     set(_sha256 "${ARGV2}")   # optional third argument: the tarball's SHA-256, checked after download and when reusing
     set(_tgz "${D}/${dir}.tar.gz")
     set(_dest "${D}/${dir}")
+    # A cache extracted from another URL (a version bump) is thrown away rather than silently reused.
+    if(EXISTS "${_dest}")
+        set(_seen "")
+        if(EXISTS "${_dest}/.kfx_url")
+            file(READ "${_dest}/.kfx_url" _seen)
+        endif()
+        if(NOT _seen STREQUAL "${url}")
+            message(STATUS "Dependency ${dir} was fetched from another URL; fetching again")
+            file(REMOVE_RECURSE "${_dest}")
+            file(REMOVE "${_tgz}")
+        endif()
+    endif()
     if(NOT EXISTS "${_dest}")
         file(MAKE_DIRECTORY "${_dest}")
         if(NOT EXISTS "${_tgz}")
@@ -147,6 +159,7 @@ function(kfx_fetch dir url)
         if(NOT _rc EQUAL 0)
             message(FATAL_ERROR "Failed to extract ${_tgz}")
         endif()
+        file(WRITE "${_dest}/.kfx_url" "${url}")
     endif()
 endfunction()
 
@@ -228,7 +241,7 @@ if(WIN32)
     # Unlike everything else in this file, SDL3's tarballs come straight from
     # upstream libsdl-org releases, not a KeeperFX-controlled build -- there is
     # no "from source" conversion to make here.
-    set(SDL3_VER      3.4.12)
+    set(SDL3_VER      3.4.18)
     set(SDL3_MIX_VER  3.2.4)
     set(SDL3_IMG_VER  3.4.4)
 
@@ -344,7 +357,7 @@ if(WIN32)
     # is the build host, so a plain host gcc does (no -m32/gcc-multilib, which
     # the old 32-bit i686 target needed); CC is the x86_64-w64-mingw32 one.
     kfx_populate(luajit_src
-        URL "https://github.com/openresty/luajit2/archive/refs/tags/v2.1-20260724.tar.gz"
+        URL "https://github.com/openresty/luajit2/archive/refs/tags/v2.1-20260914.tar.gz"
         URL_HASH SHA256=${KFX_SHA256_LUAJIT})
     ExternalProject_Add(luajit_build
         PREFIX            "${KFX_DEP_CACHE_DIR}/luajit-prefix"
@@ -496,7 +509,7 @@ else()
             PkgConfig::SDL3 PkgConfig::SDL3_image PkgConfig::SDL3_mixer)
     else()
         message(STATUS "SDL3: system libraries not found; building from source (FetchContent)")
-        set(SDL3_VER      3.4.12)
+        set(SDL3_VER      3.4.18)
         set(SDL3_MIX_VER  3.2.4)
         set(SDL3_IMG_VER  3.4.4)
         # Shared libs, no tests/examples. Use system decoder libraries rather than
@@ -715,7 +728,7 @@ else()
     else()
         message(STATUS "luajit: system library not found; building from source (its own Makefile, via ExternalProject)")
         kfx_populate(luajit_src
-            URL "https://github.com/openresty/luajit2/archive/refs/tags/v2.1-20260724.tar.gz"
+            URL "https://github.com/openresty/luajit2/archive/refs/tags/v2.1-20260914.tar.gz"
             URL_HASH SHA256=${KFX_SHA256_LUAJIT})
         ExternalProject_Add(luajit_build
             PREFIX            "${KFX_DEP_CACHE_DIR}/luajit-prefix"

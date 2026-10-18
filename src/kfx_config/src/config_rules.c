@@ -378,11 +378,21 @@ void clear_sacrifice_recipes(void)
   }
 }
 
+/**
+ * qsort comparator for a recipe's victim list: empty slots (0) last, the
+ * models before them in descending order. Recipes are matched with memcmp,
+ * so every list must sort the same way. Descending is the order glibc's
+ * merge sort gave the old `a < b` comparator, kept so stored recipes don't
+ * change; that comparator wasn't three-way, so other qsort implementations
+ * (Windows) could leave a 0 in front (upstream issue #4703).
+ */
 int sac_compare_fn(const void* ptr_a, const void* ptr_b)
 {
     ThingModel a = *(const ThingModel*)ptr_a;
     ThingModel b = *(const ThingModel*)ptr_b;
-    return a < b;
+    if ((a == 0) != (b == 0))
+        return (a == 0) ? 1 : -1;
+    return (a < b) - (a > b);
 }
 
 static void set_rules_defaults()

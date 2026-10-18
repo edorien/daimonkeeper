@@ -379,6 +379,10 @@ void draw_general()
     lua_note({ SetupField_Money, SetupField_MaxCreatures, SetupField_GenSpeed, SetupField_Pool });
 
     FeSeparator();
+    FeCheckbox("Reveal map", &s.reveal_map);
+    FeCaption("Every keeper starts with the whole map revealed (the Reveal Map special).");
+
+    FeSeparator();
     FeSubheading("Start gold and creature limit");
     for (int64_t p = -1; p < s.players; p++)
     {

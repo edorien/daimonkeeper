@@ -152,6 +152,11 @@ void   RendererWorldFrameAddPoly(const struct PolyPoint *a, const struct PolyPoi
 // time. Returns whether it was recorded.
 TbBool RendererWorldFrameAddShadowTri(const struct PolyPoint *a, const struct PolyPoint *b, const struct PolyPoint *c,
                                       const unsigned char *mask, int64_t shade, int64_t scale, TbBool coverage);
+struct WorldFrameShadowSpriteOp;
+// A creature shadow drawn from its frame's texels, no mask -- see WorldFrameShadowSpriteOp (renderer/WorldFrame.h):
+// `frame`'s rle/src/base/flip/soft/hd_* fields, the quad's corners P1..P4 as the CPU path's two triangles take them.
+// Returns whether it was recorded (false: draw the shadow the CPU way).
+TbBool RendererWorldFrameAddShadowSprite(const struct PolyPoint *const corners[4], const struct WorldFrameShadowSpriteOp *frame, int64_t shade);
 void   RendererWorldFrameAddSprite(const unsigned char *rle, int32_t src_w, int32_t src_h,
                                    int32_t dst_x, int32_t dst_y, int32_t dst_w, int32_t dst_h,
                                    const uint16_t *xmap, const uint16_t *ymap,

@@ -69,3 +69,23 @@ TEST_CASE_METHOD(ResetSimAndConfig, "torch_flags_for_slab sets 0x02 when a slab 
     get_slabmap_block(3, 0)->kind = SlbT_CLAIMED; // (slb_x+1, slb_y)
     CHECK(torch_flags_for_slab(2, 0) == 0x02);
 }
+
+TEST_CASE_METHOD(ResetSimAndConfig, "pretty_map_remove_flags_and_update clears the tag and unexplored flags on exactly the slab's own 3x3 subtiles", "[kfx_sim][map_blocks]") {
+    // It used to start at the slab's centre subtile, clearing a 3x3 one
+    // subtile down and right of the slab (upstream #5236's leftover tag).
+    for (MapSubtlCoord y = 0; y <= kfx_sim_state.map_subtiles_y; y++) {
+        for (MapSubtlCoord x = 0; x <= kfx_sim_state.map_subtiles_x; x++) {
+            get_map_block_at(x, y)->flags = SlbAtFlg_TaggedValuable | SlbAtFlg_Unexplored;
+        }
+    }
+
+    pretty_map_remove_flags_and_update(1, 1);
+
+    for (MapSubtlCoord y = 0; y <= kfx_sim_state.map_subtiles_y; y++) {
+        for (MapSubtlCoord x = 0; x <= kfx_sim_state.map_subtiles_x; x++) {
+            const bool in_slab = subtile_slab(x) == 1 && subtile_slab(y) == 1;
+            INFO("subtile (" << x << "," << y << ")");
+            CHECK((get_map_block_at(x, y)->flags == 0) == in_slab);
+        }
+    }
+}

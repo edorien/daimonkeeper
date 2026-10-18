@@ -2,6 +2,7 @@
 #define RENDERER_GPUSPRITERENDERER_H
 
 #include "renderer/WorldFrame.h"
+#include "renderer/SpriteAtlasCache.h"
 
 #include <cstdint>
 #include <unordered_map>
@@ -23,7 +24,7 @@ struct SDL_GPURenderPass;
 //   the frame's copy pass) -> Draw for each recorded SpriteDraw (inside the
 //   render pass, interleaved with terrain draws to keep painter's order).
 //
-// Sprites are cached as 8-bit texel indices in one atlas (RLE-decoded on first
+// Sprites are cached as 8-bit texel indices in an index atlas (RLE-decoded on first
 // use, re-decoded if the source bytes change) and coloured in the shader
 // through a 256-entry RGBA table per op -- the active palette or the remap /
 // shade table the CPU path drew with -- so a palette fade or a per-creature
@@ -32,12 +33,18 @@ struct SDL_GPURenderPass;
 // lookup texture), so scaling, flips and clipping match it exactly.
 //
 // HD sprites (docs/refactor/sprites/, Phase 4; WorldFrameSpriteOp's hd_* fields) are cached as RGBA in a second
-// atlas, a 2D array of 4096x4096 layers that grows (doubling, its layers copied on the GPU) as HD frames arrive, up
-// to the HD sprite store's own 3 GiB; keyed by their id. Their lookups give HD texel coordinates and their LUT row is
-// a curve row (the remap after the HD colour transform), with the transform's 64^3 table uploaded when the op needs
-// it (hd_table). The shader tells them apart by bit 8 of the vertex mode (bit 16: apply the table; the layer from
-// bit 256 up). Only when the array can't grow (the cap, or the GPU refusing a bigger one) does an HD op draw its
-// original, and the atlas start over.
+// atlas, keyed by their id. Their lookups give HD texel coordinates and their LUT row is a curve row (the remap after
+// the HD colour transform), with the transform's 64^3 table uploaded when the op needs it (hd_table). The shader
+// tells them apart by bit 8 of the vertex mode (bit 16: apply the table; the layer from bit 256 up). An HD op draws
+// its original when its texels can't be placed this frame.
+//
+// Both atlases are 2D arrays of 4096x4096 layers (SpriteAtlasCache, docs/plans/sprite-atlas-thrash.md Phase 3): they
+// grow by doubling (the layers copied on the GPU) up to a cap -- the index atlas kIndexMaxLayers, the HD one the HD
+// sprite store's share of ASSET_PACK_MEMORY -- and past it evict their least recently used pages, never the ones the
+// frame uses. The index atlas's layer is in bits 65536 up of the vertex mode.
+//
+// Creature shadows (WF_OP_SHADOW_SPRITE, Phase 2) sample their frame's own entry -- the index atlas's silhouette, or
+// for a soft shadow the HD atlas's alpha -- so they take no atlas room of their own.
 class GpuSpriteRenderer {
 public:
     struct DrawCall {
@@ -57,6 +64,8 @@ public:
     int AddOp(const WorldFrameSpriteOp& op, float off_x, float off_y, float depth, float view_depth, DrawCall out[2]);
     // Same for one shadow-mask triangle (WF_OP_SHADOW): 1 draw, or 0 if skipped.
     int AddShadow(const WorldFrameShadowOp& op, const unsigned char* pixels, float off_x, float off_y, float depth, float view_depth, DrawCall out[1]);
+    // A creature shadow drawn from its frame's texels (WF_OP_SHADOW_SPRITE): 1 draw (two triangles), or 0 if skipped.
+    int AddShadowSprite(const WorldFrameShadowSpriteOp& op, float off_x, float off_y, float depth, DrawCall out[1]);
     bool HasWork() const { return !m_vertices.empty(); }
     void Upload(SDL_GPUCopyPass* copy);
     void Draw(SDL_GPURenderPass* pass, const DrawCall& d);
@@ -70,21 +79,30 @@ private:
         uint8_t rgba[4];
         float depth;           // 0 near .. 1 far (visibility)
         float view_depth;      // hyperbolic view depth (lit sprites' position reconstruction)
+        float aux[4];          // shadows from frames: the frame's width, height, HD scale (0: the index atlas), mirrored
     };
+    // An index atlas entry: a sprite (its RLE, size) or a shadow mask (rle nullptr, the mask's content hash).
     struct Key {
-        const unsigned char* rle; int32_t w, h;
-        bool operator==(const Key& o) const { return rle == o.rle && w == o.w && h == o.h; }
+        const unsigned char* rle; int32_t w, h; uint64_t mask;
+        bool operator==(const Key& o) const { return rle == o.rle && w == o.w && h == o.h && mask == o.mask; }
     };
     struct KeyHash {
         size_t operator()(const Key& k) const noexcept {
-            return std::hash<const void*>()(k.rle) ^ (static_cast<size_t>(k.w) * 0x9E3779B1u) ^ (static_cast<size_t>(k.h) << 20);
+            return std::hash<const void*>()(k.rle) ^ (static_cast<size_t>(k.w) * 0x9E3779B1u) ^ (static_cast<size_t>(k.h) << 20)
+                ^ static_cast<size_t>(k.mask * 0x9E3779B97F4A7C15ull);
         }
     };
-    struct Entry {
-        int32_t x = 0, y = 0;
-        int32_t layer = 0;      // HD atlas only
-        uint64_t hash = 0;
-        uint64_t frame_seen = 0;
+    // A growing 2D-array texture and the one it grew from this frame (copied into it in Upload()).
+    struct GpuAtlas {
+        SDL_GPUTexture* tex = nullptr;
+        SDL_GPUTexture* old = nullptr;
+        int32_t size = 0;          // a layer's side
+        int32_t layers = 0;
+        int32_t old_layers = 0;
+        int32_t refused = 0;       // the most layers the GPU took when it refused more (0: none refused)
+        int format = 0;            // SDL_GPUTextureFormat
+        const char* name = "";
+        uint64_t evictions_logged = 0;
     };
     struct PendingUpload {
         uint32_t staging_offset;
@@ -93,13 +111,14 @@ private:
     };
 
     bool create_pipelines();
-    bool resolve(const WorldFrameSpriteOp& op, int32_t& ax, int32_t& ay);
-    bool resolve_mask(const WorldFrameShadowOp& op, const unsigned char* pixels, int32_t& ax, int32_t& ay);
-    bool alloc_rect(int32_t w, int32_t h, int32_t& x, int32_t& y);
-    bool resolve_hd(const WorldFrameSpriteOp& op, int32_t& ax, int32_t& ay, int32_t& layer);
-    bool alloc_hd_rect(int32_t w, int32_t h, int32_t& x, int32_t& y, int32_t& layer);
-    bool grow_hd_atlas();
-    SDL_GPUTexture* create_hd_atlas(int32_t size, int32_t layers);
+    bool resolve(const unsigned char* rle, int32_t src_w, int32_t src_h, int32_t& ax, int32_t& ay, int32_t& layer);
+    bool resolve_mask(const WorldFrameShadowOp& op, const unsigned char* pixels, int32_t& ax, int32_t& ay, int32_t& layer);
+    bool resolve_hd(const void* texels, const void* sub_texels, uint64_t id, int32_t hd_w, int32_t hd_h, int32_t stride, bool additive,
+                    int32_t& ax, int32_t& ay, int32_t& layer);
+    SDL_GPUTexture* create_atlas_texture(const GpuAtlas& atlas, int32_t size, int32_t layers);
+    bool grow_atlas(GpuAtlas& atlas, int32_t layers);
+    void copy_grown_atlas(SDL_GPUCopyPass* copy, GpuAtlas& atlas);
+    void log_evictions(GpuAtlas& atlas, uint64_t evictions);
     void upload_transform_table(SDL_GPUCopyPass* copy);
 
     SDL_GPUDevice* m_device = nullptr;
@@ -110,30 +129,21 @@ private:
     SDL_GPUSampler* m_light_sampler = nullptr;
     SDL_GPUSampler* m_sampler = nullptr;
 
-    SDL_GPUTexture* m_atlas = nullptr;
-    int32_t m_atlas_size = 0;
+    // The index atlas: R8 texel indices of sprites and shadow masks.
+    GpuAtlas m_index_atlas;
+    SpriteAtlasCache<Key, KeyHash> m_index;
+    static const int32_t kIndexMaxLayers = 16; // 256 MiB at 4096x4096; the shader has 4 bits for the layer
+    // Frames a page may go unused before a full atlas reuses it rather than growing (some seconds of play): the atlases
+    // grow with what recent frames draw, up to their caps, not with everything ever drawn.
+    static const uint64_t kAtlasStaleFrames = 600;
     SDL_GPUTransferBuffer* m_atlas_staging = nullptr;
     uint32_t m_atlas_staging_capacity = 0;
-    std::unordered_map<Key, Entry, KeyHash> m_entries;
-    std::unordered_map<uint64_t, Entry> m_mask_entries; // shadow masks, keyed by content hash
-    int32_t m_cursor_x = 0, m_cursor_y = 0, m_shelf_h = 0;
-    bool m_atlas_full = false;
-    bool m_atlas_reset_pending = false;
 
-    // HD sprites: RGBA array atlas (own shelf allocator over its layers), its uploads, and the colour transform's table.
-    SDL_GPUTexture* m_hd_atlas = nullptr;
-    int32_t m_hd_atlas_size = 0;               // a layer's side
-    int32_t m_hd_layers = 0;                   // layers the texture has
-    int32_t m_hd_layer_refused = 0;            // the most layers the GPU took when it refused more (0: none refused)
+    // HD sprites: RGBA array atlas, its uploads, and the colour transform's table.
+    GpuAtlas m_hd_atlas;
+    SpriteAtlasCache<uint64_t> m_hd;
     int32_t hd_layer_cap() const;              // the most it may grow to now
-    SDL_GPUTexture* m_hd_atlas_old = nullptr;  // grown this frame: copied from in Upload(), then released
-    int32_t m_hd_old_layers = 0;
-    int32_t m_hd_layer = 0;                    // the layer the allocator fills
     SDL_GPUTransferBuffer* m_hd_staging = nullptr;
-    std::unordered_map<uint64_t, Entry> m_hd_entries;
-    int32_t m_hd_cursor_x = 0, m_hd_cursor_y = 0, m_hd_shelf_h = 0;
-    bool m_hd_atlas_full = false;
-    bool m_hd_atlas_reset_pending = false;
     std::vector<uint32_t> m_hd_pending_pixels; // RGBA for the HD uploads
     std::vector<PendingUpload> m_hd_pending;
     SDL_GPUTexture* m_transform_tex = nullptr;   // 4096 x 64 RGBA: entry (r6 << 12 | g6 << 6 | b6)
@@ -163,6 +173,7 @@ private:
 
     // Per-frame state.
     uint64_t m_frame_id = 0;
+    uint64_t m_evictions_counted = 0; // both atlases' evictions already counted in RPROF
     const WorldFrame* m_frame = nullptr;
     std::vector<SpriteVertex> m_vertices;
     std::vector<unsigned char> m_pending_pixels; // decoded indices for the uploads below

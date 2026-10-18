@@ -19,6 +19,7 @@
 #include "pre_inc.h"
 #include "renderer/RendererManager.h"
 #include "renderer/RendererProfile.h"
+#include "renderer/WorldFrame.h"
 #include <stddef.h>
 #include <stdlib.h>
 #include <math.h>
@@ -402,7 +403,9 @@ static void do_map_who(int64_t tnglist_idx);
 static void (*render_sprite_debug_fn) (struct Thing*, int64_t scrpos_x, int64_t scrpos_y) = NULL;
 static int64_t render_sprite_debug_level = 0;
 static void draw_keepsprite_unscaled_in_buffer(int64_t kspr_n, int64_t angle, unsigned char current_frame, unsigned char *outbuf);
-static const unsigned char *soft_shadow_coverage(const unsigned char *mask, int64_t *scale_out);
+struct BucketKindCreatureShadow;
+static TbBool record_creature_shadow(const struct BucketKindCreatureShadow *cs);
+static const unsigned char *soft_shadow_coverage(const unsigned char *mask, int64_t *scale_out, struct ShadowCoverRect *rect_out);
 static void draw_jonty_mapwho(struct BucketKindJontySprite *jspr);
 
 static TbBool animation_sprite_id_invalid(int64_t animation_sprite)
@@ -6843,16 +6846,23 @@ static void display_drawlist(void) // Draws isometric and 1st person view. Not f
                 draw_jonty_mapwho(item.jontySprite);
                 break;
             case QK_CreatureShadow: // Shadows of creatures in isometric and 1st person view
-                // TODO: this could be cached
+                RPROF_BEGIN(RPS_SHADOWS);
+                // Vulkan: drawn from the frame's own texels, no mask (docs/plans/sprite-atlas-thrash.md, Phase 2).
+                if (RendererWorldFrameCapturing() && record_creature_shadow(item.creatureShadow))
+                {
+                    RPROF_END(RPS_SHADOWS);
+                    break;
+                }
                 draw_keepsprite_unscaled_in_buffer(item.creatureShadow->anim_sprite, item.creatureShadow->angle, item.creatureShadow->current_frame, big_scratch);
                 vec_map = big_scratch;
                 vec_map_scale = 1;
                 vec_map_coverage = false;
-                // With an HD sprite pack, soft shadows: coverage at the art's scale (Phase 10).
-                if (sprite_hd_soft_shadows())
+                // Soft shadows (SHADOW_STYLE): coverage at the art's scale (Phase 10). Never while a GPU frame records
+                // (it draws them from their frames above; this is only reached if that couldn't).
+                if (sprite_hd_soft_shadows() && !RendererWorldFrameCapturing())
                 {
                     int64_t cover_scale = 1;
-                    const unsigned char *cover = soft_shadow_coverage(big_scratch, &cover_scale);
+                    const unsigned char *cover = soft_shadow_coverage(big_scratch, &cover_scale, &vec_map_cover_rect);
                     if (cover != NULL)
                     {
                         vec_map = (unsigned char *)cover;
@@ -6866,6 +6876,7 @@ static void display_drawlist(void) // Draws isometric and 1st person view. Not f
                 trig(&item.creatureShadow->vertex_first, &item.creatureShadow->vertex_third, &item.creatureShadow->vertex_fourth);
                 vec_map_scale = 1;
                 vec_map_coverage = false;
+                RPROF_END(RPS_SHADOWS);
                 break;
             case QK_SlabSelector: // Selection outline box for placing/digging slabs
                 draw_clipped_line(
@@ -8508,6 +8519,7 @@ struct ShadowFrameInfo {
     int64_t width, height;
     TbBool flip;
     int64_t fill_w, fill_h;
+    int64_t base_x, base_y; ///< where the frame's texel (0, 0) goes in the buffer (mirrored: texel sx at base_x - sx)
 };
 static struct ShadowFrameInfo shadow_frame;
 
@@ -8516,9 +8528,12 @@ static struct ShadowFrameInfo shadow_frame;
 static unsigned char soft_shadow_cover[256 * SOFT_SHADOW_MAX_SCALE * 256 * SOFT_SHADOW_MAX_SCALE];
 static unsigned char soft_shadow_line[256 * SOFT_SHADOW_MAX_SCALE];
 
-/** One pass of a box blur of radius r along a run of n values `step` apart. */
+/** One pass of a box blur of radius r along a run of n values `step` apart. The division by 2r + 1 as a multiply and a
+ *  shift: exact for the sums a byte run makes, up to r = 4. */
 static void soft_shadow_box(unsigned char *p, int64_t n, int64_t step, int64_t r)
 {
+    const uint64_t d = (uint64_t)(2 * r + 1);
+    const uint64_t inv = ((1ull << 24) + d - 1) / d;
     int64_t sum = 0;
     for (int64_t i = 0; i < n; i++)
         soft_shadow_line[i] = p[i * step];
@@ -8527,22 +8542,155 @@ static void soft_shadow_box(unsigned char *p, int64_t n, int64_t step, int64_t r
     for (int64_t i = 0; i < n; i++)
     {
         sum += (i + r < n) ? soft_shadow_line[i + r] : 0;
-        p[i * step] = (unsigned char)(sum / (2 * r + 1));
+        p[i * step] = (unsigned char)(((uint64_t)sum * inv) >> 24);
         sum -= (i - r >= 0) ? soft_shadow_line[i - r] : 0;
     }
 }
 
+/** The soft shadows' coverage, computed once per frame drawn (its frame, mirroring and art), not per light and frame
+ *  rendered: an LRU of the rectangles soft_shadow_coverage() made (docs/plans/sprite-atlas-thrash.md, Phase 1). */
+#define SOFT_SHADOW_CACHE_SLOTS 512
+#define SOFT_SHADOW_CACHE_BYTES ((size_t)64 << 20)
+struct SoftShadowCached {
+    TbBool used;
+    uint64_t keepsprite_id, rle_hash, art_id;
+    TbSpriteData data;
+    int64_t width, height, fill_w, fill_h;
+    TbBool flip;
+    int64_t k;                    ///< the coverage's scale; 0: nothing to draw
+    int64_t rx0, ry0, rx1, ry1;   ///< its rectangle in soft_shadow_cover's layout
+    unsigned char *cover;         ///< (rx1 - rx0) x (ry1 - ry0) bytes
+    uint64_t last_used;
+};
+static struct SoftShadowCached soft_shadow_cache[SOFT_SHADOW_CACHE_SLOTS];
+static size_t soft_shadow_cache_bytes;
+static uint64_t soft_shadow_cache_clock;
+
+static uint64_t soft_shadow_rle_hash(const unsigned char *rle, int64_t h)
+{
+    uint64_t hash = 1469598103934665603ull;
+    size_t pos = 0;
+    for (int64_t row = 0; row < h; row++)
+    {
+        for (;;)
+        {
+            const signed char b = (signed char)rle[pos++];
+            hash = (hash ^ (unsigned char)b) * 1099511628211ull;
+            if (b == 0)
+                break;
+            if (b > 0)
+                pos += (size_t)b; // literal texels: the silhouette doesn't depend on them
+        }
+    }
+    return hash;
+}
+
+/** Keeps the coverage soft_shadow_coverage() just made (key's rectangle of soft_shadow_cover); its copy, or NULL. */
+static const struct SoftShadowCached *soft_shadow_cache_store(const struct SoftShadowCached *key, int64_t span)
+{
+    const size_t bytes = (key->k > 0) ? (size_t)((key->rx1 - key->rx0) * (key->ry1 - key->ry0)) : 0;
+    if (bytes > SOFT_SHADOW_CACHE_BYTES / 4)
+        return NULL;
+    // A free slot, else the least recently used; more go while the bytes are over budget.
+    for (;;)
+    {
+        int victim = -1;
+        int free_slot = -1;
+        for (int i = 0; i < SOFT_SHADOW_CACHE_SLOTS; i++)
+        {
+            if (!soft_shadow_cache[i].used)
+            {
+                if (free_slot < 0)
+                    free_slot = i;
+            }
+            else if ((victim < 0) || (soft_shadow_cache[i].last_used < soft_shadow_cache[victim].last_used))
+            {
+                victim = i;
+            }
+        }
+        if ((free_slot >= 0) && (soft_shadow_cache_bytes + bytes <= SOFT_SHADOW_CACHE_BYTES))
+        {
+            struct SoftShadowCached *e = &soft_shadow_cache[free_slot];
+            *e = *key;
+            e->cover = NULL;
+            if (bytes > 0)
+            {
+                e->cover = malloc(bytes);
+                if (e->cover == NULL)
+                    return NULL;
+                const int64_t w = key->rx1 - key->rx0;
+                for (int64_t y = key->ry0; y < key->ry1; y++)
+                    memcpy(&e->cover[(y - key->ry0) * w], &soft_shadow_cover[y * span + key->rx0], (size_t)w);
+            }
+            e->used = true;
+            e->last_used = ++soft_shadow_cache_clock;
+            soft_shadow_cache_bytes += bytes;
+            return e;
+        }
+        if (victim < 0)
+            return NULL;
+        struct SoftShadowCached *v = &soft_shadow_cache[victim];
+        if (v->k > 0)
+            soft_shadow_cache_bytes -= (size_t)((v->rx1 - v->rx0) * (v->ry1 - v->ry0));
+        free(v->cover);
+        memset(v, 0, sizeof(*v));
+    }
+}
+
 /**
- * Soft creature shadows (docs/refactor/sprites/ Phase 10, with an HD sprite pack): the shadow's coverage, 0..255, at
- * `scale` texels per original texel -- the frame's HD art's alpha (its pack's scale), else the original silhouette
- * `mask` (256x256, what draw_keepsprite_unscaled_in_buffer() drew) at 2x -- blurred by about an original texel. The
- * HD art is placed where the original's drawn texels are (their box against the frame's own opaque columns), which
- * follows draw_keepsprite_unscaled_in_buffer()'s placement, mirroring included. NULL when there is nothing to draw.
+ * Soft creature shadows (docs/refactor/sprites/ Phase 10, SHADOW_STYLE soft): the shadow's coverage, 0..255, at `scale`
+ * texels per original texel -- the frame's HD art's alpha (its pack's scale), else the original silhouette `mask`
+ * (256x256, what draw_keepsprite_unscaled_in_buffer() drew) at 2x -- blurred by about an original texel. The HD art is
+ * placed where the original's drawn texels are (their box against the frame's own opaque columns), which follows
+ * draw_keepsprite_unscaled_in_buffer()'s placement, mirroring included. NULL when there is nothing to draw. Each
+ * frame's coverage is made once and kept (soft_shadow_cache); what is returned is its rectangle (`rect_out`, as
+ * vec_map_cover_rect describes), read in place.
  */
-static const unsigned char *soft_shadow_coverage(const unsigned char *mask, int64_t *scale_out)
+static const unsigned char *soft_shadow_coverage(const unsigned char *mask, int64_t *scale_out, struct ShadowCoverRect *rect_out)
 {
     if (!shadow_frame.valid)
         return NULL;
+    const TbPixel *art = NULL;
+    int64_t stride = 0, k = 2, art_k = 2;
+    uint64_t art_id = 0;
+    const int64_t w = shadow_frame.width, h = shadow_frame.height;
+    const int64_t kspr_idx = (int64_t)shadow_frame.keepsprite_id;
+    if (!sprite_hd_shadow_art(kspr_idx, shadow_frame.data, w, h, &art, &stride, &art_k, &art_id) || (art_k < 1) || (art_k > SOFT_SHADOW_MAX_SCALE))
+    {
+        art = NULL;
+        art_id = 0;
+        art_k = 2;
+    }
+    // A blurred shadow needs no more than 2 texels an original texel: art at an even scale is averaged down to it
+    // (4x fewer texels to make and keep than x4); at an odd scale it is taken as it is.
+    k = ((art != NULL) && ((art_k & 1) != 0)) ? art_k : 2;
+    const int64_t f = (art != NULL) ? art_k / k : 1; // art texels a coverage texel spans, each way
+    const int64_t span = 256 * k;
+    struct SoftShadowCached key;
+    memset(&key, 0, sizeof(key));
+    key.keepsprite_id = shadow_frame.keepsprite_id;
+    key.rle_hash = soft_shadow_rle_hash(shadow_frame.data, h);
+    key.art_id = art_id;
+    key.data = shadow_frame.data;
+    key.width = w;
+    key.height = h;
+    key.fill_w = shadow_frame.fill_w;
+    key.fill_h = shadow_frame.fill_h;
+    key.flip = shadow_frame.flip;
+    for (int i = 0; i < SOFT_SHADOW_CACHE_SLOTS; i++)
+    {
+        struct SoftShadowCached *e = &soft_shadow_cache[i];
+        if (!e->used || (e->keepsprite_id != key.keepsprite_id) || (e->rle_hash != key.rle_hash) || (e->art_id != key.art_id)
+            || (e->data != key.data) || (e->width != w) || (e->height != h) || (e->fill_w != key.fill_w)
+            || (e->fill_h != key.fill_h) || (e->flip != key.flip))
+            continue;
+        e->last_used = ++soft_shadow_cache_clock;
+        if (e->k <= 0)
+            return NULL;
+        *rect_out = (struct ShadowCoverRect){ e->rx0, e->ry0, e->rx1 - e->rx0, e->ry1 - e->ry0, e->rx1 - e->rx0 };
+        *scale_out = e->k;
+        return e->cover;
+    }
     // The original's drawn box in the buffer (its cleared area, and the column past it a mirrored frame reaches).
     const int64_t area_w = min(shadow_frame.fill_w + 1, (int64_t)256), area_h = min(shadow_frame.fill_h, (int64_t)256);
     int64_t x0 = 256, y0 = 256, x1 = -1, y1 = -1;
@@ -8554,34 +8702,14 @@ static const unsigned char *soft_shadow_coverage(const unsigned char *mask, int6
                 y0 = min(y0, y); y1 = max(y1, y);
             }
     if (x1 < 0)
+    {
+        soft_shadow_cache_store(&key, span);
         return NULL;
-    const TbPixel *art = NULL;
-    int64_t stride = 0, k = 2;
-    const int64_t w = shadow_frame.width, h = shadow_frame.height;
-    const int64_t kspr_idx = (int64_t)shadow_frame.keepsprite_id;
-    if (!sprite_hd_shadow_art(kspr_idx, shadow_frame.data, w, h, &art, &stride, &k) || (k < 1) || (k > SOFT_SHADOW_MAX_SCALE))
-    {
-        art = NULL;
-        k = 2;
     }
-    const int64_t span = 256 * k;
-    const int64_t margin = 2 * k;
-    const int64_t rx0 = max((int64_t)0, x0 * k - margin), ry0 = max((int64_t)0, y0 * k - margin);
-    const int64_t rx1 = min(span, (x1 + 1) * k + margin), ry1 = min(span, (y1 + 1) * k + margin);
-    for (int64_t y = ry0; y < ry1; y++)
-        memset(&soft_shadow_cover[y * span + rx0], 0, (size_t)(rx1 - rx0));
-    if (art == NULL)
+    // The frame's opaque columns and rows, to put its crop where the original's drawn box is.
+    int64_t c0 = w, c1 = -1, r0 = h, r1 = -1;
+    if (art != NULL)
     {
-        for (int64_t y = y0; y <= y1; y++)
-            for (int64_t x = x0; x <= x1; x++)
-                if (mask[y * 256 + x])
-                    for (int64_t dy = 0; dy < k; dy++)
-                        memset(&soft_shadow_cover[(y * k + dy) * span + x * k], 255, (size_t)k);
-    }
-    else
-    {
-        // The frame's opaque columns and rows, to put its crop where the original's drawn box is.
-        int64_t c0 = w, c1 = -1, r0 = h, r1 = -1;
         const unsigned char *p = shadow_frame.data;
         for (int64_t r = 0; r < h; r++)
         {
@@ -8599,7 +8727,26 @@ static const unsigned char *soft_shadow_coverage(const unsigned char *mask, int6
             }
         }
         if (c1 < 0)
+        {
+            soft_shadow_cache_store(&key, span);
             return NULL;
+        }
+    }
+    const int64_t margin = 2 * k;
+    const int64_t rx0 = max((int64_t)0, x0 * k - margin), ry0 = max((int64_t)0, y0 * k - margin);
+    const int64_t rx1 = min(span, (x1 + 1) * k + margin), ry1 = min(span, (y1 + 1) * k + margin);
+    for (int64_t y = ry0; y < ry1; y++)
+        memset(&soft_shadow_cover[y * span + rx0], 0, (size_t)(rx1 - rx0));
+    if (art == NULL)
+    {
+        for (int64_t y = y0; y <= y1; y++)
+            for (int64_t x = x0; x <= x1; x++)
+                if (mask[y * 256 + x])
+                    for (int64_t dy = 0; dy < k; dy++)
+                        memset(&soft_shadow_cover[(y * k + dy) * span + x * k], 255, (size_t)k);
+    }
+    else
+    {
         for (int64_t hy = 0; hy < h * k; hy++)
         {
             const int64_t Y = (y0 - r0) * k + hy;
@@ -8610,7 +8757,11 @@ static const unsigned char *soft_shadow_coverage(const unsigned char *mask, int6
                 const int64_t X = shadow_frame.flip ? ((x1 + c0 + 1) * k - 1 - hx) : ((x0 - c0) * k + hx);
                 if ((X < rx0) || (X >= rx1))
                     continue;
-                soft_shadow_cover[Y * span + X] = art[hy * stride + hx].a;
+                int64_t a = 0;
+                for (int64_t j = 0; j < f; j++)
+                    for (int64_t i = 0; i < f; i++)
+                        a += art[(hy * f + j) * stride + hx * f + i].a;
+                soft_shadow_cover[Y * span + X] = (unsigned char)(a / (f * f));
             }
         }
     }
@@ -8623,138 +8774,145 @@ static const unsigned char *soft_shadow_coverage(const unsigned char *mask, int6
         for (int64_t x = rx0; x < rx1; x++)
             soft_shadow_box(&soft_shadow_cover[ry0 * span + x], ry1 - ry0, span, r);
     }
+    key.k = k;
+    key.rx0 = rx0; key.ry0 = ry0; key.rx1 = rx1; key.ry1 = ry1;
+    const struct SoftShadowCached *kept = soft_shadow_cache_store(&key, span);
     *scale_out = k;
-    return soft_shadow_cover;
+    if ((kept != NULL) && (kept->cover != NULL))
+    {
+        *rect_out = (struct ShadowCoverRect){ rx0, ry0, rx1 - rx0, ry1 - ry0, rx1 - rx0 };
+        return kept->cover;
+    }
+    *rect_out = (struct ShadowCoverRect){ rx0, ry0, rx1 - rx0, ry1 - ry0, span };
+    return &soft_shadow_cover[ry0 * span + rx0];
 }
 
-static void draw_keepsprite_unscaled_in_buffer(int64_t kspr_n, int64_t angle, unsigned char current_frame, unsigned char *outbuf)
+/** The frame of animation `kspr_n` a shadow at `angle` shows, and where draw_keepsprite_unscaled_in_buffer() puts it in
+ *  its 256-wide buffer (ShadowFrameInfo); loads the frame. False when there is none (nothing is drawn then). */
+static TbBool shadow_frame_resolve(int64_t kspr_n, int64_t angle, unsigned char current_frame, struct ShadowFrameInfo *out)
 {
-    shadow_frame.valid = false;
-    struct KeeperSprite *kspr_arr;
-    uint64_t kspr_idx;
-    struct KeeperSprite *kspr;
-    TbSpriteData sprite_data;
-    uint64_t keepsprite_id;
-    unsigned char *tmpbuf;
-    int64_t skip_w;
-    int64_t skip_h;
-    int64_t fill_w;
-    int64_t fill_h;
-    TbBool flip_range;
-    int64_t quarter;
-    int64_t i;
-    if ( ((angle & ANGLE_MASK) <= 1151) || ((angle & ANGLE_MASK) >= 1919) )
-        flip_range = false;
-    else
-        flip_range = true;
-    i = ((angle + DEGREES_22_5) & ANGLE_MASK);
-    quarter = llabs(4 - (i >> 8)); // i is restricted by "&" so (i>>8) is 0..7
-    kspr_arr = keepersprite_array(kspr_n);
-    if (kspr_arr == NULL) {
-        return;
-    }
-    if (kspr_arr->FramesCount == 0) {
-        return;
-    }
-    if (current_frame >= kspr_arr->FramesCount) {
+    out->valid = false;
+    const TbBool flip_range = !(((angle & ANGLE_MASK) <= 1151) || ((angle & ANGLE_MASK) >= 1919));
+    const int64_t i = ((angle + DEGREES_22_5) & ANGLE_MASK);
+    const int64_t quarter = llabs(4 - (i >> 8)); // i is restricted by "&" so (i>>8) is 0..7
+    struct KeeperSprite *kspr_arr = keepersprite_array(kspr_n);
+    if ((kspr_arr == NULL) || (kspr_arr->FramesCount == 0))
+        return false;
+    if (current_frame >= kspr_arr->FramesCount)
         current_frame = kspr_arr->FramesCount - 1;
-    }
-    kspr_idx = keepersprite_index(kspr_n);
-
+    const uint64_t kspr_idx = keepersprite_index(kspr_n);
+    struct KeeperSprite *kspr;
+    uint64_t keepsprite_id;
     if (kspr_arr->Rotable == 0)
     {
         if (!heap_manage_keepersprite(kspr_idx))
-        {
-            return;
-        }
+            return false;
         keepsprite_id = current_frame + kspr_idx;
-        if (keepsprite_id >= KEEPERSPRITE_ADD_OFFSET)
-        {
-            sprite_data = keepersprite_add[keepsprite_id - KEEPERSPRITE_ADD_OFFSET];
-        }
-        else if (keepsprite_id >= KEEPSPRITE_LENGTH)
-        {
-            ERRORLOG("Sprite %" PRId64 " outside of valid range.", (int64_t)(keepsprite_id));
-            return;
-        }
-        else
-        {
-            sprite_data = *keepsprite[keepsprite_id];
-        }
         kspr = &kspr_arr[current_frame];
-        fill_w = kspr->FrameWidth;
-        fill_h = kspr->FrameHeight;
-        shadow_frame = (struct ShadowFrameInfo){ true, keepsprite_id, sprite_data, kspr->SWidth, kspr->SHeight, flip_range, fill_w, fill_h };
-        if ( flip_range )
-        {
-            tmpbuf = outbuf;
-            skip_w = kspr->FrameWidth - kspr->FrameOffsW;
-            skip_h = kspr->FrameOffsH;
-            for (i = fill_h; i > 0; i--)
-            {
-                memset(tmpbuf, 0, fill_w);
-                tmpbuf += 256;
-            }
-            sprite_to_sbuff_xflip(sprite_data, &outbuf[256 * skip_h + skip_w], kspr->SHeight, 256);
-        }
-        else
-        {
-
-            tmpbuf = outbuf;
-            skip_w = kspr->FrameOffsW;
-            skip_h = kspr->FrameOffsH;
-            for (i = fill_h; i > 0; i--)
-            {
-                memset(tmpbuf, 0, fill_w);
-                tmpbuf += 256;
-            }
-            sprite_to_sbuff(sprite_data, &outbuf[256 * skip_h + skip_w], kspr->SHeight, 256);
-        }
     }
     else if (kspr_arr->Rotable == 2)
     {
         if (!heap_manage_keepersprite(kspr_idx))
-        {
-            return;
-        }
+            return false;
         kspr = &kspr_arr[current_frame + quarter * kspr_arr->FramesCount];
+        keepsprite_id = current_frame + quarter * kspr->FramesCount + kspr_idx;
+    }
+    else
+    {
+        return false;
+    }
+    TbSpriteData sprite_data;
+    if (keepsprite_id >= KEEPERSPRITE_ADD_OFFSET)
+    {
+        sprite_data = keepersprite_add[keepsprite_id - KEEPERSPRITE_ADD_OFFSET];
+    }
+    else if (keepsprite_id >= KEEPSPRITE_LENGTH)
+    {
+        if (kspr_arr->Rotable == 0)
+            ERRORLOG("Sprite %" PRId64 " outside of valid range.", (int64_t)(keepsprite_id));
+        return false;
+    }
+    else
+    {
+        sprite_data = *keepsprite[keepsprite_id];
+    }
+    int64_t base_x, base_y, fill_w, fill_h;
+    if (kspr_arr->Rotable == 0)
+    {
+        fill_w = kspr->FrameWidth;
+        fill_h = kspr->FrameHeight;
+        base_x = flip_range ? (kspr->FrameWidth - kspr->FrameOffsW) : kspr->FrameOffsW;
+        base_y = kspr->FrameOffsH;
+    }
+    else
+    {
         fill_w = kspr->SWidth;
         fill_h = kspr->SHeight;
-        keepsprite_id = current_frame + quarter * kspr->FramesCount + kspr_idx;
-        if (keepsprite_id >= KEEPERSPRITE_ADD_OFFSET)
+        base_x = flip_range ? kspr->SWidth : 0;
+        base_y = 0;
+    }
+    *out = (struct ShadowFrameInfo){ true, keepsprite_id, sprite_data, kspr->SWidth, kspr->SHeight, flip_range, fill_w, fill_h,
+        base_x, base_y };
+    return true;
+}
+
+/** A creature shadow for the GPU, drawn from its frame's own texels -- no mask, no coverage made on the CPU
+ *  (docs/plans/sprite-atlas-thrash.md, Phase 2; WorldFrameShadowSpriteOp). False: draw it the CPU way. */
+static TbBool record_creature_shadow(const struct BucketKindCreatureShadow *cs)
+{
+    struct ShadowFrameInfo info;
+    if (!shadow_frame_resolve(cs->anim_sprite, cs->angle, cs->current_frame, &info))
+        return true; // no frame: nothing to draw
+    if ((info.data == NULL) || (info.width <= 0) || (info.height <= 0))
+        return true;
+    struct WorldFrameShadowSpriteOp op;
+    memset(&op, 0, sizeof(op));
+    op.rle = info.data;
+    op.src_w = (int32_t)info.width;
+    op.src_h = (int32_t)info.height;
+    op.base_x = (int32_t)info.base_x;
+    op.base_y = (int32_t)info.base_y;
+    op.flip = info.flip ? 1 : 0;
+    op.soft = sprite_hd_soft_shadows() ? 1 : 0;
+    if (op.soft)
+    {
+        // The HD level a sprite this size on screen draws with: the quad's far edge (P2 -> P3, u from 0 to the
+        // frame's width) over the texels it spans, as global_scaler (32: a texel a pixel).
+        const double du = (double)(cs->vertex_third.U - cs->vertex_second.U) / 65536.0;
+        const double dx = (double)(cs->vertex_third.X - cs->vertex_second.X), dy = (double)(cs->vertex_third.Y - cs->vertex_second.Y);
+        const int64_t scale = (du > 0.0) ? (int64_t)(32.0 * sqrt(dx * dx + dy * dy) / du + 0.5) : 32;
+        struct TbHdSpriteSource hd;
+        if (sprite_hd_shadow_source((int64_t)info.keepsprite_id, info.data, info.width, info.height, max(scale, (int64_t)1), &hd)
+            && (hd.texels != NULL) && (hd.scale >= 1))
         {
-            sprite_data = keepersprite_add[keepsprite_id - KEEPERSPRITE_ADD_OFFSET];
-        }
-        else if (keepsprite_id >= KEEPSPRITE_LENGTH)
-        {
-            return; // WTF?!!
-        }
-        else
-        {
-            sprite_data = *keepsprite[keepsprite_id];
-        }
-        shadow_frame = (struct ShadowFrameInfo){ true, keepsprite_id, sprite_data, kspr->SWidth, kspr->SHeight, flip_range, fill_w, fill_h };
-        if ( flip_range )
-        {
-            tmpbuf = outbuf;
-            for (i = fill_h; i > 0; i--)
-            {
-                memset(tmpbuf, 0, fill_w);
-                tmpbuf += 256;
-            }
-            sprite_to_sbuff_xflip(sprite_data, &outbuf[kspr->SWidth], kspr->SHeight, 256);
-        }
-        else
-        {
-            tmpbuf = outbuf;
-            for (i = fill_h; i > 0; i--)
-            {
-                memset(tmpbuf, 0, fill_w);
-                tmpbuf += 256;
-            }
-            sprite_to_sbuff(sprite_data, &outbuf[0], kspr->SHeight, 256);
+            op.hd_texels = hd.texels;
+            op.hd_id = hd.id;
+            op.hd_scale = (int32_t)hd.scale;
+            op.hd_w = (int32_t)(info.width * hd.scale);
+            op.hd_h = (int32_t)(info.height * hd.scale);
+            op.hd_stride = (int32_t)hd.stride;
         }
     }
+    const struct PolyPoint *const corners[4] = { &cs->vertex_first, &cs->vertex_second, &cs->vertex_third, &cs->vertex_fourth };
+    return RendererWorldFrameAddShadowSprite(corners, &op, (int64_t)clamp(cs->vertex_first.S, 0, 63));
+}
+
+static void draw_keepsprite_unscaled_in_buffer(int64_t kspr_n, int64_t angle, unsigned char current_frame, unsigned char *outbuf)
+{
+    if (!shadow_frame_resolve(kspr_n, angle, current_frame, &shadow_frame))
+        return;
+    unsigned char *tmpbuf = outbuf;
+    for (int64_t i = shadow_frame.fill_h; i > 0; i--)
+    {
+        memset(tmpbuf, 0, shadow_frame.fill_w);
+        tmpbuf += 256;
+    }
+    // The frame's texel (sx, sy) lands at (base_x + sx, base_y + sy), or mirrored at (base_x - sx, base_y + sy).
+    unsigned char *at = &outbuf[256 * shadow_frame.base_y + shadow_frame.base_x];
+    if (shadow_frame.flip)
+        sprite_to_sbuff_xflip(shadow_frame.data, at, shadow_frame.height, 256);
+    else
+        sprite_to_sbuff(shadow_frame.data, at, shadow_frame.height, 256);
 }
 
 /**

@@ -20,6 +20,10 @@
 //                info1.x = 0 (palette row), v_rgba.rg = base shade x256 as two bytes
 //   6 SHADOW     creature-shadow mask triangle: dest *= shade factor
 // A shadow (6) with 8 added is soft (Phase 10): its mask is coverage, sampled bilinear.
+// A shadow with 16 added is drawn from its frame's own texels, no mask (docs/plans/sprite-atlas-thrash.md, Phase 2):
+// v_local is the CPU's shadow-buffer coordinate, info0 = the frame's atlas origin and its texel (0,0)'s place in that
+// buffer (base), aux = the frame's width, height, HD scale (0: the index atlas's silhouette) and mirroring.
+// The index atlas is a 2D array: its layer is in mode bits 65536 up (4 bits).
 // HD sprites (docs/refactor/sprites/, Phase 4) add 8 to the mode (16 more to apply the colour transform's table;
 // their atlas layer times 256): the texel comes from the RGBA HD atlas at the lookups' HD coordinates (alpha below 128 transparent), and its
 // colour is the LUT row read as a curve row -- red from entry r's red, green from entry g's green, blue from entry
@@ -37,11 +41,12 @@ layout(location = 1) flat in vec4 v_info0;
 layout(location = 2) flat in vec2 v_info1;
 layout(location = 3) flat in vec4 v_rgba;
 layout(location = 4) flat in float v_depth;
+layout(location = 5) flat in vec4 v_aux;
 
 layout(location = 0) out vec4 out_colour;
 
 // SDL_GPU's SPIR-V convention: fragment-stage sampled textures are set = 2.
-layout(set = 2, binding = 0) uniform sampler2D u_atlas;  // R8: sprite texel indices
+layout(set = 2, binding = 0) uniform sampler2DArray u_atlas; // R8 layers: sprite texel indices
 layout(set = 2, binding = 1) uniform sampler2D u_lut;    // RGBA8 256 x rows
 layout(set = 2, binding = 2) uniform sampler2D u_lookup; // R16_UNORM (SDL_GPU forbids sampling integer formats), 4096 wide: source column/row per destination column/row
 layout(set = 2, binding = 4) uniform sampler2DArray u_hd_atlas; // RGBA8 layers: HD sprite texels
@@ -81,11 +86,79 @@ vec4 hd_colour(ivec3 at, int row, bool table)
                 texelFetch(u_lut, ivec2(t8.b, row), 0).b, 1.0);
 }
 
+// A shadow from a frame: how much of the frame's texel at p (original texels, continuous) is opaque. HD: its texels'
+// alpha, bilinear; else its silhouette (index non-zero), nearest. Outside the frame: none.
+float frame_cover(vec2 p, ivec2 origin, ivec2 size, int k, int hd_layer, int index_layer)
+{
+    if (k >= 1)
+    {
+        vec2 q = p * float(k) - 0.5;
+        ivec2 i0 = ivec2(floor(q));
+        vec2 f = q - floor(q);
+        ivec2 lim = size * k;
+        float c = 0.0;
+        for (int n = 0; n < 4; n++)
+        {
+            ivec2 o = ivec2(n & 1, n >> 1);
+            ivec2 t = i0 + o;
+            if (t.x < 0 || t.y < 0 || t.x >= lim.x || t.y >= lim.y)
+                continue;
+            float w = ((o.x == 1) ? f.x : 1.0 - f.x) * ((o.y == 1) ? f.y : 1.0 - f.y);
+            c += w * texelFetch(u_hd_atlas, ivec3(origin + t, hd_layer), 0).a;
+        }
+        return c;
+    }
+    ivec2 t = ivec2(floor(p));
+    if (t.x < 0 || t.y < 0 || t.x >= size.x || t.y >= size.y)
+        return 0.0;
+    return (texelFetch(u_atlas, ivec3(origin + t, index_layer), 0).r > 0.0) ? 1.0 : 0.0;
+}
+
 void main()
 {
     int mode_bits = int(v_info1.y + 0.5);
     int mode = mode_bits & 7;
     bool hd = (mode_bits & 8) != 0;
+    int index_layer = (mode_bits >> 16) & 15;
+    if (mode == 6 && (mode_bits & 16) != 0)
+    {
+        ivec2 origin = ivec2(int(v_info0.x + 0.5), int(v_info0.y + 0.5));
+        vec2 base = vec2(v_info0.z, v_info0.w);
+        ivec2 size = ivec2(int(v_aux.x + 0.5), int(v_aux.y + 0.5));
+        int k = int(v_aux.z + 0.5);
+        bool flip = v_aux.w > 0.5;
+        int hd_layer = (mode_bits >> 8) & 63;
+        if (!hd) // bit 8 here: soft
+        {
+            // Hard: the buffer texel at the pixel's top-left corner, like the CPU's scanline stepping.
+            vec2 uv = v_local - 0.5 * (dFdx(v_local) + dFdy(v_local));
+            ivec2 b = ivec2(floor(uv));
+            ivec2 bi = ivec2(int(base.x + 0.5), int(base.y + 0.5));
+            ivec2 t = ivec2(flip ? bi.x - b.x : b.x - bi.x, b.y - bi.y);
+            if (t.x < 0 || t.y < 0 || t.x >= size.x || t.y >= size.y)
+                discard;
+            if (texelFetch(u_atlas, ivec3(origin + t, index_layer), 0).r == 0.0)
+                discard;
+            out_colour = vec4(vec3(v_info1.x), 1.0);
+            return;
+        }
+        // Soft: the coverage blurred about an original texel, as the CPU's two box passes (radius k/2 at the art's
+        // scale, k 2 for the silhouette): a tent of 5 x 5 taps half an original texel apart.
+        vec2 p = vec2(flip ? base.x + 1.0 - v_local.x : v_local.x - base.x, v_local.y - base.y);
+        float ks = float((k >= 1) ? k : 2);
+        float step = max(1.0, floor(ks / 2.0)) / ks;
+        float cover = 0.0;
+        for (int j = -2; j <= 2; j++)
+            for (int i = -2; i <= 2; i++)
+            {
+                float w = float((3 - abs(i)) * (3 - abs(j))) / 81.0;
+                cover += w * frame_cover(p + vec2(float(i), float(j)) * step, origin, size, k, hd_layer, index_layer);
+            }
+        if (cover < 0.5 / 255.0)
+            discard;
+        out_colour = vec4(mix(vec3(1.0), vec3(v_info1.x), cover), 1.0);
+        return;
+    }
     if (mode == 6 && hd)
     {
         // A soft shadow (Phase 10): the mask holds coverage 0..255; sampled bilinear at the pixel centre, the frame
@@ -101,7 +174,7 @@ void main()
             ivec2 o = ivec2(k & 1, k >> 1);
             float w = ((o.x == 1) ? f.x : 1.0 - f.x) * ((o.y == 1) ? f.y : 1.0 - f.y);
             ivec2 t = clamp(i0 + o, ivec2(0), lim);
-            cover += w * texelFetch(u_atlas, at0 + t, 0).r;
+            cover += w * texelFetch(u_atlas, ivec3(at0 + t, index_layer), 0).r;
         }
         if (cover <= 0.0)
             discard;
@@ -114,7 +187,7 @@ void main()
         // scanline stepping (see world_polygon.frag.glsl).
         vec2 uv = v_local - 0.5 * (dFdx(v_local) + dFdy(v_local));
         ivec2 t = clamp(ivec2(floor(uv)), ivec2(0), ivec2(int(v_info0.z + 0.5) - 1, int(v_info0.w + 0.5) - 1));
-        int m = int(texelFetch(u_atlas, ivec2(int(v_info0.x + 0.5) + t.x, int(v_info0.y + 0.5) + t.y), 0).r * 255.0 + 0.5);
+        int m = int(texelFetch(u_atlas, ivec3(int(v_info0.x + 0.5) + t.x, int(v_info0.y + 0.5) + t.y, index_layer), 0).r * 255.0 + 0.5);
         if (m == 0)
             discard;
         out_colour = vec4(vec3(v_info1.x), 1.0);
@@ -225,7 +298,7 @@ void main()
     }
     else
     {
-        idx = int(texelFetch(u_atlas, ivec2(int(v_info0.x + 0.5) + int(sx), int(v_info0.y + 0.5) + int(sy)), 0).r * 255.0 + 0.5);
+        idx = int(texelFetch(u_atlas, ivec3(int(v_info0.x + 0.5) + int(sx), int(v_info0.y + 0.5) + int(sy), index_layer), 0).r * 255.0 + 0.5);
         if (idx == 0)
             discard; // transparent texel
         c = texelFetch(u_lut, ivec2(idx, int(v_info1.x + 0.5)), 0);

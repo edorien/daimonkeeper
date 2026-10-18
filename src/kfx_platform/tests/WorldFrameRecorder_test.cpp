@@ -316,3 +316,31 @@ TEST_CASE("AddShadowTri: a soft shadow's coverage map is copied at its scale, it
     CHECK(wf.pixels[s->pix_off] == (unsigned char)((4 * k + 6 * k) & 0xFF));
     CHECK(wf.pixels[s->pix_off + (size_t)s->w] == (unsigned char)((4 * k + 6 * k + 1) & 0xFF));
 }
+
+TEST_CASE("AddShadowSprite records the quad, its buffer UVs and the frame, with shade clamped", "[kfx_platform][WorldFrameRecorder]") {
+    static const unsigned char rle[] = { 2, 5, 6, 0, 0x80 | 0x7E, 0 };
+    struct PolyPoint p[4] = {
+        { 10, 40, 0, (int64_t)31 << 16, 0, 0 },
+        { 10, 20, 0, 0, 0, 0 },
+        { 50, 20, (int64_t)47 << 16 | 0x8000, 0, 0, 0 },
+        { 50, 40, (int64_t)47 << 16, (int64_t)31 << 16, 0, 0 },
+    };
+    const struct PolyPoint* const corners[4] = { &p[0], &p[1], &p[2], &p[3] };
+    WorldFrameShadowSpriteOp frame = {};
+    frame.rle = rle; frame.src_w = 2; frame.src_h = 2; frame.base_x = 30; frame.base_y = 4; frame.flip = 1; frame.soft = 1;
+    frame.hd_id = 42;
+
+    WorldFrameRecorder rec;
+    REQUIRE(rec.AddShadowSprite(corners, frame, 99));
+    frame.rle = nullptr;
+    CHECK_FALSE(rec.AddShadowSprite(corners, frame, 10)); // no frame: nothing recorded
+    WorldFrame f = rec.Build();
+    REQUIRE(f.op_count == 1);
+    REQUIRE(f.ops[0].kind == WF_OP_SHADOW_SPRITE);
+    const WorldFrameShadowSpriteOp& s = f.ops[0].u.shadow_sprite;
+    CHECK(s.x[0] == 10); CHECK(s.y[0] == 40); CHECK(s.x[2] == 50); CHECK(s.y[3] == 40);
+    CHECK(s.u[2] == 47.5f); CHECK(s.v[0] == 31.0f); CHECK(s.u[1] == 0.0f);
+    CHECK(s.rle == rle); CHECK(s.src_w == 2); CHECK(s.base_x == 30); CHECK(s.base_y == 4);
+    CHECK(s.flip == 1); CHECK(s.soft == 1); CHECK(s.hd_id == 42);
+    CHECK(s.shade == 63);
+}

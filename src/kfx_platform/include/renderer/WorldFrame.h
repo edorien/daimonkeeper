@@ -98,6 +98,7 @@ enum WorldFrameOpKind {
     WF_OP_POLY   = 0,
     WF_OP_SPRITE = 1,
     WF_OP_SHADOW = 2,
+    WF_OP_SHADOW_SPRITE = 3,
 };
 
 // How a sprite's texels combine with what is already in the frame --
@@ -171,6 +172,27 @@ typedef struct WorldFrameShadowOp {
     uint32_t coverage; // soft shadow (Phase 10): the mask bytes are coverage 0..255, sampled filtered
 } WorldFrameShadowOp;
 
+// A creature shadow drawn from its frame's own texels (docs/plans/sprite-atlas-thrash.md, Phase 2) -- no mask: the GPU
+// samples the frame where the CPU path would read its 256-wide shadow buffer. The quad is the engine's (corners P1..P4,
+// window-relative pixels; u/v in that buffer's texels, the CPU's two triangles P1 P2 P3 and P1 P3 P4). The frame's
+// texel (sx, sy) is at the buffer's (base_x + sx, base_y + sy), or (base_x - sx, base_y + sy) when flip. Hard: its
+// silhouette (an original texel's index non-zero). Soft: coverage blurred about an original texel, from the HD texels'
+// alpha when hd_texels is set (as a sprite op's: hd_id names them, hd_w x hd_h of hd_stride, hd_scale per original
+// texel), else from the silhouette. Where covered the frame is shaded by `shade` (render_shade's 0..63).
+typedef struct WorldFrameShadowSpriteOp {
+    int32_t x[4], y[4];
+    float u[4], v[4];
+    const unsigned char *rle;
+    int32_t src_w, src_h;
+    int32_t base_x, base_y;
+    uint32_t flip;
+    uint32_t soft;
+    const void *hd_texels;
+    uint64_t hd_id;
+    int32_t hd_w, hd_h, hd_stride, hd_scale;
+    uint32_t shade;
+} WorldFrameShadowSpriteOp;
+
 typedef struct WorldFrameOp {
     uint32_t kind; // enum WorldFrameOpKind
     // gpu-v2 Phase C.5 depth infrastructure: 0 = nearest, 1 = farthest
@@ -188,6 +210,7 @@ typedef struct WorldFrameOp {
         WorldFramePolyItem poly;
         WorldFrameSpriteOp sprite;
         WorldFrameShadowOp shadow;
+        WorldFrameShadowSpriteOp shadow_sprite;
     } u;
 } WorldFrameOp;
 
