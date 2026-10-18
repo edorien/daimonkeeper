@@ -53,6 +53,7 @@
 #include <time.h>
 #include "net_resync.h"
 #include "net_checksums.h"
+#include "replay_rewind.h"
 #include "post_inc.h"
 
 /******************************************************************************/
@@ -62,6 +63,7 @@ static TbBool replay_map_mismatch;
 static size_t pending_resync_len;
 static TbBigChecksum replay_expected_checksum;
 static TbBool replay_checksum_pending;
+static uint64_t replay_checksum_mismatches;
 extern TbBool IMPRISON_BUTTON_DEFAULT;
 extern TbBool FLEE_BUTTON_DEFAULT;
 /******************************************************************************/
@@ -394,20 +396,10 @@ static TbBool skip_packet_bytes(size_t len)
     return true;
 }
 
-struct PacketDecoderState {
-    int32_t file_pos;
-    uint32_t bits_acc;
-    int bits_count;
-    uint32_t dec_zeros;
-    unsigned char dec_lit[4];
-    int dec_lit_pos;
-    int dec_lit_len;
-    uint32_t dec_raw_left;
-};
-
 static void save_packet_decoder_state(struct PacketDecoderState *st)
 {
     st->file_pos = LbFilePosition(replay.fp);
+    st->replay_file_pos = replay.file_pos;
     st->bits_acc = packet_bits_acc;
     st->bits_count = packet_bits_count;
     st->dec_zeros = packet_dec_zeros;
@@ -415,10 +407,12 @@ static void save_packet_decoder_state(struct PacketDecoderState *st)
     st->dec_lit_pos = packet_dec_lit_pos;
     st->dec_lit_len = packet_dec_lit_len;
     st->dec_raw_left = packet_dec_raw_left;
+    st->dec_reserved = packet_dec_reserved;
 }
 
 static TbBool restore_packet_decoder_state(const struct PacketDecoderState *st)
 {
+    replay.file_pos = st->replay_file_pos;
     packet_bits_acc = st->bits_acc;
     packet_bits_count = st->bits_count;
     packet_dec_zeros = st->dec_zeros;
@@ -426,7 +420,40 @@ static TbBool restore_packet_decoder_state(const struct PacketDecoderState *st)
     packet_dec_lit_pos = st->dec_lit_pos;
     packet_dec_lit_len = st->dec_lit_len;
     packet_dec_raw_left = st->dec_raw_left;
+    packet_dec_reserved = st->dec_reserved;
     return (LbFileSeek(replay.fp, st->file_pos, Lb_FILE_SEEK_BEGINNING) >= 0);
+}
+
+TbBool replay_save_reader_pos(struct ReplayReaderPos *pos)
+{
+    if (!replay.fopened || (pending_resync != NULL))
+        return false;
+    memset(pos, 0, sizeof(*pos));
+    save_packet_decoder_state(&pos->dec);
+    memcpy(pos->codec_prev, packet_codec_prev, sizeof(packet_codec_prev));
+    pos->pckt_gameturn = replay.pckt_gameturn;
+    pos->checksum_pending = replay_checksum_pending;
+    pos->expected_checksum = replay_expected_checksum;
+    pos->ends_in_reserved = packet_file_ends_in_reserved;
+    return true;
+}
+
+TbBool replay_restore_reader_pos(const struct ReplayReaderPos *pos)
+{
+    if (!replay.fopened)
+        return false;
+    memcpy(packet_codec_prev, pos->codec_prev, sizeof(packet_codec_prev));
+    replay.pckt_gameturn = pos->pckt_gameturn;
+    replay_checksum_pending = pos->checksum_pending;
+    replay_expected_checksum = pos->expected_checksum;
+    packet_file_ends_in_reserved = pos->ends_in_reserved;
+    // the turn ahead of the one being left may have read a resync that is now never applied
+    free(pending_resync);
+    pending_resync = NULL;
+    pending_resync_len = 0;
+    // the write side's long-turn buffer: unused while reading, but a playback that took over recording may hold one
+    release_turn_buffer();
+    return restore_packet_decoder_state(&pos->dec);
 }
 
 static TbBool write_packet_bytes(const void *buf, size_t len)
@@ -815,6 +842,7 @@ static void set_replay_crashlog(uint8_t state, GameTurn turn)
 TbBool open_packet_file_for_load(char *fname, struct CatalogueEntry *centry)
 {
     replay_map_mismatch = false;
+    replay_checksum_mismatches = 0;
     memset(centry, 0, sizeof(struct CatalogueEntry));
     if (fname != replay.fname)
         snprintf(replay.fname, sizeof(replay.fname), "%s", fname);
@@ -1157,7 +1185,9 @@ void replay_apply_pending_resync(void)
     {
         WARNLOG("Recorded resync could not be applied; stopping replay");
         disable_packet_mode();
+        return;
     }
+    replay_rewind_note_resync();
 }
 
 
@@ -1557,6 +1587,11 @@ void load_packets_for_turn(GameTurn nturn)
     replay_checksum_pending = replay.checksum_verify && !turn_has_quit_packet();
 }
 
+uint64_t replay_checksum_mismatch_count(void)
+{
+    return replay_checksum_mismatches;
+}
+
 void verify_replay_checksum(void)
 {
     if (replay_checksum_pending)
@@ -1564,6 +1599,7 @@ void verify_replay_checksum(void)
         replay_checksum_pending = false;
         if (compute_replay_integrity() != replay_expected_checksum)
         {
+            replay_checksum_mismatches++;
             ERRORLOG("PacketSave checksum - Out of sync (GameTurn %" PRIu64 ")", (uint64_t)(get_gameturn()));
             if (!ui_is_onscreen_msg_visible())
                 ui_show_onscreen_msg(kfx_sim_state.turns_per_second, "Out of sync");
@@ -1576,6 +1612,7 @@ void verify_replay_checksum(void)
 void disable_packet_mode(void)
 {
     close_packet_file();
+    replay_rewind_reset();
     replay.load_enable = false;
     replay.save_enable = false;
     get_my_player()->cheats_allowed = kfx_sim_state.easter_eggs_enabled;

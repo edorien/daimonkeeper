@@ -20,6 +20,7 @@
 #include "bflib_basics.h"
 #include "globals.h"
 #include "port_check.h"
+#include "state_visitor.h"
 #include "bflib_fileio.h"
 #include <stddef.h>
 

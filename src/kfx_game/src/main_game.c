@@ -91,6 +91,7 @@
 #include "render_creature_view.h"
 #include "keeper_assist_outbox.h"
 #include "kfx_local_view.h"
+#include "replay_rewind.h"
 #include "post_inc.h"
 
 // force_player_num now lives in kfx_config's struct StartupParameters
@@ -565,6 +566,7 @@ TbBool startup_saved_packet_game(void)
 {
     struct CatalogueEntry centry;
     clear_packets();
+    replay_rewind_reset();
     if (!open_packet_file_for_load(replay.fname,&centry))
     {
         ERRORLOG("Cannot replay \"%s\": unreadable, or written by an incompatible version",

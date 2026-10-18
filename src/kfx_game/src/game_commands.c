@@ -1518,14 +1518,20 @@ void process_user_creature_control_packet_control(NetUserId user)
                     {
                         if (creature_instance_has_reset(cctng, i))
                         {
-                            if (creature_under_spell_effect(cctng, CSAfF_Freeze))
+                            // Same rules as the button release above: a chicken or a frozen creature only self-casts.
+                            TbBool chicken = creature_under_spell_effect(cctng, CSAfF_Chicken);
+                            if (chicken || creature_under_spell_effect(cctng, CSAfF_Freeze))
                             {
                                 target_idx = get_human_controlled_creature_target(cctng, i, pckt);
-                                allowed = inst_inf->fp_allow_self_cast_while_frozen & (cctng->index == target_idx);
                             }
-                            else
+                            allowed = true;
+                            if (chicken)
                             {
-                                allowed = true;
+                                allowed = inst_inf->fp_allow_self_cast_when_chicken & (cctng->index == target_idx);
+                            }
+                            if (allowed && creature_under_spell_effect(cctng, CSAfF_Freeze))
+                            {
+                                allowed = inst_inf->fp_allow_self_cast_while_frozen & (cctng->index == target_idx);
                             }
                             if (allowed)
                             {
@@ -1690,6 +1696,10 @@ void clear_users_button_state(void)
     }
 }
 
+#ifdef FUNCTESTING
+void (*ftest_process_packets_resync_hook)(void) = NULL;
+#endif
+
 /**
  * Process all packets influencing local game state.
  */
@@ -1739,6 +1749,11 @@ void process_packets(void)
             resync_game();
         }
     }
+#ifdef FUNCTESTING
+    // a functional test's own resync, where a network game's host resyncs (ftest_replay_rewind.c)
+    if (ftest_process_packets_resync_hook != NULL)
+        ftest_process_packets_resync_hook();
+#endif
     if (replay.load_enable)
         replay_apply_pending_resync();
     get_current_stutter_milliseconds();

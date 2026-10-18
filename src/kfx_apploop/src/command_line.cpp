@@ -87,8 +87,18 @@ int64_t process_command_line(int64_t argc, char *argv[])
   {
       char *par;
       par = argv[narg];
-      if ( (par == NULL) || ((par[0] != '-') && (par[0] != '/')) )
+      if (par == NULL)
           return -1;
+      if ((par[0] != '-') && (par[0] != '/'))
+      {
+          // A stray word (e.g. a missing '-'): report it with the other bad parameters instead of quitting silently.
+          char param_buffer[128] = "";
+          snprintf(param_buffer, sizeof(param_buffer), "%s%s", strnlen(bad_params, TEXT_BUFFER_LENGTH) > 0 ? ", " : "", par);
+          str_append(bad_params, sizeof(bad_params), param_buffer);
+          bad_param = narg;
+          narg++;
+          continue;
+      }
       char parstr[CMDLN_MAXLEN+1];
       // Empty when the option is the last argument(s), not left uninitialised.
       char pr2str[CMDLN_MAXLEN+1] = "";

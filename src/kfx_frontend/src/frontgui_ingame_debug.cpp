@@ -245,8 +245,9 @@ void draw_gameturn_overlay(void)
 {
     if (!gameturn_timer_enabled())
         return;
-    if (begin_corner_overlay("##ingame_gameturn", ImVec2(1.0, 1.0)))
-        ImGui::Text("GameTurn %" PRIu64, (uint64_t)get_gameturn());
+    char text[32];
+    if (begin_corner_overlay("##ingame_gameturn", ImVec2(1.0, 1.0)) && gameturn_timer_text(text, sizeof(text)))
+        ImGui::TextUnformatted(text);
     ImGui::End();
 }
 

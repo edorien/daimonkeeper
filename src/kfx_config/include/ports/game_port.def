@@ -19,7 +19,9 @@ KFX_PORT_VOID(stop_replay_recording, (const char *reason), (reason))
 KFX_PORT_VOID(replay_record_network_stopped, (void), ())
 KFX_PORT_VOID(replay_record_resync, (const void *message, size_t message_size), (message, message_size))
 KFX_PORT_VOID(replay_record_chat_message, (int64_t user, const char *message, MapCoord cursor_x, MapCoord cursor_y), (user, message, cursor_x, cursor_y))
-KFX_PORT_RETX(const char *, resync_export_game_state, (size_t *len), (len), "", if (len) *len = 0;)
+/* The pieces of kfx_game's state a resync carries, in its order (struct Game, then kfx_game_state): what
+   kfx_net's resync_visit_state() visits for them. */
+KFX_PORT_VOID(visit_resync_game_state, (KfxStateVisitor visit, void *ctx), (visit, ctx))
 KFX_PORT_RET(TbBool, resync_import_game_state, (const char *data, size_t len), (data, len), true)
 KFX_PORT_VOID(reinit_level_after_load, (void), ())
 KFX_PORT_RET(TbBool, setup_heap_manager, (void), (), false)

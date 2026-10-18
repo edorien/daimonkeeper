@@ -32,6 +32,11 @@ extern "C" {
 /** Called with each piece of the saved state in turn: its address and size. */
 typedef void (*AriadneStateVisitor)(void *ctx, void *data, size_t size);
 
+/** Visits each piece of the saved state in its order: the live tables, as ariadne_saved_state_write() copies them. */
+void ariadne_saved_state_visit(AriadneStateVisitor visit, void *ctx);
+/** What ariadne_saved_state_read() sets up after copying the pieces back (written straight through
+ *  ariadne_saved_state_visit()'s addresses, as a replay rewind does). */
+void ariadne_saved_state_restored(void);
 /** Size of the saved state block. */
 size_t ariadne_saved_state_size(void);
 /** Writes the saved state to buf, ariadne_saved_state_size() bytes. */

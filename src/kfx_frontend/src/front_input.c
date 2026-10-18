@@ -96,6 +96,7 @@
 #include "local_state.h"
 #include "local_view.h"
 #include "kfx_local_view.h"
+#include "replay_rewind.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -2882,6 +2883,7 @@ static int64_t get_packet_load_game_inputs(void)
             process_pause_packet(0, 0);
         }
         clear_flag(kfx_sim_state.operation_flags, GOF_Paused);
+        replay_rewind_capture();
         load_packets_for_turn(replay.pckt_gameturn);
         replay.pckt_gameturn++;
     }

@@ -57,6 +57,17 @@ static void visit_all(AriadneStateVisitor visit, void *ctx)
     ariadne_findcache_visit_saved_state(visit, ctx);
 }
 
+void ariadne_saved_state_visit(AriadneStateVisitor visit, void *ctx)
+{
+    visit_all(visit, ctx);
+}
+
+void ariadne_saved_state_restored(void)
+{
+    ariadne_update_restored_state_ready();
+    set_nav_rule_default();
+}
+
 size_t ariadne_saved_state_size(void)
 {
     struct SizeCursor c = {0};
@@ -74,8 +85,7 @@ void ariadne_saved_state_read(const void *buf)
 {
     struct ReadCursor c = {(const unsigned char *)buf};
     visit_all(visit_read, &c);
-    ariadne_update_restored_state_ready();
-    set_nav_rule_default();
+    ariadne_saved_state_restored();
 }
 /* The checks over the live mesh: the pathfinding state's own numbers, then each module's tables. */
 static int check_live(struct StateCheck *c)

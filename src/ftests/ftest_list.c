@@ -27,6 +27,7 @@
 #include "tests/ftest_ai_seat_research.h"
 #include "tests/ftest_spectator_handoff.h"
 #include "tests/ftest_sim_state_continuity.h"
+#include "tests/ftest_replay_rewind.h"
 #include "tests/ftest_state_corruption_fuzz.h"
 #include "tests/ftest_script_legacy_golden.h"
 #include "tests/ftest_lua_api_golden.h"
@@ -211,6 +212,8 @@ struct ftest_onlyappendtests__config ftest_onlyappendtests__conf = {
          { .test_name="spectator_handoff",                 .init_func=ftest_spectator_handoff_init,                .pre_start_func=ftest_spectator_handoff_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="sim_state_continuity",              .init_func=ftest_sim_state_continuity_init,             .pre_start_func=ftest_sim_state_continuity_pre_start, .level_file="original", .level=60, .frame_skip=8 },
          { .test_name="sim_state_continuity_restart",      .init_func=ftest_sim_state_continuity_restart_init,     .pre_start_func=ftest_sim_state_continuity_pre_start, .level_file="original", .level=60, .frame_skip=8, .repeat_n_times=2 },
+         { .test_name="replay_rewind",                     .init_func=ftest_replay_rewind_init,                    .pre_start_func=ftest_replay_rewind_pre_start, .level_file="original", .level=60, .frame_skip=8 },
+         { .test_name="replay_rewind_resync",              .init_func=ftest_replay_rewind_resync_init,             .pre_start_func=ftest_replay_rewind_pre_start, .level_file="original", .level=60, .frame_skip=8 },
          { .test_name="level_change_mesh",                 .init_func=ftest_level_change_mesh_init,                .level_file="keeporig", .level=11, .frame_skip=8, .repeat_n_times=2 },
          { .test_name="level_change_pointer",              .init_func=ftest_level_change_pointer_init,             .level_file="keeporig", .level=11, .frame_skip=8, .repeat_n_times=2 },
          { .test_name="computer_play_golden",              .init_func=ftest_computer_play_golden_init,             .pre_start_func=ftest_computer_play_golden_pre_start, .level_file="original", .level=60, .frame_skip=8 },

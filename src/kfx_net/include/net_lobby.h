@@ -29,6 +29,33 @@ extern "C" {
 extern uint64_t network_lobby_ping;
 extern int64_t net_lobby_max_players;
 
+// Player colours chosen in the lobby (upstream #5439). A colour is the player slot the user wants
+// to play (0 red, 1 blue, 2 green, 3 yellow); NET_PLAYER_COLOUR_RANDOM takes any slot left free,
+// picked by the host at game start; NET_PLAYER_COLOUR_NONE is a seat nobody is in.
+#define NET_PLAYER_COLOUR_NONE   (-1)
+#define NET_PLAYER_COLOUR_RANDOM MAX_NET_USERS
+// Each user's colour, indexed by NetUserId. The host owns it (NetAct_SetPlayerColour asks it for a
+// change) and sends it in its ScreenPacket.stored_data1; clients keep the copy they last received.
+extern int8_t net_player_colour[MAX_NET_USERS];
+// How many may be in the lobby, as its host set it (its ScreenPacket.stored_data2). Not
+// net_lobby_max_players, which is this machine's own setting for a lobby it creates.
+extern int64_t net_lobby_host_max_users;
+// The bit of a ScreenPacket/frontend_alliances byte for the alliance between two players (or, in
+// the lobby, two users).
+extern const uint64_t alliance_grid[4][4];
+
+void net_player_colours_reset(void);
+int16_t net_pack_player_colours(const int8_t colours[MAX_NET_USERS]);
+void net_unpack_player_colours(int16_t packed, int8_t colours[MAX_NET_USERS]);
+TbBool net_player_colours_conflict(const int8_t colours[MAX_NET_USERS]);
+TbBool net_host_set_player_colour(NetUserId user, int64_t colour);
+void net_host_update_player_colours(void);
+void net_lobby_write_host_colours(struct ScreenPacket *host_packet);
+void net_lobby_read_host_colours(const struct ScreenPacket *host_packet);
+TbBool net_resolve_player_colours(const int8_t colours[MAX_NET_USERS], int64_t slots_count, char lobby_alliances,
+    uint32_t *seed, int8_t slots[MAX_NET_USERS], char *slot_alliances);
+TbBool net_player_slots_valid(const int8_t slots[MAX_NET_USERS], int64_t slots_count);
+
 void net_lobby_refresh_metadata(void);
 void net_lobby_metadata(char *metadata);
 void net_lobby_set_phase(enum NetSessionPhase phase);

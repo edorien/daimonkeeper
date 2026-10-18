@@ -37,7 +37,9 @@
 #include "front_lvlstats.h"
 #include "frontmenu_net.h"
 #include "front_network.h"
-#include "net_lobby.h"
+#include "net_lobby.h" // net_player_colour, alliance_grid
+#include "frontgui_ingame_cells.h" // fe_hud_cell -- lobby colour icons
+#include "sprites.h" // GPS_plyrsym_symbol_player_*
 #include "bflib_netsession.h"
 #include "net_main.h" // FrontendNetService, MAX_NET_USERS, net_player[]/net_session[]/etc.
 #include "net_game.h" // setup_old_network_service
@@ -2560,6 +2562,63 @@ namespace {
         ImGui::End();
     }
 
+    // A lobby colour's look (net_lobby.h): the base-sheet symbol of that player slot (as the skirmish
+    // setup's player_symbol(), not the campaign-remapped icons, which aren't loaded in the menus), a
+    // "?" for random.
+    const char *const lobby_colour_names[NET_PLAYER_COLOUR_RANDOM + 1] = {"Red", "Blue", "Green", "Yellow", "Random"};
+
+    FeHudCellOpts lobby_colour_cell(int64_t colour)
+    {
+        FeHudCellOpts o;
+        if (colour >= 0 && colour < NET_PLAYER_COLOUR_RANDOM)
+            o.sprite = (int64_t)(GPS_plyrsym_symbol_player_red_std_b + colour);
+        else
+            o.text = "?";
+        if (colour >= 0 && colour <= NET_PLAYER_COLOUR_RANDOM)
+            o.tooltip = lobby_colour_names[colour];
+        return o;
+    }
+
+    // One user's colour in the lobby's player list. The local user's opens a picker; a colour someone
+    // else has is dimmed there, but can still be asked for (the Start button waits until it's settled).
+    void lobby_colour_icon(NetUserId user, double size)
+    {
+        const ImVec2 pos = ImGui::GetCursorScreenPos();
+        FeHudCellOpts o = lobby_colour_cell(net_player_colour[user]);
+        const bool mine = (user == my_player_number);
+        o.swallow = !mine;
+        if (mine)
+            o.tooltip = "Choose your colour";
+        char id[24];
+        std::snprintf(id, sizeof(id), "lobby_colour%d", (int)user);
+        if (fe_hud_cell(id, pos, ImVec2(size, size), o) == 1)
+            ImGui::OpenPopup("##lobby_colour_picker");
+        ImGui::SetCursorScreenPos(pos);
+        ImGui::Dummy(ImVec2(size, size));
+        if (!mine || !ImGui::BeginPopup("##lobby_colour_picker"))
+            return;
+        const ImVec2 base = ImGui::GetCursorScreenPos();
+        const double cell = size * 1.4, gap = 4.0;
+        for (int64_t colour = 0; colour <= NET_PLAYER_COLOUR_RANDOM; colour++)
+        {
+            FeHudCellOpts c = lobby_colour_cell(colour);
+            c.selected = (net_player_colour[user] == colour);
+            for (NetUserId other = 0; other < MAX_NET_USERS; other++)
+                if ((other != user) && (colour < NET_PLAYER_COLOUR_RANDOM) && (net_player_colour[other] == colour))
+                    c.dim = true;
+            std::snprintf(id, sizeof(id), "pick%d", (int)colour);
+            if (fe_hud_cell(id, ImVec2(base.x + (double)colour * (cell + gap), base.y), ImVec2(cell, cell), c) == 1)
+            {
+                do_sound_menu_click();
+                frontnet_request_player_colour(colour);
+                ImGui::CloseCurrentPopup();
+            }
+        }
+        ImGui::SetCursorScreenPos(base);
+        ImGui::Dummy(ImVec2((double)(NET_PLAYER_COLOUR_RANDOM + 1) * (cell + gap), cell));
+        ImGui::EndPopup();
+    }
+
     // Largest and least-testable-by-hand screen in this phase (needs an
     // actual live multiplayer session, not just a local menu click, to
     // exercise for real) -- see the plan doc's own note on this. Players +
@@ -2579,20 +2638,36 @@ namespace {
         double content_h = ImGui::GetContentRegionAvail().y - fe_bottom_row_reserve();
         double top_h = content_h * 0.35;
 
+        // The lobby's users by NetUserId -- the ids alliances, colours and pings are kept by, which
+        // stop being contiguous once someone leaves.
+        NetUserId users[MAX_NET_USERS];
+        int64_t users_count = 0;
+        for (NetUserId user = 0; user < MAX_NET_USERS; user++)
+            if (network_user_active(user))
+                users[users_count++] = user;
+
         ImGui::BeginGroup();
-        FeCaption(get_string(frontend_button_info[FEBtn_MnuPlayers].capstr_idx));
+        char players_caption[96];
+        std::snprintf(players_caption, sizeof(players_caption), "%s (%d/%d)", get_string(frontend_button_info[FEBtn_MnuPlayers].capstr_idx),
+            (int)users_count, (int)net_lobby_host_max_users);
+        FeCaption(players_caption);
         bool ply_open = FeBeginListBox("##net_start_players", ImVec2(win_size.x * 0.4, top_h));
         if (ply_open)
         {
-            for (int64_t i = 0; i < net_number_of_enum_players; i++)
+            const double icon = ImGui::GetTextLineHeight() * 1.4;
+            for (int64_t i = 0; i < users_count; i++)
             {
-                char label[160];
-                uint64_t ping = (i != my_player_number) ? GetPing((int64_t)i, my_player_number) : 0;
+                const NetUserId user = users[i];
+                ImGui::PushID((int)user);
+                lobby_colour_icon(user, icon);
+                ImGui::SameLine();
+                ImGui::SetCursorPosY(ImGui::GetCursorPosY() + (icon - ImGui::GetTextLineHeight()) * 0.5);
+                uint64_t ping = (user != my_player_number) ? GetPing((int64_t)user, my_player_number) : 0;
                 if (ping > 0)
-                    std::snprintf(label, sizeof(label), "%s - %" PRIu64 "ms", net_player[i].name, (uint64_t)(ping));
+                    ImGui::Text("%s - %" PRIu64 "ms", network_user_name(user), (uint64_t)(ping));
                 else
-                    std::snprintf(label, sizeof(label), "%s", net_player[i].name);
-                FeListRow(label, false);
+                    ImGui::TextUnformatted(network_user_name(user));
+                ImGui::PopID();
             }
         }
         FeEndListBox(ply_open);
@@ -2604,21 +2679,21 @@ namespace {
         // box tab (frontnet_draw_alliance_box_tab) draws player colour
         // icons, not a caption, so there's no GUIStr_ to reuse for one.
         ImGui::BeginGroup();
-        if (ImGui::BeginTable("##alliance_grid", (int64_t)net_number_of_enum_players + 1, ImGuiTableFlags_Borders, ImVec2(0, top_h)))
+        if ((users_count > 0) && ImGui::BeginTable("##alliance_grid", (int)users_count + 1, ImGuiTableFlags_Borders, ImVec2(0, top_h)))
         {
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
-            for (int64_t c = 0; c < net_number_of_enum_players; c++)
+            for (int64_t c = 0; c < users_count; c++)
             {
                 ImGui::TableNextColumn();
-                ImGui::TextUnformatted(net_player[c].name);
+                ImGui::TextUnformatted(network_user_name(users[c]));
             }
-            for (int64_t r = 0; r < net_number_of_enum_players; r++)
+            for (int64_t r = 0; r < users_count; r++)
             {
                 ImGui::TableNextRow();
                 ImGui::TableNextColumn();
-                ImGui::TextUnformatted(net_player[r].name);
-                for (int64_t c = 0; c < net_number_of_enum_players; c++)
+                ImGui::TextUnformatted(network_user_name(users[r]));
+                for (int64_t c = 0; c < users_count; c++)
                 {
                     ImGui::TableNextColumn();
                     if (r == c)
@@ -2626,10 +2701,10 @@ namespace {
                         ImGui::TextUnformatted("-");
                         continue;
                     }
-                    bool allied = (frontend_alliances & alliance_grid[r][c]) != 0;
-                    ImGui::PushID((int64_t)(r * MAX_NET_USERS + c));
+                    bool allied = (frontend_alliances & alliance_grid[users[r]][users[c]]) != 0;
+                    ImGui::PushID((int)(users[r] * MAX_NET_USERS + users[c]));
                     if (ImGui::Checkbox("##ally", &allied))
-                        frontnet_select_alliance_by_index((int64_t)r, (int64_t)c); // queued via the packet system, not immediate -- see its own comment
+                        frontnet_select_alliance_by_index((int64_t)users[r], (int64_t)users[c]); // queued via the packet system, not immediate -- see its own comment
                     ImGui::PopID();
                 }
             }
@@ -2675,13 +2750,19 @@ namespace {
         }
 
         FeSeparator();
-        ImGui::BeginDisabled(net_number_of_enum_players <= 1);
+        const bool colours_conflict = net_player_colours_conflict(net_player_colour);
+        ImGui::BeginDisabled((net_number_of_enum_players <= 1) || colours_conflict);
         if (FeButton(get_string(frontend_button_info[FEBtn_NetStartGame].capstr_idx)))
             set_packet_start(nullptr); // no gbtn use in its body
         ImGui::EndDisabled();
         ImGui::SameLine();
         if (FeButton(get_string(frontend_button_info[FEBtn_MnuCancel].capstr_idx)))
             request_pending_action(&run_pending_net_return_to_session_menu);
+        if (colours_conflict)
+        {
+            ImGui::SameLine();
+            ImGui::TextDisabled("%s", "Two players have chosen the same colour");
+        }
 
         ImGui::End();
     }

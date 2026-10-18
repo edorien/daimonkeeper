@@ -53,6 +53,8 @@
 
 #include "kfx_frontend_state.h"
 #include "kfx_local_view.h"
+#include "local_state.h"
+#include "replay_rewind.h"
 #include "post_inc.h"
 
 extern int64_t multiplayer_speed_adjustment_ns;
@@ -733,11 +735,20 @@ static const char *replay_get_displayed_user_name(void)
     return replay.head.user_names[user];
 }
 
+/** The turn counter's text ("< " while a replay rewinds); false while it blinks off at the rewind's limit. */
+TbBool gameturn_timer_text(char *text, size_t text_size)
+{
+    if (local_state.rewinding && replay_rewind_at_limit() && ((get_time_tick_ns() / 250000000) % 2 != 0))
+        return false;
+    snprintf(text, text_size, "%sGameTurn %" PRIu64, local_state.rewinding ? "< " : "", (uint64_t)(get_gameturn()));
+    return true;
+}
+
 void draw_gameturn_timer(void)
 {
     char text[32];
-    snprintf(text, sizeof(text), "GameTurn %" PRIu64, (uint64_t)(get_gameturn()));
-    draw_bottom_right_text(text, 0);
+    if (gameturn_timer_text(text, sizeof(text)))
+        draw_bottom_right_text(text, 0);
     const char *name = replay_get_displayed_user_name();
     if ((name != NULL) || replay_camera_detached()) {
         snprintf(text, sizeof(text), "%s%.*s", replay_camera_detached() ? "*" : "", (int)sizeof(replay.head.user_names[0]), (name != NULL) ? name : "");
@@ -767,7 +778,8 @@ TbBool script_timer_enabled(void)
 
 TbBool gameturn_timer_enabled(void)
 {
-    return flag_is_set(start_params.debug_flags, DFlg_ShowGameTurns);
+    // always while watching a replay: rewinding (upstream #5450) needs the turn shown
+    return flag_is_set(start_params.debug_flags, DFlg_ShowGameTurns) || replay.load_enable;
 }
 
 void draw_script_timer(PlayerNumber plyr_idx, unsigned char timer_id, uint64_t limit, TbBool real)

@@ -19,6 +19,7 @@
 
 #include "bflib_enet.h"
 #include "bflib_datetm.h"
+#include "bflib_math.h"
 #include "net_exchange_common.h"
 #include "bflib_netsession.h"
 #include "bflib_sound.h"
@@ -43,6 +44,15 @@ static int64_t server_port = 0;
 static TbClockMSec lobby_ping_last_sample;
 uint64_t network_lobby_ping;
 int64_t net_lobby_max_players = MAX_NET_USERS;
+int8_t net_player_colour[MAX_NET_USERS] = {NET_PLAYER_COLOUR_NONE, NET_PLAYER_COLOUR_NONE, NET_PLAYER_COLOUR_NONE, NET_PLAYER_COLOUR_NONE};
+int64_t net_lobby_host_max_users = MAX_NET_USERS;
+
+const uint64_t alliance_grid[4][4] = {
+  {0x00, 0x01, 0x02, 0x04,},
+  {0x01, 0x00, 0x08, 0x10,},
+  {0x02, 0x08, 0x00, 0x20,},
+  {0x04, 0x10, 0x20, 0x00,},
+};
 
 static char hosted_metadata[SESSION_METADATA_MAX];
 static SDL_Mutex *advertisement_mutex;
@@ -122,6 +132,194 @@ enum NetJoinRejection net_lobby_join_rejection(void)
         return NetJoin_Locked;
     }
     return NetJoin_Accepted;
+}
+
+/******************************************************************************/
+// Lobby player colours (upstream #5439)
+
+#define PLAYER_COLOUR_BITS 4
+#define PLAYER_COLOUR_MASK 0xF
+
+static NetUserId player_colour_user(const int8_t colours[MAX_NET_USERS], int64_t colour)
+{
+    for (NetUserId user = 0; user < MAX_NET_USERS; user++) {
+        if (colours[user] == colour) {
+            return user;
+        }
+    }
+    return -1;
+}
+
+void net_player_colours_reset(void)
+{
+    memset(net_player_colour, NET_PLAYER_COLOUR_NONE, sizeof(net_player_colour));
+    net_lobby_host_max_users = MAX_NET_USERS;
+}
+
+// 4 bits a user, colour + 1 (0: no user).
+int16_t net_pack_player_colours(const int8_t colours[MAX_NET_USERS])
+{
+    uint16_t packed = 0;
+    for (NetUserId user = 0; user < MAX_NET_USERS; user++) {
+        int64_t colour = colours[user];
+        if (colour < NET_PLAYER_COLOUR_NONE || colour > NET_PLAYER_COLOUR_RANDOM) {
+            colour = NET_PLAYER_COLOUR_NONE;
+        }
+        packed |= (uint16_t)(((colour + 1) & PLAYER_COLOUR_MASK) << (user * PLAYER_COLOUR_BITS));
+    }
+    return (int16_t)packed;
+}
+
+// From the host's packet: a value no colour packs to reads as no user.
+void net_unpack_player_colours(int16_t packed, int8_t colours[MAX_NET_USERS])
+{
+    for (NetUserId user = 0; user < MAX_NET_USERS; user++) {
+        int64_t colour = (int64_t)(((uint16_t)packed >> (user * PLAYER_COLOUR_BITS)) & PLAYER_COLOUR_MASK) - 1;
+        if (colour > NET_PLAYER_COLOUR_RANDOM) {
+            colour = NET_PLAYER_COLOUR_NONE;
+        }
+        colours[user] = (int8_t)colour;
+    }
+}
+
+// Two users asked for the same slot: the game can't start until one changes.
+TbBool net_player_colours_conflict(const int8_t colours[MAX_NET_USERS])
+{
+    for (NetUserId user = 0; user < MAX_NET_USERS; user++) {
+        int64_t colour = colours[user];
+        if (colour >= 0 && colour < NET_PLAYER_COLOUR_RANDOM && player_colour_user(colours, colour) != user) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// A user's NetAct_SetPlayerColour, on the host: anything but a slot or random is ignored.
+TbBool net_host_set_player_colour(NetUserId user, int64_t colour)
+{
+    if (user < 0 || user >= MAX_NET_USERS || colour < 0 || colour > NET_PLAYER_COLOUR_RANDOM) {
+        return false;
+    }
+    net_player_colour[user] = (int8_t)colour;
+    return true;
+}
+
+// Host, every lobby frame: a user who left frees their colour, one who joined gets the first free one.
+void net_host_update_player_colours(void)
+{
+    for (NetUserId user = 0; user < MAX_NET_USERS; user++) {
+        if (!network_user_active(user)) {
+            net_player_colour[user] = NET_PLAYER_COLOUR_NONE;
+        }
+    }
+    for (NetUserId user = 0; user < MAX_NET_USERS; user++) {
+        if (!network_user_active(user) || net_player_colour[user] >= 0) {
+            continue;
+        }
+        net_player_colour[user] = NET_PLAYER_COLOUR_RANDOM;
+        for (int64_t colour = 0; colour < NET_PLAYER_COLOUR_RANDOM; colour++) {
+            if (player_colour_user(net_player_colour, colour) < 0) {
+                net_player_colour[user] = (int8_t)colour;
+                break;
+            }
+        }
+    }
+}
+
+void net_lobby_write_host_colours(struct ScreenPacket *host_packet)
+{
+    host_packet->stored_data1 = net_pack_player_colours(net_player_colour);
+    host_packet->stored_data2 = (short)netstate.max_users;
+    net_lobby_host_max_users = netstate.max_users;
+}
+
+void net_lobby_read_host_colours(const struct ScreenPacket *host_packet)
+{
+    net_unpack_player_colours(host_packet->stored_data1, net_player_colour);
+    if (host_packet->stored_data2 >= MIN_NET_USERS && host_packet->stored_data2 <= MAX_NET_USERS) {
+        net_lobby_host_max_users = host_packet->stored_data2;
+    }
+}
+
+/**
+ * The player slot each user gets at game start, on the host: the slot they chose, when the map has
+ * it and nobody before them chose it too; else (random, or the map is too small for their choice)
+ * one of the slots nobody chose, shuffled with the given host-only seed. The lobby's alliances,
+ * between users, become the same alliances between their slots.
+ * @param colours Each user's colour; NET_PLAYER_COLOUR_NONE for a user not in the game.
+ * @param slots_count How many player slots the map has (at most MAX_NET_USERS).
+ * @return False when a user in the game is left without a slot (more users than the map has slots),
+ *     that user's slot being NET_PLAYER_COLOUR_NONE.
+ */
+TbBool net_resolve_player_colours(const int8_t colours[MAX_NET_USERS], int64_t slots_count, char lobby_alliances,
+    uint32_t *seed, int8_t slots[MAX_NET_USERS], char *slot_alliances)
+{
+    if (slots_count > MAX_NET_USERS) {
+        slots_count = MAX_NET_USERS;
+    }
+    int8_t free_slots[MAX_NET_USERS];
+    int64_t free_count = 0;
+    for (int64_t slot = 0; slot < slots_count; slot++) {
+        if (player_colour_user(colours, slot) < 0) {
+            free_slots[free_count++] = (int8_t)slot;
+        }
+    }
+    for (int64_t i = free_count - 1; i > 0; i--) {
+        int64_t k = LB_RANDOM(i + 1, seed);
+        int8_t swapped = free_slots[i];
+        free_slots[i] = free_slots[k];
+        free_slots[k] = swapped;
+    }
+    TbBool all_placed = true;
+    int64_t next_free = 0;
+    for (NetUserId user = 0; user < MAX_NET_USERS; user++) {
+        int64_t colour = colours[user];
+        slots[user] = NET_PLAYER_COLOUR_NONE;
+        if (colour < 0) {
+            continue;
+        }
+        if (colour < slots_count && player_colour_user(colours, colour) == user) {
+            slots[user] = (int8_t)colour;
+        } else if (next_free < free_count) {
+            slots[user] = free_slots[next_free++];
+        } else {
+            all_placed = false;
+        }
+    }
+    char alliances = 0;
+    for (NetUserId user1 = 0; user1 < MAX_NET_USERS; user1++) {
+        for (NetUserId user2 = user1 + 1; user2 < MAX_NET_USERS; user2++) {
+            if (slots[user1] >= 0 && slots[user2] >= 0 && (lobby_alliances & alliance_grid[user1][user2]) != 0) {
+                alliances |= alliance_grid[slots[user1]][slots[user2]];
+            }
+        }
+    }
+    *slot_alliances = alliances;
+    return all_placed;
+}
+
+// The host's slots, as a peer receives them: every active user has a slot of the map, nobody shares one.
+TbBool net_player_slots_valid(const int8_t slots[MAX_NET_USERS], int64_t slots_count)
+{
+    if (slots_count > MAX_NET_USERS) {
+        slots_count = MAX_NET_USERS;
+    }
+    for (NetUserId user = 0; user < MAX_NET_USERS; user++) {
+        if (!network_user_active(user)) {
+            continue;
+        }
+        if (slots[user] < 0 || slots[user] >= slots_count) {
+            ERRORLOG("Network user %d has invalid player slot %d", (int)user, (int)slots[user]);
+            return false;
+        }
+        for (NetUserId other = 0; other < user; other++) {
+            if (network_user_active(other) && slots[other] == slots[user]) {
+                ERRORLOG("Network users %d and %d both have player slot %d", (int)other, (int)user, (int)slots[user]);
+                return false;
+            }
+        }
+    }
+    return true;
 }
 
 static int advertise_host(void *unused)

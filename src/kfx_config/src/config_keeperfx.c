@@ -105,6 +105,7 @@ TbBool config_network_is_active(void)
 int64_t api_enabled = false;
 int64_t api_port = 5599;
 uint64_t packetsave_max_kb = 32768;
+uint64_t replay_rewind_buffer_kb = REPLAY_REWIND_BUFFER_DEFAULT_KB;
 uint64_t max_replays[ReplTyp_Count] = {5, 5, 10};
 TbBool automatic_replays = false;
 uint64_t features_enabled = 0;
@@ -355,6 +356,7 @@ const struct NamedCommand conf_commands[] = {
   {"ASSET_PACK_MEMORY"             , 77}, // read through its options-screen row
   {"ASSET_PACK_FILL"               , 78}, // likewise
   {"SHADOW_STYLE"                  , 79}, // likewise
+  {"REPLAY_REWIND_BUFFER_SIZE"     , 80}, // upstream id 56 collides with GUI_ICON_PACK; read through its options-screen row
   {NULL,                   0},
   };
 

@@ -482,6 +482,9 @@ static void process_frontend_packets(void)
   nspckt->frontend_alliances = frontend_alliances;
   nspckt->networkstatus_flags &= ~NetStat_ComputerPlayersMask;
   nspckt->networkstatus_flags |= (fe_computer_players << NetStat_ComputerPlayersShift) & NetStat_ComputerPlayersMask;
+  if (network_is_host()) {
+    net_lobby_write_host_colours(nspckt);
+  }
   if (LbNetwork_ExchangeFrontend(nspckt, &net_screen_packet, sizeof(struct ScreenPacket))) {
       ERRORLOG("LbNetwork_Exchange failed");
       net_service_index_selected = -1;
@@ -530,6 +533,11 @@ static void process_frontend_packets(void)
         case NetAct_SetComputerPlayers:
             fe_computer_players = nspckt->action_par1;
             break;
+        case NetAct_SetPlayerColour:
+            if (network_is_host()) {
+                net_host_set_player_colour(i, nspckt->action_par1);
+            }
+            break;
         default:
             break;
         }
@@ -542,6 +550,11 @@ static void process_frontend_packets(void)
     }
     screen_packet_set_action(nspckt, NetAct_None);
   }
+  if (network_is_host()) {
+    net_host_update_player_colours();
+  } else {
+    net_lobby_read_host_colours(&net_screen_packet[SERVER_ID]);
+  }
   if (frontend_alliances == -1) {
     frontend_alliances = 0;
   }
@@ -551,6 +564,16 @@ static void process_frontend_packets(void)
       frontend_alliances = frontend_alliances & ~alliances_to_clear;
     }
   }
+}
+
+// Asks the host for a player colour (net_lobby.h); queued like the other lobby actions.
+void frontnet_request_player_colour(int64_t colour)
+{
+    struct ScreenPacket *nspck = &net_screen_packet[my_player_number];
+    if (screen_packet_action(nspck) == NetAct_None) {
+        screen_packet_set_action(nspck, NetAct_SetPlayerColour);
+        nspck->action_par1 = (short)colour;
+    }
 }
 
 TbBool frontnet_matchmaking_update(void)
@@ -751,6 +774,7 @@ void frontnet_start_setup(void)
     set_selected_level_number(SINGLEPLAYER_NOTSTARTED);
     previous_active_players = 0;
     memset(net_screen_packet, 0, sizeof(net_screen_packet));
+    net_player_colours_reset();
     frontend_alliances = -1;
     net_number_of_messages = 0;
     net_player_list.scroll_offset = 0;

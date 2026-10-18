@@ -27,6 +27,10 @@ struct Thing;
 
 /* game_commands.c */
 void process_packets(void);
+#ifdef FUNCTESTING
+/** Called by process_packets() where a network game's host would resync, while set (a functional test's own). */
+extern void (*ftest_process_packets_resync_hook)(void);
+#endif
 void clear_users_button_state(void);
 void process_user_packet(NetUserId user);
 TbBool process_user_global_packet_action(NetUserId user);

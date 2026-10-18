@@ -156,6 +156,7 @@ enum NetAction {
     NetAct_HostStartLevel     = 0x18,
     NetAct_OpenLandView       = 0x20,
     NetAct_SetAlliance        = 0x28,
+    NetAct_SetPlayerColour    = 0x30, // action_par1: the colour asked for (net_lobby.h)
     NetAct_SetComputerPlayers = 0x38,
 };
 
@@ -163,8 +164,8 @@ enum NetAction {
 struct ScreenPacket {
   unsigned char networkstatus_flags;
   char frontend_alliances;
-  short stored_data1; // Can contain: hand_position_x or other frontend-specific temporary data
-  short stored_data2; // Can contain: hand_position_y or other frontend-specific temporary data
+  short stored_data1; // Can contain: hand_position_x, the host's packed lobby colours, or other frontend-specific temporary data
+  short stored_data2; // Can contain: hand_position_y, the host's lobby max users, or other frontend-specific temporary data
   short action_par1;
   unsigned char action_par2;
 };

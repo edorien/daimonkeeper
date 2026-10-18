@@ -697,6 +697,44 @@ static int64_t bitScanReverse(int64_t s)
 #endif
 }
 
+/** Returns the index of the lowest set bit (number of trailing zeros), or -1 if x is 0 (upstream #5450). */
+int LbCtz32(uint32_t x)
+{
+#if defined(_MSC_VER)
+    unsigned long i; // DWORD, without pulling in <windows.h> just for the typedef
+    return _BitScanForward(&i, (unsigned long)x) ? (int)i : -1;
+#elif defined(__GNUC__)
+    return (x == 0) ? -1 : (int)__builtin_ctz(x);
+#else
+#pragma message "Falling back to iterative bitscan forward, consider using intrinsics"
+    for (int i = 0; i < 32; i++)
+    {
+        if (x & ((uint32_t)1 << i))
+            return i;
+    }
+    return -1;
+#endif
+}
+
+/** Returns the index of the lowest set bit (trailing zeros) of a 64-bit value, or -1 if x is 0 (upstream #5450). */
+int LbCtz64(uint64_t x)
+{
+#if defined(_MSC_VER)
+    unsigned long i;
+    return _BitScanForward64(&i, x) ? (int)i : -1;
+#elif defined(__GNUC__)
+    return (x == 0) ? -1 : (int)__builtin_ctzll(x);
+#else
+#pragma message "Falling back to iterative bitscan forward, consider using intrinsics"
+    for (int i = 0; i < 64; i++)
+    {
+        if (x & ((uint64_t)1 << i))
+            return i;
+    }
+    return -1;
+#endif
+}
+
 int64_t LbSqrL(int64_t x)
 {
   if (x <= 0)

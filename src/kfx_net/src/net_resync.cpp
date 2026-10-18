@@ -366,6 +366,81 @@ static struct ResyncVersions current_resync_versions(void)
     return v;
 }
 
+// Ariadne's visitor has no part argument: this one adds it.
+struct PartVisit {
+    ResyncStateVisitor visit;
+    void *ctx;
+    enum ResyncStatePart part;
+};
+
+static void visit_part_piece(void *ctx, void *data, size_t size)
+{
+    struct PartVisit *pv = (struct PartVisit *)ctx;
+    pv->visit(pv->ctx, pv->part, data, size);
+}
+
+void resync_visit_state(ResyncStateVisitor visit, void *ctx)
+{
+    // game/kfx_game_state (kfx_game) and kfx_frontend_state (kfx_frontend)
+    // are both above kfx_net -- handed over through GamePort/UiPort rather
+    // than #include'd directly. See
+    // docs/refactor/todo/remove-remaining-layering-violations.md.
+    struct PartVisit pv = {visit, ctx, RSPart_Game};
+    game_visit_resync_game_state(visit_part_piece, &pv);
+    visit(ctx, RSPart_Sim, &kfx_sim_state, sizeof(kfx_sim_state));
+    visit(ctx, RSPart_Net, &kfx_net_state, sizeof(kfx_net_state));
+    // Ariadne's navigation mesh follows kfx_net_state: it isn't rebuilt from the map on the receiving end, which
+    // would give a different mesh (refactor pass 4, P4-F7; ariadne_saved_state.h). Then kfx_config_state's saved
+    // part: the payday progress, the slabs' texture packs, the configuration as the level's script changed it
+    // (P4-F16; what upstream's struct Game held).
+    pv.part = RSPart_Ariadne;
+    ariadne_saved_state_visit(visit_part_piece, &pv);
+    visit(ctx, RSPart_Config, KFX_CONFIG_STATE_SAVED_PTR, KFX_CONFIG_STATE_SAVED_LEN);
+    pv.part = RSPart_Frontend;
+    ui_visit_resync_frontend_state(visit_part_piece, &pv);
+}
+
+void resync_state_restored(void)
+{
+    ariadne_saved_state_restored();
+    // kfx_render's shading (lish) isn't part of the state: it is rebuilt from the lights (refactor pass 2, S11)
+    light_registry_invalidate_shading();
+}
+
+struct ResyncWriteCursor {
+    char *p;
+    uint64_t part_len[RSPart_Count];
+    int last_part;
+};
+
+static void visit_part_size(void *ctx, int part, void *data, size_t size)
+{
+    (void)data;
+    ((struct ResyncWriteCursor *)ctx)->part_len[part] += size;
+}
+
+// game_state and frontend_state are each prefixed with their own u64 length: blobs of a size this file can't sizeof()
+// directly -- the same framing lua_data uses. Written as the parts start, so a part without pieces (an unwired port)
+// still gets its (zero) length.
+static void write_part_prefixes(struct ResyncWriteCursor *c, int upto_part)
+{
+    for (int part = c->last_part + 1; part <= upto_part; part++) {
+        if ((part == RSPart_Game) || (part == RSPart_Frontend)) {
+            memcpy(c->p, &c->part_len[part], sizeof(uint64_t)); c->p += sizeof(uint64_t);
+        }
+    }
+    if (upto_part > c->last_part) {
+        c->last_part = upto_part;
+    }
+}
+
+static void visit_part_write(void *ctx, int part, void *data, size_t size)
+{
+    struct ResyncWriteCursor *c = (struct ResyncWriteCursor *)ctx;
+    write_part_prefixes(c, part);
+    memcpy(c->p, data, size); c->p += size;
+}
+
 // The game state a resync carries (the framing below); NULL on failure.
 static char *build_resync_game_data(size_t *full_resync_len_out)
 {
@@ -376,33 +451,23 @@ static char *build_resync_game_data(size_t *full_resync_len_out)
         return NULL;
     }
 
-    // game/kfx_game_state (kfx_game) and kfx_frontend_state (kfx_frontend)
-    // are both above kfx_net -- exported as opaque (pointer, length) blobs
-    // via GamePort/UiPort (same reasoning/shape as the Lua pair above) rather
-    // than #include'd and memcpy'd directly. See
-    // docs/refactor/todo/remove-remaining-layering-violations.md.
-    size_t game_state_len = 0;
-    const char * game_state_data = game_resync_export_game_state(&game_state_len);
-    size_t frontend_state_len = 0;
-    const char * frontend_state_data = ui_resync_export_frontend_state(&frontend_state_len);
-    if (game_state_len > UINT32_MAX || frontend_state_len > UINT32_MAX) {
+    // The lights travel inside kfx_sim_state (light_registry); kfx_render's
+    // shading (lish) isn't sent -- the receiver rebuilds it (refactor pass
+    // 2, S11). The layout: the versions, then resync_visit_state()'s pieces in their order (the game and frontend
+    // parts each after their u64 length), then the Lua data after its u64 length.
+    struct ResyncWriteCursor cursor;
+    memset(&cursor, 0, sizeof(cursor));
+    cursor.last_part = -1;
+    resync_visit_state(visit_part_size, &cursor);
+    if (cursor.part_len[RSPart_Game] > UINT32_MAX || cursor.part_len[RSPart_Frontend] > UINT32_MAX) {
         ERRORLOG("Full resync data too large");
         script_cleanup_serialized_data();
         return NULL;
     }
-
-    // The lights travel inside kfx_sim_state (light_registry); kfx_render's
-    // shading (lish) isn't sent -- the receiver rebuilds it (refactor pass
-    // 2, S11). game_state/frontend_state are each prefixed with their own u32
-    // length now that they're opaque blobs of a size this file can't
-    // sizeof() directly -- same framing lua_data already used below.
-    // Ariadne's navigation mesh follows kfx_net_state: it isn't rebuilt from the map on the receiving end, which
-    // would give a different mesh (refactor pass 4, P4-F7; ariadne_saved_state.h). Then kfx_config_state's saved
-    // part: the payday progress, the slabs' texture packs, the configuration as the level's script changed it
-    // (P4-F16; what upstream's struct Game held).
-    const size_t ariadne_state_len = ariadne_saved_state_size();
-    size_t fixed_state_size = sizeof(struct ResyncVersions) + sizeof(uint64_t) + game_state_len + sizeof(kfx_sim_state) + sizeof(kfx_net_state)
-        + ariadne_state_len + KFX_CONFIG_STATE_SAVED_LEN + sizeof(uint64_t) + frontend_state_len;
+    size_t fixed_state_size = sizeof(struct ResyncVersions) + 2 * sizeof(uint64_t);
+    for (int part = 0; part < RSPart_Count; part++) {
+        fixed_state_size += cursor.part_len[part];
+    }
     size_t lua_data_offset = fixed_state_size + sizeof(uint64_t);
     if (lua_data_len > UINT32_MAX - lua_data_offset) {
         ERRORLOG("Full resync data too large");
@@ -418,21 +483,13 @@ static char *build_resync_game_data(size_t *full_resync_len_out)
         return NULL;
     }
 
-    uint64_t game_state_len32 = (uint64_t)game_state_len;
-    uint64_t frontend_state_len32 = (uint64_t)frontend_state_len;
     uint64_t lua_data_len32 = (uint64_t)lua_data_len;
-    char * write_ptr = full_resync_data;
     const struct ResyncVersions versions = current_resync_versions();
-    memcpy(write_ptr, &versions, sizeof(versions)); write_ptr += sizeof(versions);
-    memcpy(write_ptr, &game_state_len32, sizeof(game_state_len32)); write_ptr += sizeof(game_state_len32);
-    memcpy(write_ptr, game_state_data, game_state_len); write_ptr += game_state_len;
-    memcpy(write_ptr, &kfx_sim_state, sizeof(kfx_sim_state)); write_ptr += sizeof(kfx_sim_state);
-    memcpy(write_ptr, &kfx_net_state, sizeof(kfx_net_state)); write_ptr += sizeof(kfx_net_state);
-    ariadne_saved_state_write(write_ptr); write_ptr += ariadne_state_len;
-    memcpy(write_ptr, KFX_CONFIG_STATE_SAVED_PTR, KFX_CONFIG_STATE_SAVED_LEN); write_ptr += KFX_CONFIG_STATE_SAVED_LEN;
-    memcpy(write_ptr, &frontend_state_len32, sizeof(frontend_state_len32)); write_ptr += sizeof(frontend_state_len32);
-    memcpy(write_ptr, frontend_state_data, frontend_state_len); write_ptr += frontend_state_len;
-    memcpy(write_ptr, &lua_data_len32, sizeof(lua_data_len32)); write_ptr += sizeof(lua_data_len32);
+    memcpy(full_resync_data, &versions, sizeof(versions));
+    cursor.p = full_resync_data + sizeof(versions);
+    resync_visit_state(visit_part_write, &cursor);
+    write_part_prefixes(&cursor, RSPart_Count - 1);
+    memcpy(cursor.p, &lua_data_len32, sizeof(lua_data_len32)); cursor.p += sizeof(lua_data_len32);
     memcpy(full_resync_data + lua_data_offset, lua_data, lua_data_len);
     script_cleanup_serialized_data();
     *full_resync_len_out = full_resync_len;
@@ -625,12 +682,17 @@ static TbBool apply_resync_game_data(const char * full_resync_data, size_t full_
     memcpy(&kfx_sim_state, kfx_sim_state_data, sizeof(kfx_sim_state));
     memcpy(&kfx_net_state, kfx_net_state_data, sizeof(kfx_net_state));
     local_pacing_restore(&pacing);
-    ariadne_saved_state_read(ariadne_state_data);
+    struct ReadCursorAriadne { const char *p; } ari = {ariadne_state_data};
+    ariadne_saved_state_visit([](void *ctx, void *data, size_t size) {
+        struct ReadCursorAriadne *c = (struct ReadCursorAriadne *)ctx;
+        memcpy(data, c->p, size);
+        c->p += size;
+    }, &ari);
     memcpy(KFX_CONFIG_STATE_SAVED_PTR, config_state_data, KFX_CONFIG_STATE_SAVED_LEN);
     // the host's creature sound indices are its session's: this machine's custom sound banks may be laid out
     // differently (as after a load)
     sound_manager_reapply_creature_sounds();
-    light_registry_invalidate_shading();
+    resync_state_restored();
     return true;
 }
 

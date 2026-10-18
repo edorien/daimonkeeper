@@ -503,7 +503,7 @@ extern TbClockMSec gui_message_timeout;
 extern struct GuiMenu *menu_list[MENU_LIST_ITEMS_COUNT];
 
 extern int64_t status_panel_width;
-extern const uint64_t alliance_grid[4][4];
+extern const uint64_t alliance_grid[4][4]; // net_lobby.c, which remaps the lobby's alliances to player slots
 
 // TESTFONTS_COUNT/testfont/testfont_palette moved to kfx_render's
 // vidmode.h (stage 13.3, docs/refactor/stage-13-enforce-and-document.md).

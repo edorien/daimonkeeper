@@ -22,6 +22,7 @@
 
 #include "bflib_basics.h"
 #include "globals.h"
+#include "state_visitor.h"
 
 #include "player_data.h"
 #include "config_campaigns.h"
@@ -302,6 +303,9 @@ extern struct Game game;
 // just to memcpy `game`+`kfx_game_state` wholesale as part of the raw-blob
 // resync wire format -- see
 // docs/refactor/todo/remove-remaining-layering-violations.md.
+// visit_resync_game_state() hands over the two pieces (resync_visit_state()); resync_export_game_state() is the
+// same bytes in one buffer, as resync_import_game_state() takes them.
+void visit_resync_game_state(KfxStateVisitor visit, void *ctx);
 const char *resync_export_game_state(size_t *len);
 TbBool resync_import_game_state(const char *data, size_t len);
 // turns_per_second moved to kfx_sim_state.h (stage 13.3, docs/refactor/

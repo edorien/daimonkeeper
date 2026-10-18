@@ -313,6 +313,9 @@ int64_t pinstfs_passenger_control_creature(struct PlayerInfo *player, int64_t *n
 {
   struct UserState* ustate = get_player_user_state(player);
   ustate->init_flags |= UsrIF_MouseInputDisabled;
+  // The cursor light only moves with dungeon/map packets; leaving it on would strand it where the hand last was.
+  // The leave paths turn it back on.
+  turn_user_cursor_light(player->user_id, false);
   if (is_my_player(player))
   {
     ui_local_view_transition(player, LVTr_PassengerBegin);

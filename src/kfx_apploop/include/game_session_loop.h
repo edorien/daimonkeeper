@@ -43,6 +43,11 @@ int64_t display_should_be_updated_this_turn(void);
 TbBool keeper_screen_swap(void);
 TbBool keeper_wait_for_next_turn(void);
 void keeper_gameplay_loop(void);
+/**
+ * Rewinds a replay to target (replay_rewind.h): back to the keyframe at or before it, then played on to it.
+ * True when the game is at target afterwards.
+ */
+TbBool replay_rewind_to_turn(GameTurn target);
 void game_loop(void);
 /** -framehash: the hash of the last world frame drawn (log_frame_hash()) and how many frames have been hashed so
  *  far; false before the first. */

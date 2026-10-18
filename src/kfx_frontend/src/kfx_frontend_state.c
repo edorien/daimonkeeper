@@ -50,6 +50,11 @@ size_t get_frontend_state_size(void)
 // same reasoning as save_frontend_state()/load_frontend_state() above,
 // just returning a (pointer, length) blob for the network resync payload
 // (net_resync.cpp) instead of writing to a file handle.
+void visit_resync_frontend_state(KfxStateVisitor visit, void *ctx)
+{
+    visit(ctx, &kfx_frontend_state, sizeof(kfx_frontend_state));
+}
+
 const char *resync_export_frontend_state(size_t *len)
 {
     *len = sizeof(kfx_frontend_state);

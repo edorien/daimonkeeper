@@ -46,6 +46,29 @@ TbBool resync_sim_state_acceptable(const char *data);
 /** Whether the configuration received in a resync (KFX_CONFIG_STATE_SAVED_LEN bytes at `data`) passes config_state_validate(). */
 TbBool resync_config_state_acceptable(const char *data);
 void resync_game(void);
+
+/** The parts of the game state a full resync carries, in its order. */
+enum ResyncStatePart {
+    RSPart_Game = 0,  /**< struct Game, then kfx_game_state (kfx_game, through GamePort) */
+    RSPart_Sim,       /**< kfx_sim_state */
+    RSPart_Net,       /**< kfx_net_state */
+    RSPart_Ariadne,   /**< the navigation mesh, piece by piece (ariadne_saved_state.h) */
+    RSPart_Config,    /**< kfx_config_state's saved part */
+    RSPart_Frontend,  /**< kfx_frontend_state (kfx_frontend, through UiPort) */
+    RSPart_Count,
+};
+typedef void (*ResyncStateVisitor)(void *ctx, int part, void *data, size_t size);
+/**
+ * Visits each raw piece of the game state a full resync carries, at its live address, in the resync's order (the
+ * Lua data, which is serialised rather than copied, is not among them). build_resync_game_data() writes them; a
+ * replay rewind (kfx_game's replay_rewind.c) snapshots and restores them.
+ */
+void resync_visit_state(ResyncStateVisitor visit, void *ctx);
+/**
+ * What goes with the pieces once they have been written back: Ariadne's post-read set-up and the lights' shading
+ * rebuilt. apply_resync_game_data() runs it after its copies; so does a replay rewind.
+ */
+void resync_state_restored(void);
 TbBool apply_recorded_resync(const char *message_buffer, size_t message_size);
 
 // Declared here (previously only usable from within net_resync.cpp

@@ -41,6 +41,12 @@ _Static_assert(sizeof(struct Game) == KFX_GAME_ORIG_SIZE, "struct Game changed s
 // allocate/free per call the way Lua's variable-length export needs.
 static char resync_game_state_buffer[sizeof(struct Game) + sizeof(struct KfxGameState)];
 
+void visit_resync_game_state(KfxStateVisitor visit, void *ctx)
+{
+    visit(ctx, &game, sizeof(game));
+    visit(ctx, &kfx_game_state, sizeof(kfx_game_state));
+}
+
 const char *resync_export_game_state(size_t *len)
 {
     char *write_ptr = resync_game_state_buffer;

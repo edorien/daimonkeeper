@@ -20,6 +20,7 @@
 #include "bflib_basics.h"
 #include "globals.h"
 #include "port_check.h"
+#include "state_visitor.h"
 #include "compiler_compat.h"
 #include "game_time.h"
 #include "bflib_sound.h"

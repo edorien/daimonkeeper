@@ -79,9 +79,9 @@ TEST_CASE("UiPort's unwired defaults leave their out-parameters safe", "[kfx_con
     gt.Hours = 5;
     ui_port_defaults.get_game_time(&gt, 0, 0);
     CHECK(gt.Hours == 0);
-    size_t len = 7;
-    CHECK(std::string(ui_port_defaults.resync_export_frontend_state(&len)).empty());
-    CHECK(len == 0);
+    size_t visited = 0;
+    ui_port_defaults.visit_resync_frontend_state([](void *ctx, void *, size_t size) { *static_cast<size_t *>(ctx) += size + 1; }, &visited);
+    CHECK(visited == 0);
 }
 
 TEST_CASE("AudioFeedbackPort defaults are unwired no-ops returning their listed defaults", "[kfx_config][ports][audio_port]") {

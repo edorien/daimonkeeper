@@ -71,7 +71,7 @@ struct State {
     struct StartupParameters start;
     int64_t atmos_volume, atmos_start, atmos_end, atmos_repeat, display, api_en, api_p, enet_p;
     TbBool mouse_grab, vsync, autosave, exit_lua, flee, imprison;
-    uint64_t vid_scale, packetsave;
+    uint64_t vid_scale, packetsave, rewind_kb;
     uint64_t replays[ReplTyp_Count];
     // The three fields of kfx_config_state the reader writes (atmos frequency, zoom distances): the whole struct
     // (11 MB) is compared once, at the end, to show nothing else changes.
@@ -89,6 +89,7 @@ struct State {
         api_en = api_enabled; api_p = api_port; enet_p = enet_port; mouse_grab = lbMouseGrab; vsync = vsync_enabled;
         autosave = automatic_replays; exit_lua = exit_on_lua_error; flee = FLEE_BUTTON_DEFAULT;
         imprison = IMPRISON_BUTTON_DEFAULT; vid_scale = vid_scale_flags; packetsave = packetsave_max_kb;
+        rewind_kb = replay_rewind_buffer_kb;
         std::memcpy(replays, max_replays, sizeof(replays));
         config_fields[0] = kfx_config_state.atmos_sound_frequency;
         config_fields[1] = kfx_config_state.zoom_distance_setting;
@@ -103,6 +104,7 @@ struct State {
         api_enabled = api_en; api_port = api_p; enet_port = enet_p; lbMouseGrab = mouse_grab; vsync_enabled = vsync;
         automatic_replays = autosave; exit_on_lua_error = exit_lua; FLEE_BUTTON_DEFAULT = flee;
         IMPRISON_BUTTON_DEFAULT = imprison; vid_scale_flags = vid_scale; packetsave_max_kb = packetsave;
+        replay_rewind_buffer_kb = rewind_kb;
         std::memcpy(max_replays, replays, sizeof(replays));
         kfx_config_state.atmos_sound_frequency = config_fields[0];
         kfx_config_state.zoom_distance_setting = config_fields[1];
@@ -125,6 +127,11 @@ uint64_t state_hash() {
     h.add_v(kfx_config_state.frontview_zoom_distance_setting);
     h.add_v(get_screen_vidmode()); h.add_v(RendererGetDesiredType()); h.add_v(RendererGetGpuDebug());
     h.add_v(RendererGetLightingMode()); h.add_v(get_log_level()); h.add_s(matchmaking_log);
+    // REPLAY_REWIND_BUFFER_SIZE (added after these hashes were first taken): hashed only when a key changed it, so
+    // the other keys' hashes stay what they were
+    if (replay_rewind_buffer_kb != REPLAY_REWIND_BUFFER_DEFAULT_KB) {
+        h.add_v(replay_rewind_buffer_kb);
+    }
     return h.v;
 }
 

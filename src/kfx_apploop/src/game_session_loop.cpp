@@ -87,9 +87,12 @@
 #include "kfx_frontend_state.h"
 #include "config_keeperfx.h"
 #ifdef FUNCTESTING
+#include "ftests/ftest.h"
 #include "ftests/ftest_packet_capture.h"
 #include "ftests/ftest_packet_inject.h"
 #endif
+#include "local_state.h"
+#include "replay_rewind.h"
 #include "external_seat.h"
 #include "frontmenu_ingame_evnt.h"
 #include "scrcapt.h"
@@ -126,6 +129,9 @@ static long double average_frame_draw_time = 1;
 static long double multiplayer_clock_adjust = 1;
 long double host_packet_received = 1;
 double interpolate_time = 0;
+// replay rewinding (upstream #5450): one turn back per step while the key is held
+#define REWIND_TURNS_PER_SECOND 60
+static int64_t next_rewind_step_ns;
 /******************************************************************************/
 
 void update(void)
@@ -210,6 +216,52 @@ void update(void)
     update_all_players_cameras();
     update_player_sounds();
     SYNCDBG(6,"Finished");
+}
+
+/**
+ * Plays a replay on to target from the keyframe replay_rewind_restore() went back to, turn by turn as the gameplay
+ * loop would (the packets read, exchanged and processed), without drawing or sound.
+ */
+static void replay_resimulate_to(GameTurn target)
+{
+    // a pause is game state in a single player game, not in a replay (which leaves the paused turns out)
+    const TbBool paused = flag_is_set(kfx_sim_state.operation_flags, GOF_Paused);
+    clear_flag(kfx_sim_state.operation_flags, GOF_Paused);
+    const TbBool sound_disabled = SoundDisabled;
+    SoundDisabled = true;
+    while ((get_gameturn() < target) && replay.load_enable && !quit_game && !exit_keeper)
+    {
+#ifdef FUNCTESTING
+        // the seeds a functional test sets at the start of each turn (ftest_update())
+        ftest_srand();
+#endif
+        load_packets_for_turn(replay.pckt_gameturn);
+        replay.pckt_gameturn++;
+        exchange_packets();
+        update();
+    }
+    SoundDisabled = sound_disabled;
+    set_flag_value(kfx_sim_state.operation_flags, GOF_Paused, paused);
+}
+
+TbBool replay_rewind_to_turn(GameTurn target)
+{
+    // this machine's frame rate (find_frame_rate()), not the game's: kept as the pacing is
+    const uint64_t time_delta = kfx_frontend_state.time_delta;
+    const TbBool restored = replay_rewind_restore(target);
+    kfx_frontend_state.time_delta = time_delta;
+    if (!restored)
+        return false;
+    replay_resimulate_to(target);
+    return (get_gameturn() == target);
+}
+
+/** One step back while the rewind key is held: to the turn before this one. */
+static void replay_rewind_step(void)
+{
+    if (replay_rewind_at_limit())
+        return;
+    replay_rewind_to_turn(get_gameturn() - 1);
 }
 
 void find_frame_rate(void)
@@ -479,6 +531,8 @@ static void gameplay_loop_draw()
         do_draw = true;
 
     update_gameplay_delta_time();
+    if (local_state.rewinding)
+        kfx_net_state.process_turn_time = 1.0;
 
     if (kfx_net_state.process_turn_time > 1.0 && time_since_last_draw < 1.0)
         do_draw = false;
@@ -604,6 +658,23 @@ static void gameplay_loop_logic()
 #endif // FUNCTESTING
     do_draw = display_should_be_updated_this_turn() || (!LbIsActive());
     poll_inputs();
+    // Holding the Undo Pickup key rewinds a replay (upstream #5450), a turn at a time, instead of playing a turn
+    const TbBool rewind_held = replay.load_enable && is_game_key_pressed(Gkey_DumpToOldPos, false, true)
+        && !a_menu_window_is_active() && !flag_is_set(get_local_user_state()->init_flags, UsrIF_NewMPMessage);
+    local_state.rewinding = rewind_held && replay_rewind_available();
+    if (local_state.rewinding)
+    {
+        const int64_t now = get_time_tick_ns();
+        if (now >= next_rewind_step_ns)
+        {
+            next_rewind_step_ns = now + 1000000000 / REWIND_TURNS_PER_SECOND;
+            replay_rewind_step();
+        } else
+            LbSleepFor(1);
+        do_draw = true;
+        frametime_end_measurement(Frametime_Logic);
+        return;
+    }
     input_eastegg();
     input();
     // The player's combat assistant profile, as packets in their own packet (only when their input left it empty).
@@ -716,7 +787,7 @@ static void gameplay_loop_timestep()
     if (! use_delta_time()) {
         frametime_start_measurement(Frametime_Sleep);
         // Make delay if the machine is too fast
-        if ( (!replay.load_enable) || (replay.turns_fastforward == 0) ) {
+        if (((!replay.load_enable) || (replay.turns_fastforward == 0)) && !local_state.rewinding) {
             keeper_wait_for_next_turn();
         }
         frametime_end_measurement(Frametime_Sleep);

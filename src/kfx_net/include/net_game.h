@@ -46,11 +46,14 @@ extern struct TbNetworkUserInfo net_user_info[MAX_NET_USERS];
 int64_t setup_network_service(enum FrontendNetService service);
 int64_t setup_old_network_service(void);
 TbBool init_players_network_game(void);
-// Compacts net_user_info's active slots into net_user_player_number[],
-// including host bookkeeping (my_player_number). Exposed (not just called
-// from init_players_network_game()) so tests can seed a NetUserId <->
-// PlayerNumber mapping via this real production path instead of reaching
-// into net_game.c's otherwise-private net_user_player_number[] directly.
+// Maps each active user to the player slot the host gave it (the startup
+// sync, init_players_network_game()) and sets my_player_number; false, with
+// no user mapped, when a slot is outside the level's slots_count or shared.
+TbBool setup_network_player_slots(const int8_t player_slots[MAX_NET_USERS], int64_t slots_count);
+// The same with net_user_info's active users compacted into slots 0, 1, ...
+// in NetUserId order. Lets tests seed a NetUserId <-> PlayerNumber mapping
+// via the real production path instead of reaching into net_game.c's
+// otherwise-private net_user_player_number[] directly.
 void setup_network_player_numbers(void);
 void setup_count_players(void);
 

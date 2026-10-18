@@ -70,6 +70,7 @@ void frontnet_service_update(void);
 void frontnet_session_update(void);
 void frontnet_start_update(void);
 TbBool frontnet_matchmaking_update(void);
+void frontnet_request_player_colour(int64_t colour);
 TbBool frontnet_start_level(const char *campaign_fname, LevelNumber lvnum);
 void process_frontend_chat_message(NetUserId user, const char *message);
 TbBool frontnet_service_selected(enum FrontendNetService service);

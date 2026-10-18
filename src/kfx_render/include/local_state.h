@@ -53,6 +53,8 @@ extern struct LocalState {
     TbBool replay_detached;
     unsigned char replay_view_type;
     unsigned char replay_cam_idx;
+    /** A replay is being rewound (the Undo Pickup key held): replay_rewind.h. */
+    TbBool rewinding;
 } local_state;
 /******************************************************************************/
 #ifdef __cplusplus

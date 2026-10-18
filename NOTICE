@@ -28,8 +28,8 @@ date. The copyright and author notices in the individual source files are
 kept as they were.
 
 Upstream base: KeeperFX master merged up to commit bb5aca64f (2026-10-18), apart from the camera/UserState
-refactor and the spectator work built on it, the replay rewind and the lobby player colours (the 2026-10-12 and
-2026-10-18 merge commits list what was ported and what was not).
+refactor and the spectator work built on it and the replay rewind (the 2026-10-12 and 2026-10-18 merge commits
+list what was ported and what was not; the lobby player colours, d073f1983, were ported after the merge).
 Content compatibility: campaigns and map packs made for KeeperFX 1.4
 ("KFX 1.4" in the version label).
 

@@ -61,6 +61,8 @@ extern "C" {
 
 static TbBool get_autosave_replays(void) { return automatic_replays; }
 static void set_autosave_replays(TbBool val) { automatic_replays = val; }
+static int64_t get_replay_rewind_buffer_kb(void) { return (int64_t)replay_rewind_buffer_kb; }
+static void set_replay_rewind_buffer_kb(int64_t val) { replay_rewind_buffer_kb = (uint64_t)val; }
 
 static TbBool get_freeze_on_focus_lost(void) { return is_feature_on(Ft_FreezeOnLoseFocus); }
 static void set_freeze_on_focus_lost(TbBool val)
@@ -1138,6 +1140,17 @@ const struct SettingOption setting_options[] = {
         .help_literal = "Record every game you play as a replay in the replays folder, keeping the "
                         "newest few of each kind (MAX_REPLAYS in " PRODUCT_SLUG ".cfg). Applies from the next game.",
         .get_bool = &get_autosave_replays, .set_bool = &set_autosave_replays,
+        .cfg_read_by_row = true,
+    },
+    {
+        // Read when a replay starts rewinding (its first keyframe), so it applies from the next replay watched.
+        .cfg_key = "REPLAY_REWIND_BUFFER_SIZE", .type = SOptT_Int, .category = SCat_Game, .apply_class = SApply_Live,
+        .label_literal = "Replay rewind memory (kB)",
+        .help_literal = "Memory a replay keeps to rewind with while you watch it: hold the Undo Pickup key "
+                        "(Backspace) to go back. More memory goes further back. 0 turns rewinding off. "
+                        "Applies from the next replay.",
+        .get_int = &get_replay_rewind_buffer_kb, .set_int = &set_replay_rewind_buffer_kb,
+        .int_min = 0, .int_max = REPLAY_REWIND_BUFFER_MAX_KB,
         .cfg_read_by_row = true,
     },
     {

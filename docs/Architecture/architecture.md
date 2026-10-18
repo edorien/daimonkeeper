@@ -807,6 +807,23 @@ The replay (packet file) state is deliberately in none of them: `struct ReplaySt
 (`kfx_sim/include/packet_data.h`, upstream #5376) holds recording/playback, the open file and whether replay mode is
 on, so neither a resync (a recorded one played back included) nor a loaded save overwrites it.
 
+**Replay rewind** (upstream #5450/#5470, re-implemented: `kfx_game/src/replay_rewind.c`, `rewind_ring.c`). While a
+replay plays, a keyframe is taken every 20 turns (`replay_rewind_capture()`, before a turn's packets are read). The
+state a keyframe holds is exactly what a full resync carries, visited piece by piece at its live address by
+`resync_visit_state()` (`kfx_net/net_resync.cpp`, which `build_resync_game_data()` writes from too, so the two can't
+drift apart; the pieces above `kfx_net` come through GamePort/UiPort's `visit_resync_*_state`): `struct Game` and
+`kfx_game_state`, `kfx_sim_state`, `kfx_net_state`, Ariadne's mesh, `kfx_config_state`'s saved part and
+`kfx_frontend_state`, ~158 MB. A snapshot buffer holds them as at one keyframe; the ring (`REPLAY_REWIND_BUFFER_SIZE`
+kB, 64 MB by default) holds per keyframe the XOR page diff from the keyframe before (so the snapshot walks both ways
+along the chain), the Lua state (serialised, compressed) and the replay reader's place (`struct ReplayReaderPos`,
+`game_replay.h`). Holding the Undo Pickup key (Backspace) restores the keyframe at or before the turn before, then
+plays on to it without drawing or sound (`replay_rewind_to_turn()`, `kfx_apploop`), 60 steps a second. After a
+restore the same things are redone as after a resync (`resync_state_restored()`: Ariadne's post-read set-up, the lights'
+shading), the pacing is kept (`local_pacing_keep()`), the things' sound emitters dropped and the local camera set from
+the restored player's. There are no linker-section globals or kernel memory tracking as upstream has: state outside the
+blobs is lost on a save or resync anyway (§6.1a). The `replay_rewind` ftests check a rewound game against the game first
+played, part by part, and the replay's own checksums afterwards.
+
 `struct Game` itself (in `kfx_game/include/game_legacy.h`) is now a
 **near-empty placeholder** holding only `unsigned char _reserved;`. It is kept
 non-empty because the save/resync/reset paths still treat it as one chunk in a

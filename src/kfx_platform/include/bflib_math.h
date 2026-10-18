@@ -70,6 +70,8 @@ struct Proportion { // sizeof = 8
 int64_t LbSinL(int64_t x);
 int64_t LbCosL(int64_t x);
 int64_t LbSqrL(int64_t x);
+int LbCtz32(uint32_t x);
+int LbCtz64(uint64_t x);
 int64_t LbArcTanAngle(int64_t x,int64_t y);
 int64_t LbMathOperation(unsigned char opkind, int64_t first_operand, int64_t second_operand);
 /** Advance *seed and return a value in [0, range). Range and result are uint32_t (== the 32-bit `unsigned long`

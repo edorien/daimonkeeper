@@ -338,6 +338,11 @@ extern int64_t api_enabled;
 extern int64_t api_port;
 extern TbBool exit_on_lua_error;
 extern uint64_t packetsave_max_kb;
+/** REPLAY_REWIND_BUFFER_SIZE: the memory (kB) a replay's rewind keyframes may take while it plays (upstream #5450); 0 turns
+ *  rewinding off. At most REPLAY_REWIND_BUFFER_MAX_KB. */
+extern uint64_t replay_rewind_buffer_kb;
+#define REPLAY_REWIND_BUFFER_DEFAULT_KB 65536
+#define REPLAY_REWIND_BUFFER_MAX_KB (4 * 1024 * 1024)
 enum ReplayTypes {
     ReplTyp_Campaign = 0,
     ReplTyp_Freeplay,

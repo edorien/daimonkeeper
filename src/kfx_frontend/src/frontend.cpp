@@ -425,13 +425,6 @@ struct EventTypeInfo event_button_info[] = {
   {GPS_message_rpanel_msg_exclam_act,     GUIStr_EventSecretDoorSpottedDesc,  GUIStr_EventSecretDoorSpotted,   300, 200, EvKind_Nothing},
 };
 
-const uint64_t alliance_grid[4][4] = {
-  {0x00, 0x01, 0x02, 0x04,},
-  {0x01, 0x00, 0x08, 0x10,},
-  {0x02, 0x08, 0x00, 0x20,},
-  {0x04, 0x10, 0x20, 0x00,},
-};
-
 // Declarations for font testing screen (reachable at the Debug log level)
 // testfont/testfont_palette moved to kfx_render's vidmode.h (stage 13.3,
 // docs/refactor/stage-13-enforce-and-document.md).

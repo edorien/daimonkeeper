@@ -23,6 +23,7 @@
 
 #include "port_check.h"
 #include "state_versions.h"
+#include "state_visitor.h"
 #include "bflib_basics.h"
 #include "globals.h"
 #include "player_data.h"
@@ -136,6 +137,8 @@ size_t get_frontend_state_size(void);
 // same reasoning as the save/load pair above, just for the network resync
 // payload (net_resync.cpp) instead of the save-game file format. See
 // docs/refactor/todo/remove-remaining-layering-violations.md.
+// visit_resync_frontend_state() hands the struct over as one piece (resync_visit_state()).
+void visit_resync_frontend_state(KfxStateVisitor visit, void *ctx);
 const char *resync_export_frontend_state(size_t *len);
 TbBool resync_import_frontend_state(const char *data, size_t len);
 

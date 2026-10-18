@@ -75,7 +75,11 @@ struct StartupSyncPacket {
     struct UserStartSettings user_start;
     uint8_t initial_input_lag_turns;
     uint32_t initial_action_seed;
-    // TODO: also record alliance matrix.
+    // The host's resolution of the lobby's player colours (upstream #5439): the player slot of each
+    // user, and the lobby's alliances (between users) as alliances between those slots. Only the
+    // host's are used; a client sends NET_PLAYER_COLOUR_NONE slots.
+    char frontend_alliances;
+    int8_t player_slots[MAX_NET_USERS];
 };
 #pragma pack()
 
@@ -598,6 +602,34 @@ static uint8_t calculate_initial_input_lag(void)
     return input_lag_turns;
 }
 
+// How many player slots the level has for network users.
+static int64_t startup_player_slots_count(void)
+{
+    int64_t slots_count = MAX_NET_USERS;
+    struct LevelInformation *level = get_level_info(get_loaded_level_number());
+    if (level && level->players > 0) {
+        slots_count = min(level->players, slots_count);
+    }
+    return slots_count;
+}
+
+// Host only: who plays which slot, from the colours chosen in the lobby. A random pick uses a
+// copy of the synced seed, so no game RNG moves and a client never rolls its own.
+static void resolve_startup_player_slots(struct StartupSyncPacket *sync)
+{
+    int8_t colours[MAX_NET_USERS];
+    for (NetUserId user = 0; user < MAX_NET_USERS; user++) {
+        colours[user] = NET_PLAYER_COLOUR_NONE;
+        if (net_user_info[user].network_user_active) {
+            colours[user] = (net_player_colour[user] >= 0) ? net_player_colour[user] : NET_PLAYER_COLOUR_RANDOM;
+        }
+    }
+    uint32_t seed = (uint32_t)kfx_net_local.initial_replay_seed ^ 0x9E3779B9u;
+    if (!net_resolve_player_colours(colours, startup_player_slots_count(), ui_get_frontend_alliances(), &seed, sync->player_slots, &sync->frontend_alliances)) {
+        WARNLOG("The level has %" PRId64 " player slots, not enough for every network user", startup_player_slots_count());
+    }
+}
+
 static void build_local_startup_sync(void)
 {
     memset(&s_local_startup_sync, 0, sizeof(s_local_startup_sync));
@@ -607,6 +639,10 @@ static void build_local_startup_sync(void)
     build_local_user_start_settings(&s_local_startup_sync.user_start);
     s_local_startup_sync.initial_input_lag_turns = calculate_initial_input_lag();
     s_local_startup_sync.initial_action_seed = (uint32_t)kfx_net_local.initial_replay_seed;
+    memset(s_local_startup_sync.player_slots, NET_PLAYER_COLOUR_NONE, sizeof(s_local_startup_sync.player_slots));
+    if (network_is_host()) {
+        resolve_startup_player_slots(&s_local_startup_sync);
+    }
 }
 
 static TbBool net_startup_sync_exchange_and_apply(void)
@@ -642,32 +678,46 @@ static TbBool net_startup_sync_exchange_and_apply(void)
         ERRORLOG("Initial action seed %" PRIu64 " differs from host's %" PRIu64, (uint64_t)kfx_net_local.initial_replay_seed, (uint64_t)host_sync->initial_action_seed);
         kfx_net_local.initial_replay_seed = host_sync->initial_action_seed;
     }
+    if (!setup_network_player_slots(host_sync->player_slots, startup_player_slots_count())) {
+        ui_create_frontend_error_box(5000, "This map has fewer player slots than there are players");
+        return false;
+    }
+    ui_set_frontend_alliances(host_sync->frontend_alliances);
     setup_players_from_startup_packets(s_startup_sync_packets);
+    return true;
+}
+
+TbBool setup_network_player_slots(const int8_t player_slots[MAX_NET_USERS], int64_t slots_count)
+{
+    SYNCDBG(6, "Starting");
+    for (NetUserId i = 0; i < MAX_NET_USERS; i++) {
+        net_user_player_number[i] = -1;
+    }
+    if (!net_player_slots_valid(player_slots, slots_count)) {
+        return false;
+    }
+    for (NetUserId i = 0; i < MAX_NET_USERS; i++) {
+        if (net_user_info[i].network_user_active) {
+            net_user_player_number[i] = player_slots[i];
+        }
+    }
+    PlayerNumber my_slot = get_net_user_player_number(netstate.my_id);
+    if (my_slot < 0) {
+        ERRORLOG("Local user %" PRId64 " not found among active network players", (int64_t)netstate.my_id);
+    } else {
+        my_player_number = my_slot;
+    }
     return true;
 }
 
 void setup_network_player_numbers(void)
 {
-    TbBool is_set = false;
-    int64_t k = 0;
-    SYNCDBG(6, "Starting");
-    for (NetUserId i = 0; i < MAX_NET_USERS; i++)
-    {
-        net_user_player_number[i] = -1;
-        if (net_user_info[i].network_user_active)
-        {
-            net_user_player_number[i] = k;
-            if ((!is_set) && (my_player_number == i))
-            {
-                is_set = true;
-                my_player_number = k;
-            }
-            k++;
-        }
+    int8_t player_slots[MAX_NET_USERS];
+    int8_t k = 0;
+    for (NetUserId i = 0; i < MAX_NET_USERS; i++) {
+        player_slots[i] = net_user_info[i].network_user_active ? k++ : NET_PLAYER_COLOUR_NONE;
     }
-    if (!is_set) {
-        ERRORLOG("Local player number %" PRId64 " not found among active network players", (int64_t)(my_player_number));
-    }
+    setup_network_player_slots(player_slots, MAX_NET_USERS);
 }
 
 void setup_count_players(void)
@@ -690,7 +740,6 @@ TbBool init_players_network_game(void)
 {
     SYNCDBG(4,"Starting");
     TbBool initialized = true;
-    setup_network_player_numbers();
     for (int64_t zip_idx = 0; zip_idx < REQUIRED_SPRITE_ZIP_COUNT; zip_idx++) {
         if (required_sprite_zip_checksums[zip_idx] != 0) {
             continue;
