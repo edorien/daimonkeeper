@@ -15,6 +15,18 @@ nothing. `from_engine` / `bind_engine` connect a Memory to its seat; `flush` pus
 Each game has a `game_id` (made when the engine held no memory for the seat, i.e. a new game) and the level it is on. Each
 attempt at it has a `branch`: a load starts a new one whose `parent_branch` is the attempt the save was made in, which is how
 the experience store (experience.py) tells one game's attempts apart.
+
+Format 2 (docs/plans/llm-bridge-memory.md, Phases E-F):
+- **facts**: small things to remember, each set or dropped on its own (`facts {key: text}` on submit_orders, null drops
+  one) instead of rewriting all the notes; each stamped with the turn it was set, marked (old) after a few pay days.
+  The free-text `notes` still work.
+- **chapters**: the decisions that roll off the recent log are folded into one chapter per pay day (turns, decisions,
+  orders, the reasons that came up, the plan's first line, the agent's own line for it: `chapter_note`), at most
+  CHAPTERS_MAX, the oldest merged in pairs -- the long game's story, not just its last 12 decisions.
+- **places** (places.py): named spots the bridge keeps from the view itself (the heart, rooms, hero gates, enemy hearts
+  once seen) and the ones the agent names; orders may give a place's name as pos, slab_rect or to_room.
+- A format-1 blob is upgraded when read (it gains the empty new fields). A blob of a newer format is left alone: this
+  bridge plays on a fresh memory and never writes over it (`attach`).
 """
 import json
 import sys
@@ -26,14 +38,26 @@ from api import ApiError
 PLAN_CAP = 1800
 NOTES_CAP = 3500
 RECENT = 12
-FORMAT = 1
+FORMAT = 2
+READS = (1, 2)            # formats from_blob upgrades
+FACT_CAP = 200
+FACTS_MAX = 40
+FACT_KEY_CAP = 32
+FACT_OLD_PAYDAYS = 5      # a fact set this many pay days ago is marked (old)
+CHAPTERS_MAX = 10
+CHAPTER_NOTE_CAP = 200
 BLOB_CAP = 60000          # the engine refuses a text over 65536 bytes (agent_memory.h AGENT_MEMORY_MAX)
 NAMES_PRUNE_AT = 400      # past this many names, those of creatures no longer in the dungeon are dropped
 CHECKPOINTS_CAP = 120     # past this, every other old checkpoint is dropped (a coarser history, never a gap at the end)
 
 _FIELDS = ("format", "game_id", "level", "started_at", "start_turn", "branch", "parent_branch", "plan", "notes", "decisions", "seen_kinds",
            "count", "creature_names", "_kind_counters", "checkpoints", "stats", "rule_names", "rule_sigs", "pending_rules",
-           "last_sight", "bank_names", "triggers", "trigger_log", "rally")
+           "last_sight", "bank_names", "triggers", "trigger_log", "rally", "recall", "facts", "chapters", "chapter_notes",
+           "places")
+
+
+class NewerFormat(Exception):
+    """The game holds a memory blob a newer bridge wrote: this one must not read or overwrite it."""
 
 
 def creature_key(thing_id, born=None):
@@ -68,6 +92,13 @@ class Memory:
         self.triggers = []           # the agent's contingency triggers, with their counters (triggers.py)
         self.trigger_log = []        # their latest firings, newest last (triggers.LOG_KEPT)
         self.rally = {}              # named spots (subtiles) triggers and the flash view refer to: {"safe": [x, y], ...}
+        self.recall = {}             # which lessons this attempt was shown, and when (experience.py, Phase C): {"shown":
+                                     # {id: [times, decision]}, "topics": {topic: decision}, "refresh": decision, "tip_turn"}
+        self.facts = {}              # {key: {"text", "turn"}}: small facts, set one at a time
+        self.chapters = []           # the game before the recent log, one per pay day: {"period", "from", "to", "decisions",
+                                     # "sent", "refused", "reasons": {reason: n}, "plan", "note"}
+        self.chapter_notes = {}      # {period (str): the agent's line for that pay day}, until its decisions are folded
+        self.places = {}             # places.py: {name: {"pos", "rect"?, "kind", "room"?, "owner"?, "seen"}}
         self._assist_note = None     # said once in STANDING ORDERS (a change refused) (not saved)
         self._assist_seen = {}       # each rule's [fired, spent] at the last decision, for STANDING ORDERS (not saved)
         self._trig_seen = None       # the turn TRIGGERS was last shown: firings after it are news (not saved)
@@ -113,18 +144,24 @@ class Memory:
             d = json.loads(text)
         except ValueError:
             return None
-        if not isinstance(d, dict) or d.get("format") != FORMAT or not d.get("game_id"):
+        if not isinstance(d, dict) or not d.get("game_id"):
+            return None
+        if isinstance(d.get("format"), int) and d["format"] > FORMAT:
+            raise NewerFormat("memory format %d (this bridge writes %d)" % (d["format"], FORMAT))
+        if d.get("format") not in READS:
             return None
         m = cls()
         for k in _FIELDS:
-            if k in d:
+            if k in d and k != "format":
                 setattr(m, k, d[k])
+        m.format = FORMAT          # format 1 had none of the new fields: they start empty
         m._pushed = text
         return m
 
     @classmethod
     def from_engine(cls, api, seat):
-        """The seat's memory as the game holds it, or None (a new game, or an engine without agent memory)."""
+        """The seat's memory as the game holds it, or None (a new game, or an engine without agent memory). Raises
+        NewerFormat for a blob a newer bridge wrote."""
         try:
             data = api.data(action="get_agent_memory", player=seat)
         except ApiError as e:
@@ -153,9 +190,17 @@ class Memory:
             self._pushed = blob
 
     # ---- what the model writes -------------------------------------------------------------------------------------------
-    def update(self, plan=None, notes=None):
-        """Replace the plan and/or notes (only what the model sent). Returns a warning string if something was cut."""
+    def update(self, plan=None, notes=None, facts=None, chapter_note=None, turn=None):
+        """Replace the plan and/or notes (only what the model sent); set or drop single facts (`facts` {key: text}, a
+        null or empty text drops it); the agent's line for the current pay day (`chapter_note`). `turn`: the decision's,
+        stamped on the facts set. Returns a warning string if something was cut or refused."""
         cut = []
+        if facts:
+            cut += self.set_facts(facts, turn)
+        if chapter_note:
+            self.chapter_notes[str(self.period_of(turn))] = chapter_note.strip()[:CHAPTER_NOTE_CAP]
+            if len(chapter_note.strip()) > CHAPTER_NOTE_CAP:
+                cut.append("chapter_note cut to %d characters" % CHAPTER_NOTE_CAP)
         if plan is not None:
             self.plan = plan[:PLAN_CAP]
             if len(plan) > PLAN_CAP:
@@ -166,10 +211,73 @@ class Memory:
                 cut.append("notes cut to %d characters; compress them" % NOTES_CAP)
         return "; ".join(cut)
 
+    def set_facts(self, facts, turn=None):
+        """Sets or drops facts ({key: text}; null or "" drops). Returns the warnings (cut, refused)."""
+        warns = []
+        if not isinstance(facts, dict):
+            return ["facts is an object {key: text}"]
+        for raw, text in facts.items():
+            key = "_".join(str(raw).strip().split())[:FACT_KEY_CAP]
+            if not key:
+                continue
+            if text is None or not str(text).strip():
+                self.facts.pop(key, None)
+                continue
+            text = str(text).strip()
+            if key not in self.facts and len(self.facts) >= FACTS_MAX:
+                warns.append("fact %r not kept: %d facts already (drop one with null)" % (key, FACTS_MAX))
+                continue
+            if len(text) > FACT_CAP:
+                warns.append("fact %r cut to %d characters" % (key, FACT_CAP))
+            self.facts[key] = {"text": text[:FACT_CAP], "turn": turn}
+        return warns
+
+    def period_of(self, turn):
+        """The pay day a turn falls in, as the turn of the checkpoint that opened it (0 before the first)."""
+        start = 0
+        for cp in self.checkpoints:
+            t = cp.get("turn")
+            if t is not None and turn is not None and t <= turn:
+                start = t
+        return start
+
+    def _fold(self, d):
+        """A decision leaving the recent log goes into its pay day's chapter."""
+        period = self.period_of(d.get("turn"))
+        ch = self.chapters[-1] if self.chapters else None
+        if ch is None or ch.get("period") != period:
+            ch = {"period": period, "from": d.get("turn"), "to": d.get("turn"), "decisions": 0, "sent": 0, "refused": 0,
+                  "reasons": {}, "plan": "", "note": ""}
+            self.chapters.append(ch)
+        ch["to"] = d.get("turn")
+        ch["decisions"] += 1
+        ch["sent"] += len(d.get("orders") or [])
+        ch["refused"] += len(d.get("refused") or [])
+        for r in d.get("reasons") or ["timer"]:
+            ch["reasons"][r] = ch["reasons"].get(r, 0) + 1
+        if d.get("plan1"):
+            ch["plan"] = d["plan1"]
+        note = self.chapter_notes.pop(str(period), None)
+        if note:
+            ch["note"] = note
+        while len(self.chapters) > CHAPTERS_MAX:
+            a, b = self.chapters[0], self.chapters[1]
+            reasons = dict(a["reasons"])
+            for r, n in b["reasons"].items():
+                reasons[r] = reasons.get(r, 0) + n
+            merged = {"period": a["period"], "from": a["from"], "to": b["to"], "decisions": a["decisions"] + b["decisions"],
+                      "sent": a["sent"] + b["sent"], "refused": a["refused"] + b["refused"], "reasons": reasons,
+                      "plan": b["plan"] or a["plan"], "note": "; ".join(x for x in (a["note"], b["note"]) if x)[:CHAPTER_NOTE_CAP]}
+            self.chapters[:2] = [merged]
+
     def record_decision(self, turn, reasons, reasoning, sent, refused):
         self.count += 1
+        first = (self.plan or "").strip().splitlines()
         self.decisions.append({"n": self.count, "turn": turn, "reasons": list(reasons), "reasoning": reasoning[:300],
-                               "orders": [dict(o, status="queued") for o in sent], "refused": list(refused)})
+                               "orders": [dict(o, status="queued") for o in sent], "refused": list(refused),
+                               "plan1": first[0][:120] if first else ""})
+        for d in self.decisions[:-RECENT]:
+            self._fold(d)
         del self.decisions[:-RECENT]
         st = self.stats
         st["decisions"] = st.get("decisions", 0) + 1
@@ -241,9 +349,49 @@ class Memory:
         return fresh
 
     # ---- what the model reads --------------------------------------------------------------------------------------------
-    def render(self):
-        lines = ["YOUR PLAN (rewrite it in submit_orders when it changes; max %d chars):" % PLAN_CAP, self.plan or "(none yet: make one)",
-                 "YOUR NOTES (facts to remember; rewrite and keep them short; max %d chars):" % NOTES_CAP, self.notes or "(empty)"]
+    def notes_text(self):
+        """The notes and the facts as one text (the game record's final notes)."""
+        facts = ["%s = %s" % (k, f["text"]) for k, f in self.facts.items()]
+        return "\n".join(x for x in ([self.notes] if self.notes else []) + facts)
+
+    def render_facts(self, now=None, payday=1200):
+        lines = ["YOUR FACTS (%d of %d; set or change one with facts {key: text} on submit_orders, null drops it; %d chars each):"
+                 % (len(self.facts), FACTS_MAX, FACT_CAP)]
+        if not self.facts:
+            lines.append("  (none: keep things you must not forget here -- where the enemy is, what a creature is for)")
+        for k, f in self.facts.items():
+            t = f.get("turn")
+            old = now is not None and t is not None and now - t > FACT_OLD_PAYDAYS * payday
+            lines.append("  %s = %s%s" % (k, f["text"], "" if t is None else " (t%d%s)" % (t, ", old" if old else "")))
+        return lines
+
+    def render_chapters(self):
+        if not self.chapters and not self.chapter_notes:
+            return []
+        lines = ["EARLIER IN THIS GAME (one chapter per pay day; chapter_note on submit_orders adds your line to the current one):"]
+        for ch in self.chapters:
+            top = sorted(ch["reasons"].items(), key=lambda kv: -kv[1])[:5]
+            lines.append("  t%s-%s: %d decisions, %d orders, %d refused; %s%s%s" % (
+                ch["from"], ch["to"], ch["decisions"], ch["sent"], ch["refused"],
+                ", ".join("%s x%d" % kv for kv in top) or "-",
+                ("; plan: " + ch["plan"]) if ch.get("plan") else "", ("; note: " + ch["note"]) if ch.get("note") else ""))
+        for period, note in sorted(self.chapter_notes.items(), key=lambda kv: int(kv[0])):
+            lines.append("  this pay day (from t%s), your note: %s" % (period, note))
+        return lines
+
+    def render(self, view=None):
+        now, payday = None, 1200
+        if view:
+            import experience     # local: experience imports memory's callers, not the other way round
+            now, payday = view.get("turn"), experience.payday_turns(view)
+        lines = ["YOUR PLAN (rewrite it in submit_orders when it changes; max %d chars):" % PLAN_CAP, self.plan or "(none yet: make one)"]
+        lines += self.render_facts(now, payday)
+        if self.notes:
+            lines += ["YOUR NOTES (free text, rewritten whole; facts are cheaper to keep; max %d chars):" % NOTES_CAP, self.notes]
+        if view:
+            import places
+            lines += places.render(self, view)
+        lines += self.render_chapters()
         if self.decisions:
             lines.append("RECENT DECISIONS (oldest first):")
             for d in self.decisions:
@@ -271,7 +419,13 @@ def level_of(view):
 def attach(api, seat, view):
     """The seat's memory for the game in `view`, bound to the game: the one the game holds (a restart) or a new one (a new
     game). Returns (memory, resumed)."""
-    mem = Memory.from_engine(api, seat)
+    try:
+        mem = Memory.from_engine(api, seat)
+    except NewerFormat as e:
+        # A newer bridge's memory: play on a fresh one, and never write over the one the game holds.
+        print("the game holds agent memory from a newer bridge (%s): playing on a fresh memory that is not saved" % e,
+              file=sys.stderr)
+        return Memory.new_game(view), False
     resumed = mem is not None
     if mem is None:
         mem = Memory.new_game(view)
@@ -283,8 +437,12 @@ def attach(api, seat, view):
 def reattach_after_load(api, seat, view, reached=None):
     """After a save was loaded under the agent: the memory saved with it (a new attempt at that game), or a new game's
     when the save holds none. Returns (memory, note), the note being what to tell the model once."""
-    mem = Memory.from_engine(api, seat)
     loaded = view.get("turn", 0)
+    try:
+        mem = Memory.from_engine(api, seat)
+    except NewerFormat as e:
+        return Memory.new_game(view), ("A saved game was loaded (turn %d) whose memory a newer bridge wrote (%s): it is left as it "
+                                       "is, and you play on a fresh memory that is not saved." % (loaded, e))
     if mem is None:
         # A save made without an agent (or by an older build): as far as memory goes, a new game.
         mem = Memory.new_game(view)

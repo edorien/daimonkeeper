@@ -20,7 +20,8 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import experience  # noqa: E402
+import experience
+import places as places_mod  # noqa: E402
 import memory as memory_mod  # noqa: E402
 import standing_orders  # noqa: E402
 from api import Api, ApiError  # noqa: E402
@@ -162,6 +163,10 @@ def run(args):
         memory, resumed = memory_mod.attach(api, seat, state.view)
         ctx.update({"memory": memory, "reasons": ["restart"] if resumed else ["start"]})
         recorder.start(memory, state.view, resumed)
+        # Earlier attempts nobody debriefed (abandoned ones too): the policy's lessons from them, before playing on.
+        earlier = experience.run_earlier_debriefs(store, recorder, memory, policy, ctx, limit=getattr(args, "earlier_debriefs", 2))
+        if earlier:
+            summary["earlier_debriefs"] = earlier
         if getattr(args, "assist_preset", None):
             apply_assist_preset(api, seat, memory, args.assist_preset, state.view)
         while True:
@@ -195,6 +200,7 @@ def run(args):
             think = time.time() - t0
             state.mark_rendered()   # a policy that renders no text still starts the next decision's news from here
             decision_turn = v["turn"]
+            named = places_mod.apply_ops(memory, decision.get("places"), decision_turn)   # before: orders may use them
             sent, refused = submit_batch(api, seat, decision["orders"], decision_turn, args.max_age_turns, memory=memory,
                                          decision_seq=decision_seq)
             if getattr(args, "on_urgent", "none") != "none":
@@ -202,9 +208,13 @@ def run(args):
             recorder.latency.answered(sent)
             decisions += 1
             summary["decisions"], summary["orders_sent"], summary["orders_refused"] = decisions, summary["orders_sent"] + len(sent), summary["orders_refused"] + len(refused)
-            warn = memory.update(plan=decision.get("plan"), notes=decision.get("notes"))
+            warn = memory.update(plan=decision.get("plan"), notes=decision.get("notes"), facts=decision.get("facts"),
+                                 chapter_note=decision.get("chapter_note"), turn=decision_turn)
             if warn:
                 ctx.setdefault("warnings", []).append(warn)
+            learned = experience.apply_play_lessons(store, memory, recorder.opponents, decision.get("lessons"))
+            ctx.setdefault("warnings", []).extend(learned["warnings"])
+            ctx["warnings"].extend(named["errors"])
             memory.record_decision(decision_turn, ctx.get("reasons", []), decision["reasoning"], sent, refused)
             recorder.decided(memory, decision_turn)
             # A level, or a loaded save, with no human keeper starts paused for the agent: decided, so play.
@@ -323,6 +333,8 @@ def main(argv=None):
     p.add_argument("--min-interval", type=int, default=100, help="decision beat: least game turns between two decisions")
     p.add_argument("--max-wait-seconds", type=float, default=240.0, help="decision beat: think anyway after this long without a decision event")
     p.add_argument("--experience", default=None, help="sqlite file of game records and lessons across games (default: %s)" % experience.default_path())
+    p.add_argument("--earlier-debriefs", type=int, default=2,
+                   help="at the start, debrief up to N of this agent's earlier attempts that never had one (default 2; 0: none)")
     p.add_argument("--no-experience", action="store_true", help="keep no game record and read no lessons (a clean run)")
     p.add_argument("--max-age-turns", type=int, default=1500, help="an order not started within this many turns is dropped")
     p.add_argument("--max-decisions", type=int, default=0)

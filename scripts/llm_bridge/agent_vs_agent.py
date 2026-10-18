@@ -27,6 +27,7 @@ from concurrent.futures import ThreadPoolExecutor
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import experience  # noqa: E402
+import places as places_mod  # noqa: E402
 import memory as memory_mod  # noqa: E402
 from bridge import open_experience, resume_agent_pause  # noqa: E402
 from api import Api  # noqa: E402
@@ -112,11 +113,11 @@ def _prepare_decision(seat, reasons, due_events):
     if seat.first_turn is None:
         seat.first_turn = v["turn"]
     seat.memory.note_results(v["seat"].get("results", []))
+    seat.ctx["reasons"] = reasons            # before the recorder: its RECALL is for these reasons
     seat.recorder.decision(seat.memory, v, seat.ctx)
     seat.recorder.latency.results(v["seat"].get("results", []))
     seat.recorder.latency.delivered(reasons, due_events, v["turn"])
     ctx = seat.ctx
-    ctx["reasons"] = reasons
     ctx["memory"] = seat.memory
     ctx["note"], seat.note = seat.note, None
     ctx["decision_turn"] = v["turn"]
@@ -127,13 +128,16 @@ def _finish_decision(api, seat, args, reasons, decision, think):
     ctx = seat.ctx
     seat.view.mark_rendered()
     decision_turn = ctx.pop("decision_turn")
+    places_mod.apply_ops(seat.memory, decision.get("places"), decision_turn)   # before: orders may use them
     sent, refused = submit_batch(api, seat.player, decision["orders"], decision_turn, args.max_age_turns, memory=seat.memory)
     seat.recorder.latency.answered(sent)
     seat.decisions += 1
     seat.summary["decisions"] = seat.decisions
     seat.summary["orders_sent"] += len(sent)
     seat.summary["orders_refused"] += len(refused)
-    seat.memory.update(plan=decision.get("plan"), notes=decision.get("notes"))
+    seat.memory.update(plan=decision.get("plan"), notes=decision.get("notes"), facts=decision.get("facts"),
+                       chapter_note=decision.get("chapter_note"), turn=decision_turn)
+    experience.apply_play_lessons(seat.recorder.store, seat.memory, seat.recorder.opponents, decision.get("lessons"))
     seat.memory.record_decision(decision_turn, reasons, decision["reasoning"], sent, refused)
     seat.recorder.decided(seat.memory, decision_turn)
     rec = {"seat": seat.player, "decision": seat.decisions, "turn": decision_turn, "reasons": reasons,
@@ -168,6 +172,10 @@ def run_multi(args):
         seats[p].memory, resumed = memory_mod.attach(api, p, seats[p].view.view)
         seats[p].recorder = experience.Recorder(store, p, "%s seat %d" % (args.model or args.policy, p))
         seats[p].recorder.start(seats[p].memory, seats[p].view.view, resumed)
+        earlier = experience.run_earlier_debriefs(store, seats[p].recorder, seats[p].memory, seats[p].policy, seats[p].ctx,
+                                                  limit=args.earlier_debriefs)
+        if earlier:
+            seats[p].summary["earlier_debriefs"] = earlier
         service_decision(api, seats[p], args, ["restart"] if resumed else ["start"])
     # A level with no human keeper starts paused for the agents: every seat has made its first decision, so play.
     if players:
@@ -289,6 +297,8 @@ def main(argv=None):
     p.add_argument("--min-interval", type=int, default=100, help="least game turns between two DECISION_DUE events, any seat")
     p.add_argument("--max-wait-seconds", type=float, default=240.0, help="think anyway after this long without an event, per seat")
     p.add_argument("--experience", default=None, help="sqlite file of game records and lessons (default: %s)" % experience.default_path())
+    p.add_argument("--earlier-debriefs", type=int, default=2,
+                   help="at the start, each seat debriefs up to N of its agent's earlier attempts that never had one (default 2; 0: none)")
     p.add_argument("--no-experience", action="store_true", help="keep no game record and read no lessons (a clean run)")
     p.add_argument("--log-dir", default=None, help="directory for one seat_<player>.jsonl decision log per seat")
     p.add_argument("--max-age-turns", type=int, default=1500)

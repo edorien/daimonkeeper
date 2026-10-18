@@ -20,6 +20,7 @@ import time
 
 import combat_report
 import experience
+import places as places_mod
 import memory as memory_mod
 import prompt
 import standing_orders
@@ -397,13 +398,21 @@ class Session:
     def _render(self, flash=False, severity=SEV_ROUTINE, where=None):
         self._decision_turn = self.state.view["turn"]
         self._shown_alerts.clear()   # what is pending now is in this decision, or announced afresh
+        # Lessons from earlier games in full on an attempt's first decision (start, restart, reloaded), else one line plus
+        # what this decision should be reminded of (RECALL; a REFRESHER now and then), and any tip a human just gave.
+        full = not self._experience_shown and not flash
+        pending = None
+        if full and self.store is not None and self.store.enabled:
+            # This agent's earlier attempts nobody debriefed (abandoned ones too): offered with the lessons, once a session.
+            pending = self.recorder.pending_debriefs(self.memory)
+            self.store.note_offered(pending)
+        exp, flash_recall = self.recorder.lessons_text(self.memory, self.pending_reasons or [], full, flash=flash, pending=pending)
         if flash:
-            text = prompt.render_flash(self.state, self.memory, self.pending_reasons or [], severity, where=where, note=self._note)
+            text = prompt.render_flash(self.state, self.memory, self.pending_reasons or [], severity, where=where, note=self._note,
+                                       recall=flash_recall)
             self._note = None
             self.memory.flush()
             return text
-        # Lessons from earlier games in full on an attempt's first decision (start, restart, reloaded), else one line.
-        exp = experience.render_experience(self.store, self.memory, self.recorder.opponents, full=not self._experience_shown)
         self._experience_shown = True
         text = prompt.render_for_agent(self.state, self.memory, reasons=self.pending_reasons, first=not self._rendered_once,
                                        note=self._note, experience=exp)
@@ -413,7 +422,7 @@ class Session:
         return text
 
     @_locked
-    def submit(self, orders, reasoning="", plan=None, notes=None):
+    def submit(self, orders, reasoning="", plan=None, notes=None, lessons=None, facts=None, chapter_note=None, places=None):
         self._require_connected()
         if self.state.view is None:
             self.state.update(self.api, self.seat)
@@ -423,6 +432,7 @@ class Session:
         if self._severity <= URGENT_SEVERITY:
             # The answer to a flash decision is urgent by default: ahead of the routine orders still waiting.
             orders = [o if "priority" in o or o.get("verb") == "cancel" else dict(o, priority="now") for o in orders]
+        named = places_mod.apply_ops(self.memory, places, decision_turn) if places else None   # before: orders may use them
         sent, refused = submit_batch(self.api, self.seat, orders, decision_turn, self.max_age_turns, memory=self.memory,
                                      decision_seq=self._decision_seq)
         # The decision is answered, orders or not: a game held for it runs on (api_urgent_hold.h).
@@ -433,7 +443,8 @@ class Session:
             self.api.call(**ack)
         except Exception:  # noqa: BLE001 - an older game without it: nothing is held there
             pass
-        warn = self.memory.update(plan=plan, notes=notes)
+        warn = self.memory.update(plan=plan, notes=notes, facts=facts, chapter_note=chapter_note, turn=decision_turn)
+        learned = experience.apply_play_lessons(self.store, self.memory, self.recorder.opponents, lessons)
         self.memory.record_decision(decision_turn, self.pending_reasons or [], reasoning, sent, refused)
         self.recorder.decided(self.memory, decision_turn)
         self.recorder.latency.answered(sent)
@@ -442,6 +453,10 @@ class Session:
         result = {"sent": sent, "refused": refused}
         if warn:
             result["warning"] = warn
+        if lessons:
+            result["lessons"] = learned
+        if named is not None:
+            result["places"] = named
         since = self._since_view(decision_turn)
         if since:
             result["since_your_view"] = since
@@ -651,6 +666,15 @@ class Session:
         it goes live a few turns later, all together. `bank` (1-3, with an optional `label`): store the set in that bank
         instead, to make it live later in one packet (use_combat_bank). Errors come back as data naming the rule at fault."""
         self._require_connected()
+        # A hand rule's destination may be a place's name (places.py): its subtile.
+        if rules is not None:
+            rules = [dict(r) for r in rules]
+            for i, r in enumerate(rules):
+                if isinstance(r.get("to"), str):
+                    try:
+                        r["to"] = places_mod.resolve_pos(self.memory, r["to"])
+                    except places_mod.PlaceError as e:
+                        return {"error": "UNKNOWN_PLACE", "rule": i, "name": r.get("name"), "detail": str(e)}
         try:
             req, names = standing_orders.prepare(rules, settings)
         except standing_orders.RulesError as e:
@@ -753,24 +777,99 @@ class Session:
         return "(log empty or unavailable)"
 
     @_locked
-    def record_debrief(self, summary=None, playbook=None, campaign_lessons=None, level_lessons=None, opponent_lessons=None):
-        """After a game ends: the summary goes on its record and each lesson text replaces that scope's lessons."""
+    def record_debrief(self, edits=None, attempt=None, decline=False):
+        """Keeps what a game taught (experience.apply_debrief): the game that just ended, or an earlier attempt of this
+        agent's that never had a debrief (`attempt`, as EXPERIENCE names it; `decline`: it taught nothing)."""
         self._require_connected(allow_over=True)
+        if attempt:
+            row = self._earlier_attempt(attempt)
+            if decline:
+                self.store.set_debrief_state(row["game_id"], row["branch"], "declined")
+                return {"declined": attempt}
+            mem, opps, _ = experience.attempt_memory(self.store, row)
+            return experience.apply_debrief(self.store, mem, edits, opps)
         if not self.game_over:
-            raise SessionError("record_debrief is for when the game has ended (wait_for_decision says game_over)")
+            raise SessionError("record_debrief is for when the game has ended (wait_for_decision says game_over), or for "
+                               "an earlier attempt (attempt=...)")
         if self.debrief is None:
             raise SessionError("no debrief is due for this game (%s)" % self.game_over)
-        out = experience.apply_debrief(self.store, self.memory, summary, playbook, campaign_lessons, level_lessons,
-                                       opponent_lessons, self.recorder.opponents)
+        out = experience.apply_debrief(self.store, self.memory, edits, self.recorder.opponents)
         self.debrief = None
         return out
 
+    def _earlier_attempt(self, attempt):
+        if self.store is None or not self.store.enabled:
+            raise SessionError("there is no experience store in this session")
+        row = self.store.find_attempt(attempt)
+        if row is None:
+            raise SessionError("no attempt %r (name it as EXPERIENCE lists it)" % attempt)
+        if row["result"] is None or (row["game_id"], row["branch"]) == (self.memory.game_id, self.memory.branch):
+            raise SessionError("attempt %s is still being played: it is debriefed when it ends" % attempt)
+        if row["agent"] != self.recorder.agent:
+            raise SessionError("attempt %s was played by %s, not by you" % (attempt, row["agent"]))
+        return row
+
     @_locked
-    def experience_text(self):
-        """The lessons that apply to this game, in full (for a client whose context has dropped them)."""
+    def get_debrief(self, attempt):
+        """The debrief text of an earlier attempt (EXPERIENCE offers the ones never debriefed)."""
         self._require_connected(allow_over=True)
-        return experience.render_experience(self.store, self.memory, self.recorder.opponents, full=True) or \
-            "There is no experience store in this session (experience_path was \"\")."
+        row = self._earlier_attempt(attempt)
+        mem, opps, final = experience.attempt_memory(self.store, row)
+        return experience.debrief_text(self.store, mem, row["result"], final, opps, attempt=experience.attempt_ref(row))
+
+    @_locked
+    def experience_text(self, topic=None):
+        """The lessons that apply to this game, every one (for a client whose context has dropped them); `topic`: only
+        that topic's."""
+        self._require_connected(allow_over=True)
+        if topic is not None and topic not in experience.TOPICS:
+            raise SessionError("topic is one of %s" % ", ".join(experience.TOPICS))
+        return experience.render_experience(self.store, self.memory, self.recorder.opponents, full=True, every=True,
+                                            topic=topic) or "There is no experience store in this session (experience_path was \"\")."
+
+    # ---- lessons in play (experience.py, Phase D) -------------------------------------------------------------------------
+    def _lessons(self, ops):
+        self._require_connected()
+        if self.store is None or not self.store.enabled:
+            raise SessionError("there is no experience store in this session (experience_path was \"\")")
+        out = experience.apply_play_lessons(self.store, self.memory, self.recorder.opponents, ops)
+        if out["warnings"] and not (out["remembered"] or out["confirmed"] or out["doubted"]):
+            raise SessionError("; ".join(out["warnings"]))
+        return out
+
+    @_locked
+    def name_place(self, name, pos=None, slab_rect=None):
+        """Names a spot (a subtile, or a slab rectangle) to use as pos / slab_rect in orders later; neither drops your
+        place of that name. Kept in the game's memory; at the end of the game it is offered as a lesson of the level."""
+        self._require_connected()
+        try:
+            entry = places_mod.name_place(self.memory, name, pos=pos, slab_rect=slab_rect, turn=(self.state.view or {}).get("turn"))
+        except places_mod.PlaceError as e:
+            raise SessionError(str(e))
+        self.memory.flush()
+        return {"name": places_mod.clean_name(name), "place": entry}
+
+    @_locked
+    def remember_lesson(self, text, scope=None, topic=None):
+        """A lesson this game just taught: kept as new (provisional) until the debrief keeps, revises or retires it.
+        Returns {"id", "scope", "status"} (with "note": "already known" for one it had)."""
+        self._require_connected()
+        if self.store is None or not self.store.enabled:
+            raise SessionError("there is no experience store in this session (experience_path was \"\")")
+        out = experience.add_play_lesson(self.store, self.memory, self.recorder.opponents, text, scope, topic)
+        if "error" in out:
+            raise SessionError(out["error"])
+        return out
+
+    @_locked
+    def confirm_lesson(self, lesson_id):
+        """A lesson that just held: counted for it (and a new one is kept from now on)."""
+        return self._lessons({"confirm": [lesson_id]})
+
+    @_locked
+    def doubt_lesson(self, lesson_id, why=""):
+        """A lesson that just failed here: counted against it; the debrief judges it."""
+        return self._lessons({"doubt": [{"id": lesson_id, "why": why}]})
 
     def instructions(self):
         return prompt.SYSTEM_PROMPT
@@ -783,17 +882,38 @@ class Session:
         self.state.update(self.api, self.seat)
         return prompt.render_recipes(self.state.view, full=True)
 
-    def disconnect(self):
+    def disconnect(self, end=None):
+        """Closes the connection. An attempt still being played stays open in the record (a reconnect carries on with
+        it) unless `end` says otherwise: "quit" closes it, and when it ran a pay day or more the connection stays for its
+        debrief (the reply has it; record_debrief, then disconnect again); "suspend" closes it to be continued later."""
+        if end not in (None, "quit", "suspend"):
+            raise SessionError("end is quit or suspend (or left out)")
         with self._lock:
             self._require_connected(allow_over=True)
+            hint = ""
+            if not self.game_over and self.store is not None and self.store.enabled:
+                view = self.state.view or {}
+                self._refresh_combat()
+                if end == "quit":
+                    if self.recorder.quit(self.memory, view, combat=self.last_combat):
+                        self.game_over = "quit"
+                        text = experience.debrief_text(self.store, self.memory, "quit", experience.final_from_view(view),
+                                                       self.recorder.opponents)
+                        self.debrief = {"result": "quit", "text": text}
+                        return {"record": "quit", "connected": True, "debrief": text,
+                                "note": "the attempt is closed as quit; answer the debrief with record_debrief, then disconnect again"}
+                elif end == "suspend":
+                    self.recorder.suspend(self.memory, view, combat=self.last_combat)
+                elif view.get("turn", 0) - (self.memory.start_turn or 0) >= experience.payday_turns(view):
+                    hint = (" The attempt stays open: connecting again continues it (left unplayed, it is closed as abandoned "
+                            "and offered for a debrief later). disconnect(end=\"quit\") would end it with a debrief now.")
             link, self.link = self.link, None
         if link is not None:
             link.stop()   # outside the lock: the pump may be waiting for it
         with self._lock:
-            # An attempt still being played stays open in the record: a reconnect carries on with it.
             if self.store is not None:
                 self.store.close()
                 self.store = None
             self.api.close()
             self.connected = False
-            return "disconnected"
+            return "disconnected" + hint

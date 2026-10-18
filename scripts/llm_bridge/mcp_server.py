@@ -135,7 +135,7 @@ TOOLS = [
                          "time (call it again); due=true with the full state text to decide from otherwise. Call submit_orders "
                          "right after a due=true result. When the level is won or lost (or the game leaves it) the result has game_over=true "
                          "and victory_state, and usually a debrief: answer it with record_debrief. After game over only "
-                         "record_debrief, get_experience, get_log_tail, get_combat_stats, get_combat_rules and disconnect are accepted."),
+                         "record_debrief, get_debrief, get_experience, get_log_tail, get_combat_stats, get_combat_rules and disconnect are accepted."),
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -171,6 +171,10 @@ TOOLS = [
                 "plan": {"type": "string", "description": "your rewritten strategic plan (omit to keep the current one)"},
                 "notes": {"type": "string", "description": "your rewritten notes (omit to keep the current ones)"},
                 "orders": {"type": "array", "items": _ORDER_ITEM_SCHEMA},
+                "facts": prompt.FACTS_PROPERTY,
+                "chapter_note": prompt.CHAPTER_NOTE_PROPERTY,
+                "places": prompt.PLACES_PROPERTY,
+                "lessons": prompt.LESSONS_PROPERTY,
             },
             "required": ["orders"],
         },
@@ -328,19 +332,58 @@ TOOLS = [
     },
     {
         "name": "get_experience",
-        "description": "Your lessons from earlier games that apply to this one (playbook, campaign, level, opponents) and your record here, in full: shown at the start of a game, and again here on demand.",
-        "inputSchema": {"type": "object", "properties": {}},
+        "description": "Your lessons from earlier games that apply to this one (playbook, campaign, level, opponents), every one with its id, and your record here: shown at the start of a game (the best-ranked within a budget), and all of them here on demand.",
+        "inputSchema": {"type": "object", "properties": {"topic": {"type": "string", "description": "only this topic's lessons: setup, economy, defence, combat, attack, heroes, creatures, rooms, research, map, tools, opponent, general"}}},
+    },
+    {
+        "name": "name_place",
+        "description": ("Name a spot to use later as pos (or slab_rect, for a rectangle) in orders and hand rules: a subtile pos, or "
+                        "a slab_rect; neither drops your place of that name. Your heart, rooms, hero gates and enemy hearts are named "
+                        "for you (PLACES). Same as places on submit_orders."),
+        "inputSchema": {"type": "object", "properties": {
+            "name": {"type": "string"},
+            "pos": {"type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2},
+            "slab_rect": {"type": "array", "items": {"type": "integer"}, "minItems": 4, "maxItems": 4}}, "required": ["name"]},
+    },
+    {
+        "name": "remember_lesson",
+        "description": "Keep something this game just taught you, for next time (one idea, concrete). It is kept as new until the debrief keeps, revises or drops it, and recalled meanwhile marked (new). Same as lessons.remember on submit_orders.",
+        "inputSchema": {"type": "object", "properties": {
+            "text": {"type": "string"},
+            "scope": {"type": "string", "description": "playbook, campaign, level or opponent:<identity> (default: level if it names places, else playbook)"},
+            "topic": {"type": "string"}}, "required": ["text"]},
+    },
+    {
+        "name": "confirm_lesson",
+        "description": "A lesson (its id, as RECALL / EXPERIENCE show it) just held in this game: counted for it, so it ranks higher.",
+        "inputSchema": {"type": "object", "properties": {"id": {"type": "integer"}}, "required": ["id"]},
+    },
+    {
+        "name": "doubt_lesson",
+        "description": "A lesson just failed in this game: counted against it (the debrief decides whether to revise or retire it).",
+        "inputSchema": {"type": "object", "properties": {"id": {"type": "integer"}, "why": {"type": "string"}}, "required": ["id"]},
+    },
+    {
+        "name": "get_debrief",
+        "description": "The debrief of an earlier attempt that never had one (EXPERIENCE lists them): its record and every lesson, to answer with record_debrief(attempt=...).",
+        "inputSchema": {"type": "object", "properties": {"attempt": {"type": "string", "description": "the attempt as EXPERIENCE names it (abcd1234/0123456789ab)"}},
+                        "required": ["attempt"]},
     },
     {
         "name": "record_debrief",
-        "description": ("After a game ends (wait_for_decision gave game_over with a debrief): keep what it taught you. The summary "
-                         "goes on the game's record; each lessons text you give replaces that set of lessons (omit one to keep it)."),
-        "inputSchema": {"type": "object", "properties": prompt.DEBRIEF_PROPERTIES},
+        "description": ("After a game ends (wait_for_decision gave game_over with a debrief), or for an earlier attempt (attempt): "
+                         "keep what it taught you. The summary goes on the game's record; confirm, revise, retire and add edit the "
+                         "lessons by id. A lesson you do not mention stays as it is."),
+        "inputSchema": {"type": "object", "properties": dict(prompt.DEBRIEF_PROPERTIES, **{
+            "attempt": {"type": "string", "description": "an earlier attempt EXPERIENCE listed (omit for the game that just ended)"},
+            "decline": {"type": "boolean", "description": "with attempt: it taught nothing worth keeping; it is not offered again"}})},
     },
     {
         "name": "disconnect",
-        "description": "Close the connection to the game. Call this when you are done playing.",
-        "inputSchema": {"type": "object", "properties": {}},
+        "description": ("Close the connection to the game. Call this when you are done playing. An attempt still being played stays "
+                        "open (connecting again continues it) unless end says otherwise: end=quit closes it and gives its debrief "
+                        "(answer with record_debrief, then disconnect again); end=suspend keeps it to be continued from a save."),
+        "inputSchema": {"type": "object", "properties": {"end": {"type": "string", "enum": ["quit", "suspend"]}}},
     },
 ]
 
@@ -390,7 +433,8 @@ def _run_tool(session, name, args):
         return session.look(args["slab_rect"])
     if name == "submit_orders":
         return json.dumps(session.submit(args.get("orders", []), reasoning=args.get("reasoning", ""),
-                                          plan=args.get("plan"), notes=args.get("notes")))
+                                          plan=args.get("plan"), notes=args.get("notes"), lessons=args.get("lessons"),
+                                          facts=args.get("facts"), chapter_note=args.get("chapter_note"), places=args.get("places")))
     if name == "check_orders":
         return json.dumps(session.check_orders(args.get("orders", [])))
     if name == "set_game_speed":
@@ -425,14 +469,23 @@ def _run_tool(session, name, args):
     if name == "get_recipes":
         return session.recipes()
     if name == "get_experience":
-        return session.experience_text()
+        return session.experience_text(args.get("topic"))
+    if name == "name_place":
+        return json.dumps(session.name_place(args["name"], args.get("pos"), args.get("slab_rect")))
+    if name == "remember_lesson":
+        return json.dumps(session.remember_lesson(args["text"], args.get("scope"), args.get("topic")))
+    if name == "confirm_lesson":
+        return json.dumps(session.confirm_lesson(args["id"]))
+    if name == "doubt_lesson":
+        return json.dumps(session.doubt_lesson(args["id"], args.get("why", "")))
+    if name == "get_debrief":
+        return session.get_debrief(args.get("attempt"))
     if name == "record_debrief":
-        return json.dumps(session.record_debrief(summary=args.get("summary"), playbook=args.get("playbook"),
-                                                 campaign_lessons=args.get("campaign_lessons"),
-                                                 level_lessons=args.get("level_lessons"),
-                                                 opponent_lessons=args.get("opponent_lessons")))
+        edits = {k: v for k, v in (args or {}).items() if k not in ("attempt", "decline")}
+        return json.dumps(session.record_debrief(edits, attempt=args.get("attempt"), decline=bool(args.get("decline"))))
     if name == "disconnect":
-        return session.disconnect()
+        out = session.disconnect(end=args.get("end"))
+        return out if isinstance(out, str) else json.dumps(out)
     raise KeyError(name)
 
 

@@ -4,7 +4,7 @@ import re
 import standing_orders
 import triggers as triggers_mod
 
-SYSTEM_PROMPT = """You are playing a Dungeon Keeper keeper (a dungeon builder) in real time through an API. The game keeps running while you think. You are called when a decision is due: at each quarter of a pay day and when something important happens (a fight with a rival, an attack on your heart or a room, a breach, a room lost, the first creature of a new kind, open ground appearing behind your walls, one of your alarm traps going off, your ground or rooms being taken, your Sight of Evil having opened (sight_open), and the problems the event panel flags: creature_hungry -- food is scarce, enlarge the hatchery --, treasure_room_full, need_treasure_room, creature_annoyed, no_more_living_set (lair full), a room your creatures cannot reach, an enemy door, a creature scavenged away; and finished research: new_room_research, new_spell_research, new_trap, new_door). EVENTS says what each one means. Losing ground calls you at once, like an alarm: room_captured (another keeper's imps claimed a room or bridge slab of yours), room_destroyed (a room slab smashed) and ground_lost (your claimed floor or walls neutralised, claimed or dug through -- an enemy claiming its way in, or a breach), with LOSSES saying what, where and by whom; it goes on calling you every few seconds while the losses go on. A fight on your side (enemy_fight, heart_attacked, room_under_attack, breach) calls you at once too, on the same rhythm. So does an enemy creature setting foot on your ground (reason intruder: walking in, or tunnelling in to claim -- the warning before anything is lost); INTRUDERS lists every enemy creature on your ground, with its id, for as long as any are there. On a pay day a PAYDAY REPORT compares your dungeon with the last pay day -- fighters and fighter score against the enemy's you can see, ground, room slabs, lair places, creatures against the portal's limit, gold -- and warns when you are losing ground or out of lair space: read it to see whether you are winning, not just what happens this minute. An alarm (reason alarm) calls you at once rather than after the usual pause: something has walked onto that trap, the alarm_triggered event says where, and your creatures nearby are already running to it -- check what is coming and whether the spot needs more defenders. Reply with a short batch of orders that your creatures and imps then carry out over the next minute or so. You have a memory: YOUR PLAN and YOUR NOTES are yours to rewrite in every reply so that you keep one coherent strategy across the whole game; RECENT DECISIONS shows what you did and what became of each order. EXPERIENCE is what you learned in earlier games, in your own words: the playbook (any level), this campaign's rules, this level, and each opponent (PLAYERS names them) -- carry what applies into your plan. When a game ends you are asked for a debrief: rewrite those lessons with what this game taught you. Your memory is kept by the game and saved with it: if someone loads a saved game (the decision's reason is reloaded), your plan, notes and decisions are as they were when that save was made, and whatever you did after it never happened.
+SYSTEM_PROMPT = """You are playing a Dungeon Keeper keeper (a dungeon builder) in real time through an API. The game keeps running while you think. You are called when a decision is due: at each quarter of a pay day and when something important happens (a fight with a rival, an attack on your heart or a room, a breach, a room lost, the first creature of a new kind, open ground appearing behind your walls, one of your alarm traps going off, your ground or rooms being taken, your Sight of Evil having opened (sight_open), and the problems the event panel flags: creature_hungry -- food is scarce, enlarge the hatchery --, treasure_room_full, need_treasure_room, creature_annoyed, no_more_living_set (lair full), a room your creatures cannot reach, an enemy door, a creature scavenged away; and finished research: new_room_research, new_spell_research, new_trap, new_door). EVENTS says what each one means. Losing ground calls you at once, like an alarm: room_captured (another keeper's imps claimed a room or bridge slab of yours), room_destroyed (a room slab smashed) and ground_lost (your claimed floor or walls neutralised, claimed or dug through -- an enemy claiming its way in, or a breach), with LOSSES saying what, where and by whom; it goes on calling you every few seconds while the losses go on. A fight on your side (enemy_fight, heart_attacked, room_under_attack, breach) calls you at once too, on the same rhythm. So does an enemy creature setting foot on your ground (reason intruder: walking in, or tunnelling in to claim -- the warning before anything is lost); INTRUDERS lists every enemy creature on your ground, with its id, for as long as any are there. On a pay day a PAYDAY REPORT compares your dungeon with the last pay day -- fighters and fighter score against the enemy's you can see, ground, room slabs, lair places, creatures against the portal's limit, gold -- and warns when you are losing ground or out of lair space: read it to see whether you are winning, not just what happens this minute. An alarm (reason alarm) calls you at once rather than after the usual pause: something has walked onto that trap, the alarm_triggered event says where, and your creatures nearby are already running to it -- check what is coming and whether the spot needs more defenders. Reply with a short batch of orders that your creatures and imps then carry out over the next minute or so. You have a memory: YOUR PLAN is yours to rewrite in any reply so that you keep one coherent strategy across the whole game; YOUR FACTS are small things to remember, set or dropped one at a time (facts {key: text} on submit_orders, null drops one) -- cheaper than rewriting free-text notes, which still work; RECENT DECISIONS shows what you did and what became of each order, and EARLIER IN THIS GAME the decisions before them, one chapter per pay day (chapter_note adds your own line to the current one). PLACES names spots for you -- your heart, rooms, hero gates, the enemy hearts you have seen -- and the ones you name (places on submit_orders, or name_place): a place's name works as an order's pos (or slab_rect, for a rectangle you named, or to_room for your rooms) and as a hand rule's to; the places you named and the enemy hearts are offered as lessons of the level when the game ends. EXPERIENCE is what you learned in earlier games, in your own words: the playbook (any level), this campaign's rules, this level, and each opponent (PLAYERS names them) -- carry what applies into your plan. When a game ends you are asked for a debrief: each lesson has an id ([L12]); confirm the ones the game bore out, revise or retire the ones it proved wrong, add new ones (one idea each). A lesson you leave unmentioned is kept. During play, RECALL brings back the lessons for what a decision is about (a fight, a pay day, ...) and a REFRESHER repeats the main ones now and then; when something teaches you a lesson, note it then (lessons.remember on submit_orders, or remember_lesson) rather than waiting for the debrief, and confirm or doubt a recalled lesson that just held or failed. A human player's chat line starting "tip:" is kept as a new lesson too. An earlier attempt that never had a debrief (abandoned, lost) is listed under EXPERIENCE: debrief it when things are calm, or decline it. Your memory is kept by the game and saved with it: if someone loads a saved game (the decision's reason is reloaded), your plan, notes and decisions are as they were when that save was made, and whatever you did after it never happened.
 
 Coordinates: the map is a grid of slabs (the `map` rows show two characters per slab: a kind letter and the owner digit, '..' = never seen). Every gold, gem and impenetrable-rock slab on the map is shown from the start of the level, so '..' is never gold or rock: it is diggable earth, open ground or somebody's hidden rooms -- when no gold is left on the map, digging into '..' will not find more. '.o' is a slab you have not seen but a fortified wall beside it is built facing it, as a keeper watching that wall would notice: it is open ground (dug, water, lava, a room or door) or another keeper's wall, not earth -- a line of '.o' along your walls (OPEN BEHIND YOUR WALLS; decision reason wall_cue) is usually somebody tunnelling around your dungeon looking for a way in. Verbs that build, dig or sell take a slab rectangle [x0, y0, x1, y1]. Verbs that touch a spot (place_trap, place_door, drop, cast_power) take a subtile position [x, y]; a slab (sx, sy) has its centre at subtile (3*sx+1, 3*sy+1). Creature and room positions in the state are subtiles.
 
@@ -24,8 +24,10 @@ ORDER_ITEM_PROPERTIES = {
                                           "use_special", "send_message"]},
     "kind": {"type": "string", "description": "room, trap or door code name (TREASURE, BOULDER, WOOD...), or imprison/flee for set_tendency"},
     "power": {"type": "string", "description": "power code name for cast_power (POWER_LIGHTNING...)"},
-    "slab_rect": {"type": "array", "items": {"type": "integer"}, "minItems": 4, "maxItems": 4},
-    "pos": {"type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2},
+    "slab_rect": {"type": ["array", "string"], "items": {"type": "integer"}, "minItems": 4, "maxItems": 4,
+                  "description": "[x0, y0, x1, y1] in slabs, or the name of a place you named with a rectangle"},
+    "pos": {"type": ["array", "string"], "items": {"type": "integer"}, "minItems": 2, "maxItems": 2,
+            "description": "[x, y] in subtiles, or a place's name (PLACES: heart, treasury, heart_P2, your own)"},
     "thing_id": {"type": "integer"},
     "overcharge_turns": {"type": "integer", "minimum": 0, "maximum": 32},
     "enabled": {"type": "boolean", "description": "set_tendency / set_alliance: turn it on or off"},
@@ -34,7 +36,7 @@ ORDER_ITEM_PROPERTIES = {
     "name": {"type": "string", "description": "a creature's assigned name (from the CREATURES list, e.g. 'Orc #3'), in place of thing_id"},
     "thing_ids": {"type": "array", "items": {"type": "integer"}, "minItems": 1, "maxItems": 16,
                   "description": "pick_up_and_drop: several things (creatures, prisoners, chickens) carried in one trip, in place of thing_id"},
-    "to_room": {"type": "integer", "description": "pick_up_and_drop / drop: one of your rooms (its id), in place of pos"},
+    "to_room": {"type": ["integer", "string"], "description": "pick_up_and_drop / drop: one of your rooms (its id, or its place name: treasury, lair_2), in place of pos"},
     "release": {"type": "boolean", "description": "hand drops: yes, drop this prisoner outside your prison/torture chamber (it goes free)"},
     "sacrifice": {"type": "boolean", "description": "hand drops: yes, drop this creature into the temple pool (it is sacrificed)"},
     "imprison": {"type": "boolean", "description": "hand drops: yes, drop this creature of yours in your prison (it is jailed)"},
@@ -53,6 +55,31 @@ ORDER_ITEM_PROPERTIES = {
 }
 ORDER_ITEM_REQUIRED = ["verb"]
 
+# Lessons noted with a decision's answer (experience.apply_play_lessons; docs/plans/llm-bridge-memory.md, Phase D).
+# Phases E-F (memory.py, places.py): single facts, the agent's line for this pay day, named places.
+FACTS_PROPERTY = {"type": "object", "additionalProperties": {"type": ["string", "null"]},
+                  "description": "Set or change single facts {key: text} (max 200 chars each, 40 in all); null drops one. Cheaper than rewriting notes."}
+CHAPTER_NOTE_PROPERTY = {"type": "string", "description": "Your one line for this pay day in the game's story (max 200 chars), kept with its chapter."}
+PLACES_PROPERTY = {"type": "object", "description": ("Name spots to use later as pos / slab_rect in orders: {name: [x, y] (subtiles) | "
+                                                     "[x0, y0, x1, y1] (slabs) | null (drop it)}. Your heart, rooms, hero gates and "
+                                                     "enemy hearts are named for you (PLACES).")}
+
+LESSONS_PROPERTY = {
+    "type": "object",
+    "description": ("Optional, for what this game teaches you as it goes: remember new lessons (kept as new until the debrief "
+                    "keeps or drops them), confirm lessons that just held, doubt ones that just failed (ids as RECALL / "
+                    "EXPERIENCE show them)."),
+    "properties": {
+        "remember": {"type": "array", "items": {"type": "object", "properties": {
+            "text": {"type": "string", "description": "one idea, concrete: what to do, and when"},
+            "scope": {"type": "string", "description": "playbook, campaign, level or opponent:<identity> (default: level if it names places, else playbook)"},
+            "topic": {"type": "string"}}, "required": ["text"]}},
+        "confirm": {"type": "array", "items": {"type": "integer"}},
+        "doubt": {"type": "array", "items": {"type": "object", "properties": {"id": {"type": "integer"}, "why": {"type": "string"}},
+                                             "required": ["id"]}},
+    },
+}
+
 TOOLS = [
     {
         "name": "submit_orders",
@@ -63,6 +90,10 @@ TOOLS = [
                 "reasoning": {"type": "string", "description": "One or two sentences on why these orders."},
                 "plan": {"type": "string", "description": "Your strategic plan, rewritten in full when it changes (omit to keep the current one). Goals, next steps, what you are waiting for."},
                 "notes": {"type": "string", "description": "Facts worth remembering (opponent behaviour, map knowledge, lessons), rewritten in full and kept short (omit to keep)."},
+                "facts": FACTS_PROPERTY,
+                "chapter_note": CHAPTER_NOTE_PROPERTY,
+                "places": PLACES_PROPERTY,
+                "lessons": LESSONS_PROPERTY,
                 "orders": {
                     "type": "array",
                     "items": {"type": "object", "properties": ORDER_ITEM_PROPERTIES, "required": ORDER_ITEM_REQUIRED},
@@ -91,11 +122,17 @@ NOW_MAX_AGE_TURNS = 200   # an urgent order expires sooner: a late urgent order 
 # record_debrief's fields, shared by the MCP tool (mcp_server.py) and the direct-API policy's debrief call.
 DEBRIEF_PROPERTIES = {
     "summary": {"type": "string", "description": "what happened in this game and why, in a few sentences (max 600 chars)"},
-    "playbook": {"type": "string", "description": "your rewritten lessons for any level (max 3000 chars; omit to keep them)"},
-    "campaign_lessons": {"type": "string", "description": "your rewritten lessons for this campaign's rules and creatures (max 1500; omit to keep)"},
-    "level_lessons": {"type": "string", "description": "your rewritten lessons for this level: its map, objective, enemies (max 1000; omit to keep)"},
-    "opponent_lessons": {"type": "object", "additionalProperties": {"type": "string"},
-                         "description": "{opponent identity: rewritten lessons about how that opponent plays} (max 800 each); identities as the debrief lists them"},
+    "confirm": {"type": "array", "items": {"type": "integer"}, "description": "ids of lessons this game bore out (L12 -> 12)"},
+    "revise": {"type": "array", "description": "better wordings or corrections of lessons: the new text takes the old one's place",
+               "items": {"type": "object", "properties": {"id": {"type": "integer"}, "text": {"type": "string"}}, "required": ["id", "text"]}},
+    "retire": {"type": "array", "description": "lessons this game proved wrong, or that no longer hold (kept, marked retired)",
+               "items": {"type": "object", "properties": {"id": {"type": "integer"}, "why": {"type": "string"}}, "required": ["id"]}},
+    "add": {"type": "array", "description": "new lessons, one idea each (max 500 chars)",
+            "items": {"type": "object", "properties": {
+                "scope": {"type": "string", "description": "playbook (any level), campaign, level, or opponent:<identity> as the debrief lists them"},
+                "text": {"type": "string"},
+                "topic": {"type": "string", "description": "setup, economy, defence, combat, attack, heroes, creatures, rooms, research, map, tools, opponent or general (guessed if left out)"}},
+                "required": ["scope", "text"]}},
 }
 
 
@@ -257,7 +294,7 @@ def render_for_agent(state, memory, reasons=None, first=False, note=None, experi
     text = render_state(state, first=first, reasons=reasons, fresh_kinds=fresh, memory=memory)
     if hasattr(state, "mark_rendered"):
         state.mark_rendered()   # the next decision's NEW EVENTS / MAP CHANGES start from here
-    prefix = (memory.render() + "\n\n") if memory is not None else ""
+    prefix = (memory.render(state.view) + "\n\n") if memory is not None else ""
     if experience:
         prefix += experience + "\n\n"
     if note:
@@ -297,7 +334,7 @@ def flash_where(view, where=None):
     return None
 
 
-def render_flash(state, memory, reasons, severity, where=None, note=None):
+def render_flash(state, memory, reasons, severity, where=None, note=None, recall=None):
     """An urgent decision's text (severity <= 1: a fight, an intruder, a loss, an alarm; docs/plans/llm-bridge-realtime.md
     Phase 2): what happened and where, who is there on both sides, the imps at risk, what the hand and the powers can do
     now, the standing orders and a map of the spot -- about 1-2 KB against the full state's 8-20, so it is read and
@@ -359,6 +396,8 @@ def render_flash(state, memory, reasons, severity, where=None, note=None):
         sx, sy = here[0] // 3, here[1] // 3
         lines.append("MAP around it (slabs):")
         lines.append(render_window(v, [sx - 4, sy - 4, sx + 4, sy + 4]))
+    if recall:
+        lines.append(recall)
     plan = (memory.plan if memory is not None else "") or ""
     lines.append("YOUR PLAN (first line; unchanged unless you send a new one): " + (_oneline(plan.splitlines()[0], 200) if plan.strip() else "(none)"))
     lines.append("Answer NOW with submit_orders: at most %d orders, the ones that matter in the next few seconds (lift imps, drop "

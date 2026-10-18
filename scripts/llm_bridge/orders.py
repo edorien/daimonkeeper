@@ -42,7 +42,14 @@ def submit_batch(api, seat, orders, decision_turn, max_age_turns, dry_run=False,
 
     sent, refused = [], []
     batch_digs = []   # a dry run queues nothing, so the batch's earlier mark_digs are passed on as already marked
+    import places
     for order in orders:
+        # A place's name (places.py) in pos / slab_rect / to_room: its coordinates, or a refusal before anything is sent.
+        try:
+            order = places.resolve_order(order, memory) if memory is not None else order
+        except places.PlaceError as e:
+            refused.append({"verb": order.get("verb"), "error": str(e), "summary": summarize(order)})
+            continue
         req = prompt.order_to_request(order, seat, decision_turn, max_age_turns, memory=memory)
         if decision_seq is not None:
             req["decision_seq"] = decision_seq   # which decision it answers (an urgent hold ends on it; 0: none)

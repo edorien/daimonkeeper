@@ -44,7 +44,7 @@ class StubSession:
     def look(self, slab_rect):
         return "window for %r" % (slab_rect,)
 
-    def submit(self, orders, reasoning="", plan=None, notes=None):
+    def submit(self, orders, reasoning="", plan=None, notes=None, lessons=None, facts=None, chapter_note=None, places=None):
         self.calls.append(("submit", orders, reasoning, plan, notes))
         return {"sent": [], "refused": []}
 
@@ -63,7 +63,7 @@ class StubSession:
     def instructions(self):
         return "SYSTEM PROMPT TEXT"
 
-    def disconnect(self):
+    def disconnect(self, end=None):
         return "disconnected"
 
 
@@ -101,7 +101,7 @@ class ProtocolTests(unittest.TestCase):
         names = {t["name"] for t in resp["result"]["tools"]}
         self.assertEqual(names, {"connect", "get_instructions", "wait_for_decision", "status", "look", "submit_orders",
                                   "check_orders", "set_game_speed", "set_pause", "get_log_tail", "get_combat_stats", "get_recipes",
-                                  "get_experience", "record_debrief", "disconnect", "set_combat_rules", "check_combat_rules",
+                                  "get_experience", "get_debrief", "record_debrief", "remember_lesson", "confirm_lesson", "doubt_lesson", "name_place", "disconnect", "set_combat_rules", "check_combat_rules",
                                   "get_combat_rules", "apply_combat_preset", "use_combat_bank", "set_triggers", "check_triggers",
                                   "get_triggers", "apply_trigger_preset", "set_rally_points"})
         for t in resp["result"]["tools"]:
@@ -657,13 +657,14 @@ class SessionIntegrationTests(unittest.TestCase):
         self.assertEqual((over["game_over"], over["record"]), (True, "won"))
         self.assertIn("DEBRIEF", over["debrief"])
         self.assertIn("rush the heart", over["debrief"])
-        self.assertIn("[opponent:computer:Build and defend Computer", over["debrief"])
-        self.assertIn("[opponent:human:Robin", over["debrief"])
+        self.assertIn("[scope opponent:computer:Build and defend Computer", over["debrief"])
+        self.assertIn("[scope opponent:human:Robin", over["debrief"])
         r = json.loads(self.call("record_debrief", {
-            "summary": "Won by rushing.", "playbook": "Build a treasure room first.", "level_lessons": "The gold is north.",
-            "opponent_lessons": {"human:Robin": "Robin turtles.", "human:Nobody": "?"}})["content"][0]["text"])
+            "summary": "Won by rushing.",
+            "add": [{"scope": "playbook", "text": "Build a treasure room first."}, {"scope": "level", "text": "The gold is north."},
+                    {"scope": "opponent:human:Robin", "text": "Robin turtles."}, {"scope": "opponent:human:Nobody", "text": "?"}]})["content"][0]["text"])
         self.assertEqual(r["stored"], ["summary", "general", "level:keeporig:7", "opponent:human:Robin"])
-        self.assertIn("no opponent 'human:Nobody'", r["warnings"][0])
+        self.assertIn("no scope 'opponent:human:Nobody'", r["warnings"][0])
         self.assertTrue(self.call("record_debrief", {"summary": "again"}).get("isError"))   # one debrief per game
         exp = self.call("get_experience")["content"][0]["text"]
         self.assertIn("Build a treasure room first.", exp)
@@ -679,7 +680,7 @@ class SessionIntegrationTests(unittest.TestCase):
         self.assertEqual(nxt["reasons"], ["start"])
         self.assertIn("1 earlier game(s): won", nxt["state"])
         self.assertIn("vs Robin (human): 1 won", nxt["state"])
-        self.assertIn("PLAYBOOK (any level):\n    Build a treasure room first.", nxt["state"])
+        self.assertRegex(nxt["state"], r"PLAYBOOK \(any level\):\n    \[L\d+\] Build a treasure room first\.")
         self.assertIn("The gold is north.", nxt["state"])
         self.assertIn("Robin turtles.", nxt["state"])
         self.game.push_event(["quarter_2"])
@@ -687,6 +688,131 @@ class SessionIntegrationTests(unittest.TestCase):
         self.assertIn("EXPERIENCE: 1 earlier game(s) on this level (1 won)", later["state"])   # one line after the first
         self.assertNotIn("Build a treasure room first.", later["state"])
         self.call("disconnect")
+
+    def test_an_abandoned_attempt_is_offered_at_the_next_game_and_debriefed_by_reference(self):
+        import experience
+        from memory import Memory
+        path = self._exp_path()
+        store = experience.Experience(path)
+        old = Memory.new_game({"turn": 0, "level": {"number": 7, "campaign": "keeporig.cfg", "name": "Flowerhat"}})
+        old.plan = "hold the bridge"
+        store.open_branch(old, 1, "Claude", turn=0)
+        store.progress(old, 6000)
+        store.db.execute("UPDATE games SET updated_at=updated_at-3600")      # left an hour ago, never closed
+        store.close()
+        self.call("connect", {"host": "127.0.0.1", "port": self.game.port, "experience_path": path, "agent": "Claude"})
+        first = json.loads(self.call("wait_for_decision", {"timeout_seconds": 0.2})["content"][0]["text"])
+        ref = "%s/%s" % (old.game_id[:8], old.branch)
+        self.assertIn("EARLIER ATTEMPTS WITHOUT A DEBRIEF", first["state"])
+        self.assertIn(ref + ": keeporig:7 Flowerhat, abandoned at turn 6000", first["state"])
+        deb = self.call("get_debrief", {"attempt": ref})["content"][0]["text"]
+        self.assertIn("YOUR FINAL PLAN: hold the bridge", deb)
+        self.assertTrue(self.call("get_debrief", {"attempt": "nope/000000000000"}).get("isError"))
+        r = json.loads(self.call("record_debrief", {"attempt": ref, "summary": "lost the bridge",
+                                                    "add": [{"scope": "level", "text": "Wall the bridge end."}]})["content"][0]["text"])
+        self.assertEqual(r["stored"], ["summary", "level:keeporig:7"])
+        self.call("disconnect")
+        self.game.close()
+        self.game = FakeGame()
+        self.server = mcp_server.Server()
+        self.call("connect", {"host": "127.0.0.1", "port": self.game.port, "experience_path": path, "agent": "Claude"})
+        nxt = json.loads(self.call("wait_for_decision", {"timeout_seconds": 0.2})["content"][0]["text"])
+        self.assertNotIn("EARLIER ATTEMPTS WITHOUT A DEBRIEF", nxt["state"])     # debriefed: not offered again
+        self.assertIn("Wall the bridge end.", nxt["state"])
+        self.assertIn("abandoned t6000", nxt["state"])
+        self.call("disconnect")
+
+    def test_lessons_come_back_in_a_fight_and_new_ones_are_noted_in_play(self):
+        import experience
+        path = self._exp_path()
+        store = experience.Experience(path)
+        heal, _ = store.add_item("general", "Heal the tank before it drops under a third.", "combat")
+        store.close()
+        self.call("connect", {"host": "127.0.0.1", "port": self.game.port, "experience_path": path, "agent": "Claude"})
+        first = json.loads(self.call("wait_for_decision", {"timeout_seconds": 0.2})["content"][0]["text"])
+        self.assertIn("[L%d] Heal the tank" % heal, first["state"])
+        r = self._tool("submit_orders", {"orders": [], "reasoning": "r", "lessons": {
+            "remember": [{"text": "The north corridor floods with heroes at the first pay day."}], "confirm": [heal]}})
+        new_id = r["lessons"]["remembered"][0]
+        self.assertEqual(r["lessons"]["confirmed"], [heal])
+        self.server.session.memory.count = 30                # well past the full EXPERIENCE: recall is due again
+        self.game.push_event(["enemy_fight"], severity=1)
+        fight = json.loads(self.call("wait_for_decision", {"timeout_seconds": 2})["content"][0]["text"])
+        self.assertTrue(fight["flash"])
+        self.assertIn("RECALL (combat:", fight["state"])
+        self.assertIn("[L%d] Heal the tank" % heal, fight["state"])
+        self.call("submit_orders", {"orders": []})
+        r = self._tool("remember_lesson", {"text": "Lightning misses moving targets.", "topic": "combat"})
+        self.assertEqual(r["status"], "provisional")
+        self.assertTrue(self.call("confirm_lesson", {"id": 99999}).get("isError"))
+        self.assertFalse(self.call("doubt_lesson", {"id": heal, "why": "it died healed"}).get("isError"))
+        combat = self.call("get_experience", {"topic": "combat"})["content"][0]["text"]
+        self.assertIn("[L%d] (new) Lightning misses moving targets." % r["id"], combat)
+        self.assertNotIn("north corridor", combat)
+        self.assertTrue(self.call("get_experience", {"topic": "nope"}).get("isError"))
+        self.game.victory_state = "won"
+        self.game.push_event(["victory"])
+        over = json.loads(self.call("wait_for_decision", {"timeout_seconds": 2})["content"][0]["text"])
+        self.assertIn("LESSONS NOTED DURING PLAY, NOT KEPT YET", over["debrief"])
+        self.assertIn("[L%d] (new, economy) The north corridor" % new_id, over["debrief"])
+        self.assertIn("(shown 2x, combat, confirmed 1, doubted 1) Heal the tank", over["debrief"])
+        self.call("disconnect")
+
+    def test_places_facts_and_chapter_notes_through_the_tools(self):
+        self._connect_and_start()
+        r = self._tool("name_place", {"name": "north gap", "pos": [30, 12]})
+        self.assertEqual((r["name"], r["place"]["pos"]), ("north_gap", [30, 12]))
+        out = self._tool("submit_orders", {
+            "orders": [{"verb": "move_creature", "thing_id": 8, "pos": "north_gap"},
+                       {"verb": "pick_up_and_drop", "thing_ids": [8], "to_room": "heart"},
+                       {"verb": "cast_power", "power": "POWER_SIGHT", "pos": "nowhere"}],
+            "reasoning": "r", "facts": {"enemy heart": "x46 y39"}, "chapter_note": "scouted the north",
+            "places": {"bridge end": [40, 12, 41, 12]}})
+        self.assertEqual(out["places"]["named"], ["bridge_end"])
+        self.assertEqual([o.get("pos") or o.get("to_room") for o in self.game.submitted[-2:]], [[30, 12], 1])
+        self.assertTrue(out["refused"][0]["error"].startswith("UNKNOWN_PLACE"))
+        mem = self.server.session.memory
+        self.assertEqual(mem.facts["enemy_heart"]["text"], "x46 y39")
+        self.assertEqual(list(mem.chapter_notes.values()), ["scouted the north"])
+        self.game.push_event(["quarter_2"])
+        nxt = json.loads(self.call("wait_for_decision", {"timeout_seconds": 2})["content"][0]["text"])
+        self.assertIn("enemy_heart = x46 y39", nxt["state"])
+        self.assertIn("north_gap (30,12)", nxt["state"])
+        self.assertIn("bridge_end (slabs 40-41,12-12)", nxt["state"])
+        self.assertIn("heart (4,4)", nxt["state"])
+        self.assertIn("your note: scouted the north", nxt["state"])
+        r = self.call("set_combat_rules", {"rules": [{"name": "evac", "hand": "evacuate_diggers", "to": "nowhere"}]})
+        self.assertIn("UNKNOWN_PLACE", r["content"][0]["text"])
+        self.call("set_combat_rules", {"rules": [{"name": "evac", "hand": "evacuate_diggers", "to": "north_gap"}]})
+        self.assertEqual(self.game.assist_requests[-1]["rules"][0]["to"], [30, 12])
+        self.call("disconnect")
+
+    def test_disconnect_can_end_the_attempt_with_a_debrief_or_keep_it_for_later(self):
+        path = self._exp_path()
+        self.call("connect", {"host": "127.0.0.1", "port": self.game.port, "experience_path": path, "agent": "Claude"})
+        self.call("wait_for_decision", {"timeout_seconds": 0.2})
+        self.game.turn = 12000                                       # past a pay day (10000 turns in this game)
+        self.call("status")
+        out = json.loads(self.call("disconnect", {"end": "quit"})["content"][0]["text"])
+        self.assertEqual((out["record"], out["connected"]), ("quit", True))
+        self.assertIn("DEBRIEF: the game is over (quit", out["debrief"])
+        self.assertTrue(self.call("submit_orders", {"orders": []}).get("isError"))   # the attempt is over
+        r = json.loads(self.call("record_debrief", {"summary": "gave up"})["content"][0]["text"])
+        self.assertEqual(r["stored"], ["summary"])
+        self.assertEqual(self.call("disconnect")["content"][0]["text"], "disconnected")
+        import experience
+        store = experience.Experience(path)
+        self.assertEqual([(g["result"], g["debrief_state"]) for g in store.games()], [("quit", "done")])
+        store.close()
+        # A plain disconnect after a pay day of play says the attempt stays open, and how to end it.
+        self.game.close()
+        self.game = FakeGame()
+        self.server = mcp_server.Server()
+        self.call("connect", {"host": "127.0.0.1", "port": self.game.port, "experience_path": path, "agent": "Claude"})
+        self.call("wait_for_decision", {"timeout_seconds": 0.2})
+        self.game.turn = 12000                                       # past a pay day (10000 turns in this game)
+        self.call("status")
+        self.assertIn("The attempt stays open", self.call("disconnect")["content"][0]["text"])
 
     def test_combat_stats_are_shown_and_kept_on_the_games_record(self):
         path = self._exp_path()

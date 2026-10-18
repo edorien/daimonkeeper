@@ -187,7 +187,7 @@ it was. `connect(agent: "Claude")` names your seat; `experience_path` picks the 
 
 Tools: `connect`, `get_instructions`, `wait_for_decision`, `status`, `look`, `submit_orders`, `check_orders` (validate a
 batch, including cost, without spending it), `set_game_speed` (slow the whole game down to buy more thinking time -- global,
-not just your seat), `set_pause` (pause/resume, or run N turns, in a game no human plays), `get_log_tail` (the game's own recent log, for debugging a confusing session), `get_recipes` (the active temple sacrifice recipes, once you own a temple), `get_experience` (your lessons from earlier games, in full), `record_debrief` (after a game ends: a summary and rewritten lessons), `disconnect`. One
+not just your seat), `set_pause` (pause/resume, or run N turns, in a game no human plays), `get_log_tail` (the game's own recent log, for debugging a confusing session), `get_recipes` (the active temple sacrifice recipes, once you own a temple), `get_experience` (your lessons from earlier games, every one with its id, or one `topic`'s), `remember_lesson` / `confirm_lesson` / `doubt_lesson` (lessons in play; also `lessons` on `submit_orders`), `name_place` (a named spot for orders; also `places` on `submit_orders`), `get_debrief` (an earlier attempt's debrief), `record_debrief` (after a game ends, or for an earlier attempt: a summary, and lessons confirmed, revised, retired or added by id), `disconnect` (`end`: `quit` ends the attempt with a debrief, `suspend` keeps it for later). One
 `play_daimonkeeper` MCP prompt (`play_keeperfx` still works) offers the same instructions text for a client that surfaces prompts as slash commands.
 Each of your creatures keeps a stable name ("Orc #3") for its whole life; orders that take a creature accept `name` in
 place of `thing_id`.
@@ -278,25 +278,78 @@ given its own build/dig scene and its own periodic fight event, to prove the sch
 
 Two stores (docs/refactor/AI/omissions/09-persistent-memory.md):
 
-- **Working memory, this game** (`memory.py`): plan, notes, the last 12 decisions, creature names, pay-day checkpoints.
+- **Working memory, this game** (`memory.py`, format 2): plan, facts, notes, the last 12 decisions and the earlier ones
+  as chapters, creature names, named places, pay-day checkpoints.
   The game keeps it, one text per seat (API `set_agent_memory` / `get_agent_memory`), and writes it into save files
   (the optional AGNT chunk). A bridge restart resumes it (`restart`); a load in the running game (`GAME_LOADED`) gives the
   model the plan as it was at that save (`reloaded`); a new level starts empty (`start`). Each game has a `game_id`, each
   attempt at it a `branch` (a load starts a new one).
 - **Experience, across games** (`experience.py`): `experience.sqlite`, next to the bridge's own files (the
   game's `mcp/` folder once installed; a reinstall never touches it, and in a source tree it is git-ignored). Every attempt's record (level, opponents, turns,
-  counts, refusals by error, checkpoints, result) is written as it goes, needing no model. When a game is won or lost --
-  or quit after at least a pay day without a recent save; a quit right after a save is `suspended` and waits for the
-  game to be continued -- the model is asked for a **debrief**: a summary plus rewritten lessons for the playbook (any
-  level), the campaign, the level and each opponent it can identify (a human by keeper name, a computer by AI type, an
-  agent by its seat name). Those lessons are shown in full (`EXPERIENCE`) at the start of the next game they apply to.
+  counts, refusals by error, checkpoints, its latest plan, result) is written as it goes, needing no model. When a game
+  is won or lost -- or quit after at least a pay day without a recent save; a quit right after a save is `suspended` and
+  waits for the game to be continued -- the model is asked for a **debrief**: a summary, and edits to its lessons.
+- **Lessons are items** (schema 2; docs/plans/llm-bridge-memory.md, Phases A-B, git-ignored). Each scope -- the
+  playbook (any level), the campaign, the level, each opponent it can identify (a human by keeper name, a computer by AI
+  type, an agent by its seat name) -- holds separate lessons, each with an id (`[L12]`), a topic, where it came from and
+  how often a debrief confirmed it. A debrief `confirm`s, `revise`s, `retire`s and `add`s them by id; a lesson it does
+  not mention stays as it is, and a revised or retired one is kept, marked, with why (nothing is ever deleted). The
+  older whole-text fields (`playbook`, `level_lessons`, ...) are still accepted: their text is matched against the
+  scope's lessons, and whatever it leaves out is retired and named in the reply. At the start of a game each scope shows
+  its best-ranked lessons (most confirmed, then newest) within its budget (`SCOPE_CAPS`); `get_experience` shows them
+  all. A version-1 store is split into items on first open (one per bullet; prose one per sentence), nothing cut.
+- **Every attempt gets its debrief.** An attempt nobody closed -- the bridge stopped, the level was restarted from the
+  menu -- is closed as `abandoned` the next time the same agent connects (unless another session updated it in the last
+  10 minutes). Attempts that ended without a debrief (abandoned, or a game-over debrief never answered) are listed under EXPERIENCE ("EARLIER ATTEMPTS
+  WITHOUT A DEBRIEF", up to 3, at most 3 times each): `get_debrief(attempt)` shows one's record, `record_debrief(attempt=
+  ..., ...)` keeps its lessons, `decline=true` lets it go. `bridge.py` / `agent_vs_agent.py` have their policy debrief up
+  to `--earlier-debriefs` (2) of them at the start. A new game on a level whose last attempt by the same agent, a day ago
+  or less, was not won follows it (`previous_game`): EXPERIENCE and the win's debrief list the failures before it.
+  `disconnect(end="quit")` ends a running attempt with a debrief; a plain `disconnect` leaves it open to continue.
+- **Lessons come back when they apply** (Phase C). Each lesson has a topic (setup, economy, defence, combat, attack,
+  heroes, creatures, rooms, research, map, tools, opponent, general). A decision whose reasons call for a topic (a fight:
+  combat and defence; a pay day: economy; a new creature kind: creatures; ...) gets that topic's best lessons as
+  `RECALL (combat: ...)` -- at most 4 (600 chars) a topic, each topic at most once every 20 decisions; a flash decision
+  gets 2 lines of its combat or defence topic. Every 40 decisions a `REFRESHER` repeats the setup lessons and the best
+  six: the part of the playbook a client's compacted context dropped. The level's and opponents' lessons come before the
+  campaign's and the playbook's, the most confirmed first, and among equals the ones this attempt showed least, so
+  recall rotates. What was shown, and how often, is kept in the attempt's memory (`recall`) and in the debrief.
+  Measured on the real store's 28 lessons for keeporig:8 over a simulated 224-decision game: a full decision gets 0 more
+  characters at the median, 487 at p95, 1868 at most (a refresher with a recall); a flash decision 0 / 345 / 368; every
+  lesson came up at least once.
+- **Learning in play** (Phase D). `lessons` on `submit_orders` (`remember` [{text, scope?, topic?}], `confirm` [ids],
+  `doubt` [{id, why}]), or the tools `remember_lesson` / `confirm_lesson` / `doubt_lesson`. A lesson noted in play is
+  `provisional`: recalled marked `(new)`, listed in the debrief under LESSONS NOTED DURING PLAY to keep (confirm),
+  revise or retire; one no debrief mentions waits for the next. Its scope defaults to the level when it names places
+  (x/y coordinates), else the playbook. Confirm and doubt count for and against a lesson (the ranking). A human
+  player's chat line starting `tip:` becomes a provisional lesson (source user), and the next decision says so
+  (`TIP NOTED`). `bridge.py` and `agent_vs_agent.py` keep `lessons` from the API policy's answers the same way.
 
-`experience_report.py` shows and curates the store: finished games, one game's attempts and checkpoints, lessons, every
-version of a set of lessons, rollback, replace from a file, forget.
+- **Cheaper working memory** (Phase E). `facts {key: text}` on `submit_orders` sets single facts (200 chars, 40 in all;
+  null drops one), shown as `YOUR FACTS: key = text (t15000)`, marked `old` after 5 pay days -- in place of rewriting
+  all the notes, which still work. Decisions that roll off the 12-decision log fold into one chapter per pay day (turns,
+  decisions, orders, refusals, the reasons that came up, the plan's first line, the agent's own `chapter_note`), at most
+  10, the oldest merged in pairs: `EARLIER IN THIS GAME`, and in the debrief. A format-1 memory (the previous bridge's)
+  is upgraded when read; one a newer bridge wrote is left untouched (this bridge plays on a fresh memory it never saves).
+- **Places** (`places.py`, Phase F). From the view, without the model: the seat's rooms by kind (`heart`, `portal`,
+  `treasury`, `treasury_2`, `lair`, `hatchery`, `library`, ...; a room keeps its name while it stands), hero gates
+  (`hero_gate_1`), enemy rooms while seen and enemy hearts once seen (`heart_P2`, kept with the turn last seen). The
+  agent names its own (`places` on `submit_orders`, `name_place`: a subtile, or a slab rectangle); those and the rally
+  points come first, and never hide the bridge's entry of the same name for good. `PLACES` in the state lists them. A
+  name works as an order's `pos`, `slab_rect` (a named rectangle) or `to_room` (the seat's rooms), and as a hand rule's
+  `to` in `set_combat_rules`; an unknown one is refused (`UNKNOWN_PLACE`) before anything is sent. When the game ends,
+  the places the agent named, the enemy hearts and the hero gates become provisional lessons of the level, for the
+  debrief to keep -- no more coordinates typed into the level lessons by hand.
+
+`experience_report.py` shows and curates the store: finished games, one game's attempts and checkpoints, lessons with
+their ids, one lesson's changes, add / revise / retire / confirm / merge / move single lessons, every version of a
+scope's text, rollback, replace from a file, forget.
 
 ```bash
 python3 scripts/llm_bridge/experience_report.py games
 python3 scripts/llm_bridge/experience_report.py lessons general
+python3 scripts/llm_bridge/experience_report.py items general --all
+python3 scripts/llm_bridge/experience_report.py history L12
 python3 scripts/llm_bridge/experience_report.py history general
 python3 scripts/llm_bridge/experience_report.py rollback general 12
 ```

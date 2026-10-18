@@ -66,7 +66,7 @@ class AnthropicPolicy:
         if not first and ctx.get("severity", 3) <= URGENT_SEVERITY:
             # An urgent decision: the short flash text, answered fast (docs/plans/llm-bridge-realtime.md, Phase 2).
             text = prompt.render_flash(state, mem, ctx.get("reasons") or [], ctx["severity"], where=ctx.get("where"),
-                                       note=ctx.pop("note", None))
+                                       note=ctx.pop("note", None), recall=ctx.pop("flash_recall", None))
             ctx.pop("experience", None)
         else:
             text = prompt.render_for_agent(state, mem, reasons=ctx.get("reasons"), first=first, note=ctx.pop("note", None),
@@ -90,7 +90,9 @@ class AnthropicPolicy:
             submit = next((b for b in uses if b["name"] == "submit_orders"), None)
             if submit is not None:
                 inp = submit["input"]
-                return {"reasoning": inp.get("reasoning", ""), "orders": inp.get("orders", []), "plan": inp.get("plan"), "notes": inp.get("notes")}
+                return {"reasoning": inp.get("reasoning", ""), "orders": inp.get("orders", []), "plan": inp.get("plan"), "notes": inp.get("notes"),
+                        "lessons": inp.get("lessons"), "facts": inp.get("facts"), "chapter_note": inp.get("chapter_note"),
+                        "places": inp.get("places")}
             if not uses:   # the model answered in words only: treat as "wait"
                 return {"reasoning": "no tool call: " + " ".join(b.get("text", "") for b in blocks)[:200], "orders": []}
             messages.append({"role": "assistant", "content": blocks})

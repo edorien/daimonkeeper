@@ -677,7 +677,8 @@ class MockAnthropic(http.server.BaseHTTPRequestHandler):
             content = [{"type": "tool_use", "id": "t1", "name": "look", "input": {"slab_rect": [0, 0, 3, 3]}}]
         else:
             content = [{"type": "tool_use", "id": "t2", "name": "submit_orders",
-                        "input": {"reasoning": "heal", "plan": "grow the army", "notes": "orcs train", "orders": [{"verb": "slap", "thing_id": 7}]}}]
+                        "input": {"reasoning": "heal", "plan": "grow the army", "notes": "orcs train", "orders": [{"verb": "slap", "thing_id": 7}],
+                                  "lessons": {"remember": [{"text": "orcs train fast"}]}}}]
         out = json.dumps({"content": content, "usage": {"input_tokens": 1000 * n, "output_tokens": 50}}).encode()
         self.send_response(200)
         self.send_header("content-type", "application/json")
@@ -705,6 +706,7 @@ class AnthropicPolicyTests(unittest.TestCase):
         srv.server_close()
         self.assertEqual(d["orders"], [{"verb": "slap", "thing_id": 7}])
         self.assertEqual((d["plan"], d["notes"]), ("grow the army", "orcs train"))
+        self.assertEqual(d["lessons"], {"remember": [{"text": "orcs train fast"}]})     # noted in play (bridge.py keeps them)
         self.assertEqual(len(MockAnthropic.calls), 2)
         key, first = MockAnthropic.calls[0]
         self.assertEqual(key, "k")
@@ -714,6 +716,7 @@ class AnthropicPolicyTests(unittest.TestCase):
         self.assertIn("YOUR PLAN", first["messages"][0]["content"])
         self.assertIn("old plan", first["messages"][0]["content"])
         self.assertIn("DECISION DUE because: enemy_fight", first["messages"][0]["content"])
+        self.assertIn("lessons", first["tools"][0]["input_schema"]["properties"])
         self.assertIn("plan", first["tools"][0]["input_schema"]["properties"])
         second = MockAnthropic.calls[1][1]
         self.assertEqual(second["messages"][-1]["content"][0]["type"], "tool_result")
@@ -738,7 +741,7 @@ class AnthropicPolicyTests(unittest.TestCase):
         srv.shutdown()
         srv.server_close()
         self.assertEqual(out["stored"], ["summary", "general"])
-        self.assertEqual(store.lessons("general"), "wall in early")
+        self.assertEqual(store.lessons("general"), "- wall in early")
         self.assertEqual(store.branch(mem.game_id, mem.branch)["summary"], "lost to a rush")
         body = MockAnthropic.calls[0][1]
         self.assertEqual(body["tool_choice"], {"type": "tool", "name": "record_debrief"})
@@ -751,7 +754,7 @@ class AnthropicPolicyTests(unittest.TestCase):
         rec.ended(mem2, v, "won")
         out = experience.run_debrief(store, mem2, rec, "won", v, ScriptedPolicy(), {})
         self.assertEqual(out["stored"], ["summary"])
-        self.assertEqual(store.lessons("general"), "wall in early")
+        self.assertEqual(store.lessons("general"), "- wall in early")
         store.close()
         shutil.rmtree(d, ignore_errors=True)
 
@@ -781,7 +784,9 @@ class MemoryTests(unittest.TestCase):
                          (1800, "n2", 15, ["ORC", "TROLL", "DRAGON"], m.game_id, 7))
         self.assertIsNone(Memory.from_blob(None))
         self.assertIsNone(Memory.from_blob("not json"))
-        self.assertIsNone(Memory.from_blob('{"format": 99, "game_id": "x"}'))
+        import memory as memory_mod
+        with self.assertRaises(memory_mod.NewerFormat):        # a newer bridge's: neither read nor overwritten
+            Memory.from_blob('{"format": 99, "game_id": "x"}')
 
     def test_flush_pushes_only_changes_and_the_blob_stays_under_the_cap(self):
         pushed = []
