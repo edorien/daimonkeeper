@@ -33,7 +33,9 @@ def load_log(path):
         for line in f:
             line = line.strip()
             if line:
-                decisions.append(json.loads(line))
+                rec = json.loads(line)
+                if "decision" in rec:   # not the closing {"latency": [...]} line
+                    decisions.append(rec)
     metrics = decisions[-1].get("model") or {} if decisions else {}
     return decisions, metrics
 

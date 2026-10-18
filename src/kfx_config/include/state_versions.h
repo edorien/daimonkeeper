@@ -64,9 +64,11 @@
       struct Dungeon's visible_battles; the tendency mirror creatures_tend_imprison/_flee is gone
   15: upstream #5396 -- Thing gained last_turn_pushed, pushed_by_player (a creature pushed into the abyss
       counts as dead in battle)
-  16: upstream #5383 -- timestamp, timestamp_tz, timestamp_turn (the host's clock, Lua's GetGameTimestamp) */
-#define KFX_SIM_STATE_VER          16
-#define KFX_SIM_STATE_SIZE         139937987
+  16: upstream #5383 -- timestamp, timestamp_tz, timestamp_turn (the host's clock, Lua's GetGameTimestamp)
+  17: keeper_assist[] gained bank[] and active_bank (the combat assistant's rule banks, docs/plans/llm-bridge-realtime.md)
+  18: KeeperAssistRule gained the hand rules' fields (dest_x/dest_y, count, radius, min_match: Phase 5) */
+#define KFX_SIM_STATE_VER          18
+#define KFX_SIM_STATE_SIZE         139962125
 
 /* struct KfxNetState (kfx_net_state.h), SGC_KfxNetState
    2: S10 -- packet_load_enable, local_plyr_idx, human_players_count moved

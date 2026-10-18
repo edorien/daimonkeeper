@@ -40,6 +40,14 @@ enum SkirmishAvailState
     SkirmishAvail_Forced    // creatures only: force-enabled
 };
 
+// What players on the same team share beyond being allied. Written as the game rules at level start.
+enum SkirmishSharing
+{
+    SkirmishSharing_None = 0,      // as the level and rules.cfg have it
+    SkirmishSharing_Vision,        // teammates see what the others have explored
+    SkirmishSharing_VisionAndLand  // ... and may drop their creatures on each other's land
+};
+
 struct SkirmishSetup
 {
     LevelNumber lvnum = 0;
@@ -52,6 +60,8 @@ struct SkirmishSetup
     std::vector<int64_t> teams;       // per slot, 0 = no team; equal non-zero = allied
     std::vector<int64_t> external_slots; // slots played by an outside agent (SkirmishCtl_External); never the human slot
     bool reveal_map = false;      // the whole map revealed to every active keeper at level start (level_start_options.h)
+    int64_t sharing = 0;          // SkirmishSharing: what teammates share (the ALLIESSHAREVISION / ALLIESSHAREDROP rules)
+    bool llm_pause = false;       // an External seat's agent may pause the game although a human plays
     std::vector<int64_t> hearts;      // per slot: 1 = the map has a Dungeon Heart for it, 0 = none, -1 = unknown
     std::string unavailable_reason; // non-empty: the tab is disabled, with this reason
     bool enabled() const { return loaded && unavailable_reason.empty(); }

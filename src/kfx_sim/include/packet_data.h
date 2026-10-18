@@ -369,6 +369,10 @@ enum TbPacketAction {
         // GetGameTimestamp). par1 = posix time low 32 bits; par2 = bits 32-52 of it, then the time zone in minutes
         // (11 bits) above; par3/par4 = the game turn it was taken on (low/high 16 bits). Only the host may send it.
         PckA_SetTimestamp,
+        // The combat assistant's banks (docs/plans/llm-bridge-realtime.md, Phase 3): complete rule sets kept ready.
+        PckA_AssistCommitBank,     // par1: bank 1..3 (low 4 bits), slots in the set (bits 4-19); the staging copy becomes that bank
+        PckA_AssistUseBank,        // par1: bank 1..3; that bank becomes the live set (unchanged slots keep their counters)
+        PckA_AssistStageRuleHand,  // par1: slot, count, radius, min_match; par2: destination subtile x | y << 16 (hand rules)
 };
 
 /** Packet flags for non-action player operation. */

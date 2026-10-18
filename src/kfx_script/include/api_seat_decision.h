@@ -34,6 +34,8 @@ void api_seat_recipe_text(const struct SacrificeRecipe *sac, char *buf, size_t l
 void api_seat_decision_add_sacrifice_outcomes(VALUE *sacrifices, PlayerNumber plyr_idx);
 /** Adds own.objective_history (the level's objectives as they appeared, oldest first) to a view for `plyr_idx`. */
 void api_seat_decision_add_objectives(VALUE *own, PlayerNumber plyr_idx);
+/** own.intruders: enemy creatures on the seat's ground at the last look (reason intruder when a new one comes). */
+void api_seat_decision_add_intruders(VALUE *own, PlayerNumber plyr_idx);
 /** The latest decision raised for `plyr_idx`: its counter (0 = none yet), turn, and whether its reasons included a fight,
  *  an attack on the heart or a room, or a breach. False if the player is not an External seat being watched. */
 TbBool api_seat_decision_latest(PlayerNumber plyr_idx, int64_t *seq, int64_t *turn, TbBool *combat);

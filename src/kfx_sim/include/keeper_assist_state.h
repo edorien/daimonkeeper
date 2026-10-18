@@ -69,6 +69,16 @@ struct KeeperAssistCast {
     uint8_t reserved[4];
 };
 
+/** A complete rule set kept ready (docs/plans/llm-bridge-realtime.md, Phase 3): staged and committed into a bank at a calm
+ *  moment (PckA_AssistCommitBank), made live in one packet (PckA_AssistUseBank) when the moment comes -- a switch from a
+ *  calm set to a war set in one turn rather than a rewrite of up to KEEPER_ASSIST_MAX_PACKETS packets. */
+struct KeeperAssistBank {
+    struct KeeperAssistGlobals globals;
+    struct KeeperAssistRule rules[KEEPER_ASSIST_RULES];
+    uint8_t used;
+    uint8_t reserved[7];
+};
+
 struct KeeperAssistState {
     struct KeeperAssistGlobals globals;
     struct KeeperAssistRule live[KEEPER_ASSIST_RULES];
@@ -83,6 +93,9 @@ struct KeeperAssistState {
     struct KeeperAssistPending pending;
     struct KeeperAssistCast log[KEEPER_ASSIST_LOG];
     uint64_t log_total;
+    struct KeeperAssistBank bank[KEEPER_ASSIST_BANKS];  /**< bank N (1-based to the agent) is bank[N - 1] */
+    uint8_t active_bank;   /**< the bank last made live (1..KEEPER_ASSIST_BANKS); 0 once a plain commit changed the set */
+    uint8_t reserved_bank[7];
 };
 
 #pragma pack()

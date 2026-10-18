@@ -52,8 +52,14 @@ extern "C" {
 #define EXTSEAT_BUILD_WAIT_TURNS 600
 /** Most things one pick_up_and_drop may carry (the hand's own limit, rules MaxThingsInHand, is checked too). */
 #define EXTSEAT_MAX_HAND_SET 16
-/** Verbs that may wait behind the running gesture (submitted with queue=true), and results remembered per seat. */
+/** Verbs that may wait behind the running gesture (submitted with queue=true), per lane, and results remembered per seat. */
 #define EXTSEAT_MAX_QUEUED_VERBS 16
+/** The seat's queue has two lanes (docs/plans/llm-bridge-realtime.md, Phase 3): urgent verbs (priority "now") run before
+ *  routine ones, and a long routine verb that can be safely cut (a room build, a dig or unmark, a sell, a rule change) is
+ *  cut for one: it goes back to the front of its lane and is planned again when it resumes. */
+#define EXTSEAT_LANE_NOW 0
+#define EXTSEAT_LANE_ROUTINE 1
+#define EXTSEAT_LANES 2
 #define EXTSEAT_RESULT_RING 16
 /** Real-time limit for an agent-owned pause with no seat command before the game resumes by itself. */
 #define EXTSEAT_DEFAULT_WATCHDOG_MS 60000
@@ -83,6 +89,9 @@ enum ExtSeatVerbKind {
     ESV_SetAssist,       /**< replace the combat assistant's rules and globals (`assist_rules`, `assist_globals`):
                           *   only what changed is sent, as packets that go live together (keeper_assist_packets.h) */
     ESV_AssistEnable,    /**< switch the combat assistant on or off (`enabled`) without touching its rules */
+    ESV_Attack,          /**< send one of our creatures (thing_id) to fight what is at `pos`: an enemy door, heart, trap or room, or
+                          *   the enemies there. It walks there held (as move_creature), then fights as at a Call to Arms banner */
+    ESV_AssistUseBank,   /**< make one of the combat assistant's banks (assist_bank) the live set: one packet */
 };
 
 /** A verb as the agent expressed it, already parsed out of JSON. Positions are subtile coordinates. */
@@ -120,6 +129,11 @@ struct ExtSeatVerb {
     TbBool lose_spells;     /**< sell: yes, sell library slabs whose spellbooks have nowhere else to go (the spells are lost) */
     struct KeeperAssistRule assist_rules[KEEPER_ASSIST_RULES]; /**< set_assist: the whole wanted set, slot = index */
     struct KeeperAssistGlobals assist_globals;                 /**< set_assist */
+    int64_t assist_bank;    /**< set_assist: 0 = the live set; 1..KEEPER_ASSIST_BANKS = store it in that bank instead.
+                             *   use_assist_bank: the bank to make live */
+    TbBool priority;        /**< priority "now": the urgent lane (EXTSEAT_LANE_NOW), ahead of every routine verb */
+    int64_t cancel_id;      /**< cancel: just this verb (0 = all, unless cancel_lane) */
+    int64_t cancel_lane;    /**< cancel: every verb waiting in lane cancel_lane - 1 (0 = none); the running one is not touched */
 };
 
 /** What became of a submitted verb: it finished writing its steps, or was refused when its turn came. */
@@ -128,12 +142,27 @@ struct ExtSeatResult {
     TbBool rejected;
     char error[28];         /**< the error code when rejected ("EXPIRED", "NOT_AVAILABLE", "CANCELLED", ...) */
     int64_t turn;           /**< game turn it was decided */
+    int64_t submitted;      /**< game turn it was accepted */
+    int64_t started;        /**< game turn it became the running gesture (-1: it never started) */
+    int64_t lane;           /**< EXTSEAT_LANE_NOW or EXTSEAT_LANE_ROUTINE */
+    int64_t suspended;      /**< times it was cut for an urgent verb (and planned again after it) */
+};
+
+/** The queue as it stands, for the view (seat.queue). */
+struct ExtSeatQueueInfo {
+    int64_t running_id;     /**< 0 = nothing running (or only raw steps) */
+    int64_t running_lane;
+    int64_t running_steps_left;
+    int64_t lane_ids[EXTSEAT_LANES][EXTSEAT_MAX_QUEUED_VERBS];
+    TbBool lane_suspended[EXTSEAT_LANES][EXTSEAT_MAX_QUEUED_VERBS]; /**< cut for an urgent verb; resumes from here */
+    int64_t lane_count[EXTSEAT_LANES];
 };
 
 /** A creature handed back to its own behaviour by the safety net rather than by the agent. */
 struct ExtSeatAutoRelease {
     int64_t thing_id;
-    char reason[16];        /**< "attacked", "max_hold", "payday", "owed_pay", "hungry", "agent_lost", "seat_released" */
+    char reason[16];        /**< "attacked", "max_hold", "payday", "owed_pay", "hungry", "agent_lost", "seat_released", "released",
+                             *   "attacking" (an attack order arrived and set it fighting) */
     int64_t turn;
 };
 
@@ -214,6 +243,19 @@ void extseat_release_ordered_now(NetUserId user, const char *reason);
 int64_t extseat_queued_verbs(NetUserId user);
 /** Recent outcomes, oldest first; returns how many were copied. */
 int64_t extseat_results(NetUserId user, struct ExtSeatResult *out, int64_t max);
+/** The nearest subtile to (x, y), within `radius` subtiles, where the seat's hand could drop `thing_id` (one of its
+ *  creatures; 0 = any of them) as an ordinary drop: on ground it may drop on, and not into its prison, torture chamber,
+ *  portal or a temple pool. NULL with the spot in *out_x, *out_y, else "NO_DROP_SPOT" / "NO_CREATURE" / "NOT_A_VALID_SEAT". */
+const char *extseat_find_drop_spot(PlayerNumber plyr_idx, int64_t thing_id, int64_t x, int64_t y, int64_t radius,
+    int64_t *out_x, int64_t *out_y);
+/** The running verb and the waiting ones, per lane. */
+void extseat_queue_info(NetUserId user, struct ExtSeatQueueInfo *out);
+/** Cancels one verb, waiting or running (its result: CANCELLED). False when no such verb is waiting or running. */
+TbBool extseat_cancel_id(NetUserId user, int64_t id);
+/** Cancels every verb waiting in `lane` (the running one goes on). Returns how many. */
+int64_t extseat_cancel_lane(NetUserId user, int64_t lane);
+/** Whether a running verb of this kind may be cut for an urgent one (and planned again after it). */
+TbBool extseat_verb_cuttable(enum ExtSeatVerbKind kind);
 /** Queues raw steps for `user` (used by tests and by extseat_submit_verb). False if a gesture is still running. */
 TbBool extseat_enqueue(NetUserId user, const struct ExtSeatStep *steps, int64_t count);
 TbBool extseat_idle(NetUserId user);
@@ -241,11 +283,17 @@ void extseat_resume(void);
 void extseat_advance(int64_t turns);
 TbBool extseat_agent_owns_pause(void);
 TbBool extseat_advancing(void);
+/** Turns an advance still has to run (0 when none runs). */
+int64_t extseat_advance_left(void);
 /** Any seat command counts as the agent being alive. */
 void extseat_note_activity(void);
 /** Whether a human plays a keeper in this game: any keeper still in the game that is neither an External seat nor run
  *  by the built-in AI (a spectating human's keeper is), or any network game. An agent may pause only when none does. */
 TbBool extseat_human_playing(void);
+/** Whether an agent may pause the game: no human plays a keeper, or the game's setup allowed it anyway (the Skirmish
+ *  page's LLM Pause). Set at each local game start; a load keeps the current session's choice. */
+void extseat_allow_pause_with_human(TbBool allowed);
+TbBool extseat_may_pause(void);
 /** Level start (startup_network_game_tail, after the pending seats are claimed) and a loaded save (load_game, once
  *  the seats are restored): a local game whose keepers are all External seats or built-in AI starts paused, the pause
  *  the agent's, so it can look the level over -- or the save it was handed, with the memory saved with it -- before

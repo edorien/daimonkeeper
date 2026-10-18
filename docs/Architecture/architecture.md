@@ -395,6 +395,8 @@ refactor pass 2's S14 (docs/refactor-pass2/stage-14-ai-library-spike.md).
   held-thing records) and reaches the AI's behaviour only through
   `kfx_config`'s `AiPort` (5 entries). Everything above `kfx_ai` calls it
   directly.
+- `keeper_assist`, `keeper_assist_packets`: the combat assistant's cast rules, evaluated in the simulation tick, and
+  rule sets as packets (§5a).
 - Its own test binary, `kfx_ai_utest`.
 
 ### 2.4 `kfx_render` — rendering
@@ -474,6 +476,9 @@ on:** `kfx_sim`, `kfx_platform`. **28 sources / 27 headers.**
 - `save_catalogue`, `kfx_net_state.h/.c` (packets array, input-lag turn
   count, active-player count, packet save/load state, desync-debug snapshots +
   checksums).
+- External seats (§5a): `external_seat` (an agent's verbs turned into the packets a human's input would make, one a
+  turn, in two lanes; pause and advance), `seat_reflexes` (the combat assistant's hand rules), `agent_memory` (the
+  agent's memory text, saved in the AGNT chunk).
 
 ### 2.6 `kfx_game` — orchestration
 
@@ -560,6 +565,10 @@ access** — it is the mod-facing API surface. **Depends on:** anything below
   (`api_init_server` / `api_update_server` / `api_close_server` / `api_event`)
   for external tooling; uses a native Winsock/socket layer (SDL3_net is not
   reliably packaged).
+- The agent API on it (§5a, [`agent-api.md`](agent-api.md)): `api_seat_view` (the seat's view) and `api_seat_diff`
+  (its diffs), `api_seat_decision` (DECISION_DUE: reasons, severity, losses, intruders), `api_urgent_hold` (holding the
+  game for an urgent decision's answer), `api_seat_assist` (the assistant in the view), `api_seat_combatstats`
+  (measured reaction to fights), `api_framing` / `api_json_out`.
 - The Lua-side scripts live in `config/fxdata/lua/` (see §11): `bindings/`,
   `classes/`, `managers/`, `triggers/`, `gamelogic/`, `config-api/`, `core/`,
   `utils/`.
@@ -787,7 +796,7 @@ by its library:
 
 | State struct         | Owner          | Key contents                                                                                                                                                                             |
 | -------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `kfx_sim_state`      | `kfx_sim`      | `map[]`, `slabmap[]`, `columns_data[]`, `things_data[]`, `cctrl_data[]`, `rooms[]`, `dungeon[]`, `players[]`, `computer_task[]`, `battles[]`, random seeds, timers, mode/operation flags; session values: `play_gameturn`, level numbers, `level_human_player`, `human_players_count`                  |
+| `kfx_sim_state`      | `kfx_sim`      | `map[]`, `slabmap[]`, `columns_data[]`, `things_data[]`, `cctrl_data[]`, `rooms[]`, `dungeon[]`, `players[]`, `computer_task[]`, `battles[]`, `keeper_assist[]` (the combat assistant, §5a), random seeds, timers, mode/operation flags; session values: `play_gameturn`, level numbers, `level_human_player`, `human_players_count`                  |
 | `kfx_net_state`      | `kfx_net`      | `packets[]`, `input_lag_turns`, `active_players_count`, desync snapshots + checksums                                                                                                      |
 | `kfx_game_state`     | `kfx_game`     | level script + timers, campaign name, pause/frame-step, music, sound settings                                                                                                             |
 | `kfx_config_state`   | `kfx_config`   | `struct Configs` (all `*.cfg` aggregates), texture-count constants                                                                                                                       |
@@ -939,6 +948,78 @@ This is what makes each library independently buildable and testable.
 
 ---
 
+## 5a. External seats: agents playing a keeper
+
+An **External seat** is a keeper played by a program over the local API (§2.8; port 5599, off by default): an LLM
+through the MCP bridge in `scripts/llm_bridge/`, or a scripted client. The wire protocol is
+[`agent-api.md`](agent-api.md); the bridge is [`scripts/llm_bridge/README.md`](../../scripts/llm_bridge/README.md). The
+**combat assistant** -- standing orders a keeper's owner writes ahead and the game carries out -- belongs here too: an
+agent sets it over the API, a human player on the Options screen.
+
+### 5a.1 Where the pieces live
+
+| Library | Files | What they do |
+|---|---|---|
+| `kfx_config` | `keeper_assist_rules`, `config_combat_assist` | The assistant's rule vocabulary, parsing and the one validation every way in uses; the human player's profile (`save/combat_assistant.toml`), which drops the agent-only hand rules. |
+| `kfx_sim` | `keeper_assist_state.h`, `packet_data.h` | `kfx_sim_state.keeper_assist[]`: per keeper the live rules, the staging copy, three banks, counters, a cast log. The `PckA_Assist*` packets. |
+| `kfx_ai` | `keeper_assist`, `keeper_assist_packets` | Cast rules evaluated every `interval` turns in the simulation tick (`process_keeper_assists()`); rule sets planned as packets and applied from them. Read-only helpers for the seat (dungeon facts, a creature's facts, conditions, `keeper_assist_heal_ready`). |
+| `kfx_net` | `external_seat`, `seat_reflexes`, `agent_memory`, `net_game` | The seat driver: each verb planned into steps, one step (one packet) written into the seat's packet each turn, in two lanes (urgent verbs first; a long routine build, dig, sell or rule change cut and planned again); the agent's pause and advance and their watchdog; the ordered-creature safety net; `find_drop_spot`. The hand rules (`seat_reflexes`). The agent's memory text. Seats are net users (`net_add_external_seat`). |
+| `kfx_game` | `game_commands`, `packet_validate`, `keeper_assist_outbox` | The assistant's packets dispatched (and refused in multiplayer: `PAF_CHEAT`); what a watching human may still click; the human player's rule changes sent as packets. |
+| `kfx_frontend` | `frontgui_screens` | The human player's Combat assistant options. |
+| `kfx_script` | `api`, `api_seat_*`, `api_urgent_hold` | The API server and its actions; the view and its diffs; decision tracking (`DECISION_DUE` with reasons, severity and place, losses and intruders read off the map); the urgent hold; reaction statistics. |
+| `kfx_apploop` | `game_session_loop` | Calls `api_update_server()` on every pass of `update()`, paused or not; `extseat_tick()` after `exchange_packets()`; `process_keeper_assists()` in the simulation tick. |
+| (tools) | `scripts/llm_bridge/` | The bridge: the MCP server and session, the pump thread, triggers, the decision text. |
+
+### 5a.2 One turn, for a seat
+
+1. **`update()` -> `api_update_server()`** (also while paused): `extseat_poll()` ends a finished advance and runs the
+   watchdog; `api_seat_decision_tick()` checks the urgent hold's cap, then for each seat notes new reasons (events, losses
+   from a per-turn slab-map comparison, intruders, quarters of the pay day...) and, outside the minimum interval or when
+   urgent, pushes `DECISION_DUE` -- an urgent one may start the hold; then the client's requests are read and answered
+   (orders become verbs in the seat's queue).
+2. **The simulated turn:** `exchange_packets()`, then `extseat_tick()`: per seat, wait out an input lock (the level-start
+   heart zoom), sweep the ordered creatures, run the hand rules (`seat_reflexes_tick`: an urgent `pick_up_and_drop` when
+   one finds work), cut a routine verb for a waiting urgent one, promote the next verb, write one step into the seat's
+   packet. Then `process_packets()` applies them like a human's, and the simulation tick runs the cast rules.
+
+### 5a.3 Invariants
+
+- **What decides inside the simulation, and what outside.** The assistant's state and its cast rules are simulation:
+  they change only through packets, so a save, a resync and a replay agree. Everything the seat decides -- its queue and
+  lanes, cuts, the hand rules, the ordered-creature releases, the decision tracking, the urgent hold -- runs only on the
+  machine with the seat and acts only by writing packets, which replays record. Its state is `static` in `kfx_net` /
+  `kfx_script`, not saved (a load drops queued verbs). **Seat code never writes `kfx_sim_state`** (which is why
+  `keeper_assist_heal_ready` re-checks affordability rather than calling the sim's `affordable_price`, which records a
+  refusal): a write there would happen in a live game and not in its replay.
+- **One hand.** A player's packet carries one action a turn. The lanes reorder work, never widen it: the agent's
+  orders, the hand rules and the bridge's triggers share the same hand at a human's pace.
+- **Agent only, and fair to humans.** Hand rules run only for External seats (a human profile drops them). Pausing,
+  advancing and the urgent hold are refused while a human plays a keeper (`HUMAN_PLAYING`), unless the game's setup
+  allowed it (the Skirmish page's LLM Pause, `extseat_may_pause()`). The whole assistant is refused in multiplayer. A
+  human watching an agent play their keeper keeps pause, chat, the camera and the cheat menu; their dungeon clicks are
+  dropped (`global_action_allowed_for_seat_watcher`).
+- **Layering.** The seat (`kfx_net`) reads `kfx_ai` and `kfx_sim`; `kfx_ai` never reaches up to the seat;
+  `kfx_script` reads both. Hand rules therefore live in the seat, not in `keeper_assist.c`.
+- **Layout.** `KeeperAssistState` and `KeeperAssistRule` are in `kfx_sim_state`: a field there is a sim state version
+  bump (13: the assistant; 17: banks; 18: hand rule fields).
+
+### 5a.4 Reacting in time
+
+A model's reply takes hundreds of turns; a fight is decided in tens. From fastest to slowest:
+
+| Layer | Who decides | When it acts |
+|---|---|---|
+| hand rules (`evacuate_diggers`, `lift_wounded`, `reinforce`) | the seat | every assistant interval (2 turns): at once |
+| cast rules (heal, speed, chicken, the gold guards...) and rule banks | the simulation | every assistant interval |
+| bridge triggers (`scripts/llm_bridge/triggers.py`) | the bridge's pump, on a pushed decision | 1-3 turns |
+| urgent hold (`on_urgent`) | the game waits for the model, where pausing is fair | the model's reply costs no game time |
+| flash decisions | the model, on a short text | its reply time |
+
+The bridge measures each decision's delay link by link (`latency.py`); `scripts/run_ftest_ai_bridge_raid.sh` gives a
+model-free yardstick (testing-harness.md §7a).
+
+---
+
 ## 6. State ownership & serialization invariants
 
 ### 6.1 Per-library state structs
@@ -1062,6 +1143,8 @@ same on every target (explicit `int64_t` fields, packed layouts).
   host's clock, `timestamp*`, #5383) and config state versions 3 and 4 (the creature models' and the objects'
   `inertia_floor`/`inertia_air`, the creatures' `fall_acceleration`, #5394 and #5402); replays: packet file header version 6 (the timestamp); older saves and
   replays can't be loaded.
+- Sim state version 13 (the combat assistant's `keeper_assist[]`), 17 (its rule banks) and 18 (its hand rules' fields,
+  §5a); older saves can't be loaded.
 
 ---
 
@@ -1186,7 +1269,7 @@ rule for all of it: **everything outside the game's own binary and shipped data 
 | **1 -- content** | campaigns, map packs, mods: level scripts, `.cfg`/`.toml` configs, map files, strings, sprite/texture/sound packs, `LEVELS_LOCATION`-style paths | files in the user's folders, downloaded from anywhere | parsers with size caps; paths resolved in one place (`_resolve_file_path_internal`, `path_cannot_escape`); config numbers bounded against the tables they index; level Lua in the locked-down interpreter (`lua_sandbox.c`: no files, processes, native code, debug or bytecode; instruction and memory budget; handlers looked up by global name); Lua API arguments read through `lua_params.c` |
 | **2 -- state** | saved games, replays, a host's resync | files; the network | version and size checks, then a validator for each raw blob before it replaces anything (`sim_state_validate`, `game_state_validate`, `config_state_validate`, `ariadne_saved_state_check`); script data holds functions as references to installed code, never bytecode; a replay's packets go through the packet validator like any other |
 | **3 -- peer** | other players and the host of a multiplayer game | UDP (enet), LAN discovery, hole-punch datagrams | `process_network_message` bounds every length and user id; one packet validator for every action (`packet_validate.c`) with cheat actions dropped in multiplayer; the chat sender is checked; resync length is capped |
-| **4 -- local** | a program on this machine talking to the remote API | `127.0.0.1:5599`, off by default | first byte must be `{` (kills cross-protocol requests from a browser); optional token; `lua` refused over the console command |
+| **4 -- local** | a program on this machine talking to the remote API | `127.0.0.1:5599`, off by default | first byte must be `{` (kills cross-protocol requests from a browser); optional token; `lua` refused over the console command; a client that stops reading is dropped after 2 s rather than stalling the game; an agent may pause or slow the game only where no human plays a keeper or the setup allowed it (§5a) |
 | **5 -- service** | the matchmaking server, the router | HTTPS/WSS (libcurl), NAT-PMP/UPnP | verified TLS, https/wss only, no redirects, libcurl built without other protocols; router mappings are time-limited leases |
 
 Rules for code that sits on a tier boundary:
@@ -1226,6 +1309,8 @@ CLAUDE.md's "Hardening and dependency checks" and are verified by `scripts/check
   **exempt tier** in the layering check (test code may depend on anything).
 - **`tests/`** — standalone CUnit test programs: `tst_main`, `tst_enet_client`,
   `tst_enet_server`, `001_test`.
+- **External seats** (§5a): the in-process `ai_seat_*` ftests, and two-process runners that play a real game with the
+  bridge (`scripts/run_ftest_ai_bridge_*.sh`) -- [`testing-harness.md`](testing-harness.md) §7a.
 - **The `KFX_BUILD_TESTS` unit-test harness** — one Catch2 binary per
   `src/kfx_*/` library (`kfx_sim_utest`, `kfx_config_utest`, …), opt-in,
   native Linux only, with an opt-in `gcov`/`lcov` coverage report layered
@@ -1525,4 +1610,7 @@ there is one, and how much it logs is the `LOG_LEVEL` option
 | How to merge upstream (dkfans/keeperfx) into this fork | [`upstream-merge-workflow.md`](upstream-merge-workflow.md)                          |
 | How this tree stays apart from, and compatible with, KeeperFX | this doc (§10a) + [`upstream-merge-workflow.md`](upstream-merge-workflow.md) §6a |
 | What the game trusts, and how to report or review a security problem | this doc (§8a), [`SECURITY.md`](../../SECURITY.md), [`upstream-merge-workflow.md`](upstream-merge-workflow.md) §6b |
+| How an agent plays a keeper (External seats, the combat assistant) | this doc (§5a) |
+| The agent API on the wire (actions, events, the view)  | [`agent-api.md`](agent-api.md)                                                     |
+| The LLM bridge (MCP tools, triggers, the decision text) | [`scripts/llm_bridge/README.md`](../../scripts/llm_bridge/README.md)              |
 |                                                   |                                                                                           |

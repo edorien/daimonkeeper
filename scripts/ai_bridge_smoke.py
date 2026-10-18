@@ -184,7 +184,7 @@ def main():
     check("unrevealed slabs are '..' (the map is not fully known)", any(".." in [r[i:i + 2] for i in range(0, len(r), 2)] for r in m["rows"]))
     check("the map legend names the slab kinds seen", len(m["legend"]) >= 2 and all("kind" in e for e in m["legend"]))
     check("the visible section is present and lists nothing the seat cannot see yet",
-          set(v["visible"]) == {"creatures", "rooms", "traps", "doors", "force_by_owner"} and all(c["owner"] != 1 for c in v["visible"]["creatures"]))
+          set(v["visible"]) == {"creatures", "rooms", "traps", "doors", "force_by_owner", "hero_gates"} and all(c["owner"] != 1 for c in v["visible"]["creatures"]))
     print("     (view is %d bytes)" % len(json.dumps(v)))
     orc = orcs[0]
     hx, hy = orc["pos"][0] + 3, orc["pos"][1]  # the heart is 3 subtiles east of where the creature was made

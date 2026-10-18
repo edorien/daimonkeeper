@@ -19,6 +19,8 @@ import sqlite3
 import sys
 import time
 
+from latency import LatencyChain
+
 SCHEMA_VERSION = 1
 SCOPE_CAPS = {"general": 3000, "campaign": 1500, "level": 1000, "opponent": 800}
 SUMMARY_CAP = 600
@@ -69,7 +71,9 @@ class Experience:
             return
         d = os.path.dirname(os.path.abspath(self.path))
         os.makedirs(d, exist_ok=True)
-        self.db = sqlite3.connect(self.path, timeout=10.0, isolation_level=None)
+        # Any thread may use it (an HTTP server runs each tool call on its request's thread); the session's lock keeps
+        # them one at a time.
+        self.db = sqlite3.connect(self.path, timeout=10.0, isolation_level=None, check_same_thread=False)
         self.db.row_factory = sqlite3.Row
         self.db.execute("PRAGMA journal_mode=WAL")
         self.db.execute("PRAGMA busy_timeout=10000")
@@ -258,9 +262,16 @@ def checkpoint_from_view(view):
     own = view.get("own", {})
     force = own.get("force", {})
     rooms = {}
+    room_slabs = {}
+    lair = [0, 0]
     heart = None
     for r in own.get("rooms", []):
         rooms[r["kind"]] = rooms.get(r["kind"], 0) + 1
+        if "slabs" in r:
+            room_slabs[r["kind"]] = room_slabs.get(r["kind"], 0) + r["slabs"]
+        if r["kind"] == "LAIR" and r.get("capacity"):
+            lair[0] += r["capacity"].get("used", 0)
+            lair[1] += r["capacity"].get("total", 0)
         if r["kind"] == "DUNGEON_HEART" and r.get("max_health"):
             heart = round(100 * r.get("health", 0) / r["max_health"])
     enemy = sum(f.get("fighter_score", 0) for o, f in (view.get("visible", {}).get("force_by_owner") or {}).items()
@@ -270,6 +281,15 @@ def checkpoint_from_view(view):
           "rooms": rooms, "enemy_score": enemy}
     if heart is not None:
         cp["heart"] = heart
+    # For the pay day report (prompt.render_payday_report): ground, room slabs, lair places, the portal's limit.
+    if own.get("territory") is not None:
+        cp["area"] = own["territory"]
+    if room_slabs:
+        cp["room_slabs"] = room_slabs
+    if lair[1] > 0:
+        cp["lair"] = lair
+    if own.get("creature_limit") is not None:
+        cp["limit"] = [own.get("creatures_active", 0), own["creature_limit"]]
     return cp
 
 
@@ -319,6 +339,7 @@ class Recorder:
         self.agent = agent
         self.opponents = None       # [{player, kind, name, ...}] once the view names the players (players[])
         self.shown = False          # whether this attempt's EXPERIENCE has been shown in full
+        self.latency = LatencyChain()  # each decision's latency chain (latency.py), kept on the record as final.latency
 
     def start(self, mem, view, resumed):
         """At connect: a resumed memory whose attempt is already over (lost, suspended, reloaded...) or that the game
@@ -359,7 +380,15 @@ class Recorder:
         """The seat won or lost: the attempt is over. Returns True if this closed it (False if already closed).
         `combat`: the game's get_combat_stats for the seat, kept on the record (combat_report.py reads it)."""
         observe(mem, view)
-        return self.store.close_branch(mem, result, view.get("turn"), _with_combat(final_from_view(view), combat))
+        return self.store.close_branch(mem, result, view.get("turn"), self._final(view, combat))
+
+    def _final(self, view, combat):
+        final = _with_combat(final_from_view(view), combat)
+        lat = self.latency.summary()
+        if lat:
+            final = dict(final or {})
+            final["latency"] = lat
+        return final
 
     def left(self, mem, view, last_save_turn, combat=None):
         """The game left the level while undecided. Returns (result, worth_a_debrief): "suspended" when it was saved
@@ -372,7 +401,7 @@ class Recorder:
         else:
             result = "quit"
             debrief = turn - (mem.start_turn or 0) >= pd
-        self.store.close_branch(mem, result, turn, _with_combat(final_from_view(view), combat))
+        self.store.close_branch(mem, result, turn, self._final(view, combat))
         return result, debrief
 
 

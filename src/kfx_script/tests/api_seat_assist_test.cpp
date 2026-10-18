@@ -144,3 +144,36 @@ TEST_CASE_METHOD(Names, "each error code, with the rule at fault", "[kfx_script]
     many += "]}";
     CHECK(parse(many.c_str()).err == "TOO_MANY_RULES");
 }
+
+TEST_CASE_METHOD(Names, "hand rules: evacuate_diggers, lift_wounded and reinforce read in with their defaults and limits", "[kfx_script][assist][hand]") {
+    Parsed p = parse(R"({"rules": [
+        {"hand": "evacuate_diggers", "to": [91, 217], "count": 6, "radius": 4},
+        {"hand": "lift_wounded", "when": [["health_pct", "<", 25]]},
+        {"hand": "reinforce", "min_match": 70, "count": 3, "when": [["force_ratio", ">=", 100]]}]})");
+    REQUIRE(p.err.empty());
+    const KeeperAssistRule &e = p.rules[0], &l = p.rules[1], &r = p.rules[2];
+    CHECK((e.action == KAA_EvacuateDiggers && e.dest_x == 91 && e.dest_y == 217 && e.count == 6 && e.radius == 4 && e.target == KAT_AllyAny));
+    CHECK((l.action == KAA_LiftWounded && l.dest_x == 0 && l.count == KEEPER_ASSIST_HAND_MAX && l.target == KAT_AllyInFight));
+    CHECK((l.cooldown == KEEPER_ASSIST_DEFAULT_HAND_COOLDOWN && l.radius == KEEPER_ASSIST_DEFAULT_HAND_RADIUS));
+    CHECK((r.action == KAA_Reinforce && r.min_match == 70 && r.count == 3 && r.cond[0].fact == KAF_ForceRatio));
+    CHECK(keeper_assist_action_is_hand(r.action));
+    CHECK_FALSE(keeper_assist_action_is_hand(KAA_Cast));
+    // Back to words, as the view shows them.
+    VALUE out; value_init_dict(&out);
+    keeper_assist_rule_to_value(&out, &e);
+    CHECK(std::string(value_string(value_dict_get(&out, "hand"))) == "evacuate_diggers");
+    CHECK(value_int64(value_array_get(value_dict_get(&out, "to"), 1)) == 217);
+    CHECK(value_dict_get(&out, "power") == nullptr);
+    value_fini(&out);
+}
+
+TEST_CASE_METHOD(Names, "hand rules: the errors", "[kfx_script][assist][hand]") {
+    CHECK(parse(R"({"rules": [{"hand": "evacuate_diggers"}]})").err == "MISSING_DESTINATION");
+    CHECK(parse(R"({"rules": [{"hand": "dance"}]})").err == "UNKNOWN_HAND");
+    CHECK(parse(R"({"rules": [{"hand": "reinforce", "power": "POWER_SPEED"}]})").err == "BAD_RULE");
+    CHECK(parse(R"({"rules": [{"hand": "reinforce", "count": 9}]})").err == "VALUE_OUT_OF_RANGE");
+    CHECK(parse(R"({"rules": [{"hand": "lift_wounded", "to": [0, 0]}]})").err == "POSITION_OFF_MAP");
+    CHECK(parse(R"({"rules": [{"hand": "lift_wounded", "to": [1, 2, 3]}]})").err == "BAD_POSITION");
+    Parsed p = parse(R"({"rules": [{"power": "POWER_SPEED"}, {"hand": "reinforce", "min_match": 300}]})");
+    CHECK((p.err == "VALUE_OUT_OF_RANGE" && p.bad == 1));
+}

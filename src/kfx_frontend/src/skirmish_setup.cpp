@@ -258,6 +258,8 @@ void skirmish_setup_reset_choices()
     s_state.teams.assign((size_t)s_state.players, 0);
     s_state.external_slots.clear();
     s_state.reveal_map = false;
+    s_state.sharing = SkirmishSharing_None;
+    s_state.llm_pause = false;
 }
 
 static SetupChoices choices_with_allies()
@@ -275,7 +277,7 @@ bool skirmish_setup_is_changed()
 {
     if (!s_state.enabled())
         return false;
-    if (s_state.reveal_map)
+    if (s_state.reveal_map || (s_state.sharing != SkirmishSharing_None) || s_state.llm_pause)
         return true;
     return !script_setup_choices_are_default(s_state.analysis, choices_with_allies());
 }
@@ -558,8 +560,15 @@ extern "C" void skirmish_setup_install_for_play(LevelNumber lvnum)
     level_script_override_clear();
     level_start_options_clear();
     net_pending_external_seats_clear();
-    if (s_state.enabled() && s_state.lvnum == lvnum && s_state.reveal_map)
-        level_start_reveal_map_request(lvnum);
+    if (s_state.enabled() && s_state.lvnum == lvnum)
+    {
+        struct LevelStartOptions start;
+        start.reveal_map = s_state.reveal_map;
+        start.sharing = (s_state.sharing == SkirmishSharing_VisionAndLand) ? LevelStartSharing_VisionAndDrop
+            : (s_state.sharing == SkirmishSharing_Vision) ? LevelStartSharing_Vision : LevelStartSharing_None;
+        start.llm_pause = s_state.llm_pause;
+        level_start_options_request(lvnum, &start);
+    }
     if (s_state.enabled() && s_state.lvnum == lvnum)
         for (const int64_t slot : s_state.external_slots)
             if (slot != s_state.human_slot)

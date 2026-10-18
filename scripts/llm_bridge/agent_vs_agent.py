@@ -10,12 +10,19 @@ multiplexes N seats over the one connection this process holds, servicing whiche
 raises next -- each External seat already gets its own independent DECISION_DUE tracking engine-side
 (api_seat_decision.c keeps one state machine per player), so no engine change was needed, only a scheduler here
 that dispatches by the event's "player" field instead of assuming there is exactly one seat.
+
+Each seat's policy thinks on its own thread (docs/plans/llm-bridge-realtime.md, Phase 1): one seat's long think no longer
+holds every other seat's decision back. Everything else -- the connection, the views, the shared experience store -- is
+used under one lock, by the scheduler and by a seat's thread before and after its think. A seat still thinking when its
+next decision comes collects the reasons, and is served with all of them once it is free.
 """
 import argparse
 import json
 import os
 import sys
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -42,6 +49,9 @@ class SeatState:
         self.done = False
         self.summary = {"decisions": 0, "orders_sent": 0, "orders_refused": 0}
         self.ctx = {"reasons": []}   # kept across decisions, like bridge.py's ctx: metrics accumulate
+        self.busy = None             # the Future of the decision its thread is working on
+        self.waiting = []            # reasons that came while it was busy
+        self.waiting_due = []        # and their DECISION_DUE pushes
 
 
 def find_seats(api, claim, seats_arg):
@@ -73,21 +83,52 @@ def make_policy(name, model):
     return policy
 
 
-def service_decision(api, seat, args, reasons):
+def service_decision(api, seat, args, reasons, due_events=(), lock=None):
+    """One decision for one seat: everything but the think under `lock` (when given: the scheduler runs this on the
+    seat's own thread)."""
+    lock = lock or _NO_LOCK
+    with lock:
+        ctx = _prepare_decision(seat, reasons, due_events)
+    t0 = time.time()
+    decision = seat.policy.decide(seat.view, ctx)
+    think = time.time() - t0
+    with lock:
+        _finish_decision(api, seat, args, reasons, decision, think)
+
+
+class _NoLock:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+_NO_LOCK = _NoLock()
+
+
+def _prepare_decision(seat, reasons, due_events):
     v = seat.view.view
     if seat.first_turn is None:
         seat.first_turn = v["turn"]
     seat.memory.note_results(v["seat"].get("results", []))
     seat.recorder.decision(seat.memory, v, seat.ctx)
+    seat.recorder.latency.results(v["seat"].get("results", []))
+    seat.recorder.latency.delivered(reasons, due_events, v["turn"])
     ctx = seat.ctx
     ctx["reasons"] = reasons
     ctx["memory"] = seat.memory
     ctx["note"], seat.note = seat.note, None
-    t0 = time.time()
-    decision = seat.policy.decide(seat.view, ctx)
-    think = time.time() - t0
-    decision_turn = v["turn"]
+    ctx["decision_turn"] = v["turn"]
+    return ctx
+
+
+def _finish_decision(api, seat, args, reasons, decision, think):
+    ctx = seat.ctx
+    seat.view.mark_rendered()
+    decision_turn = ctx.pop("decision_turn")
     sent, refused = submit_batch(api, seat.player, decision["orders"], decision_turn, args.max_age_turns, memory=seat.memory)
+    seat.recorder.latency.answered(sent)
     seat.decisions += 1
     seat.summary["decisions"] = seat.decisions
     seat.summary["orders_sent"] += len(sent)
@@ -96,7 +137,8 @@ def service_decision(api, seat, args, reasons):
     seat.memory.record_decision(decision_turn, reasons, decision["reasoning"], sent, refused)
     seat.recorder.decided(seat.memory, decision_turn)
     rec = {"seat": seat.player, "decision": seat.decisions, "turn": decision_turn, "reasons": reasons,
-           "think_seconds": round(think, 3), "sent": sent, "refused": refused, "model": dict(ctx.get("metrics", {}))}
+           "think_seconds": round(think, 3), "sent": sent, "refused": refused, "model": dict(ctx.get("metrics", {})),
+           "latency": seat.recorder.latency.take_finished()}
     if seat.log:
         seat.log.write(json.dumps(rec) + "\n")
         seat.log.flush()
@@ -133,10 +175,17 @@ def run_multi(args):
         resume_agent_pause(api, players[0], seats[players[0]].view.view)
 
     started = time.time()
+    lock = threading.RLock()
+    pool = ThreadPoolExecutor(max_workers=max(1, len(seats)), thread_name_prefix="seat")
     try:
         while True:
             for s in seats.values():
-                if s.done:
+                if s.busy is not None and s.busy.done():
+                    s.busy.result()   # a seat's decision that failed fails the run, as it did when served in line
+                    s.busy = None
+            lock.acquire()
+            for s in seats.values():
+                if s.done or s.busy is not None:
                     continue
                 s.view.update(api, s.player)
                 if s.view.view["seat"]["victory_state"] != "undecided":
@@ -150,18 +199,28 @@ def run_multi(args):
                 elif args.max_turns and s.first_turn is not None and s.view.view["turn"] - s.first_turn >= args.max_turns:
                     s.done = True
             active = [s for s in seats.values() if not s.done]
-            if not active:
+            if not active and not any(s.busy for s in seats.values()):
+                lock.release()
                 break
 
             events = api.drain_events(("DECISION_DUE", "GAME_LOADED"))
             if not events:
-                wait = min(args.max_wait_seconds - (time.time() - s.last_service_time) for s in active)
-                ev = api.wait_event(("DECISION_DUE", "GAME_LOADED"), max(0.05, wait))
+                # Wait briefly, holding the connection, then let the seats' threads at it.
+                waits = [args.max_wait_seconds - (time.time() - s.last_service_time) for s in active if s.busy is None]
+                ev = api.wait_event(("DECISION_DUE", "GAME_LOADED"), max(0.02, min([0.1] + waits)))
                 events = [ev] if ev else []
 
             by_player = {}
+            due_by_player = {}
             loads = [i for i, ev in enumerate(events) if ev.get("event") == "GAME_LOADED"]
             if loads:
+                # Every seat's decision in flight belongs to the game that is gone: let them finish first.
+                lock.release()
+                for s in seats.values():
+                    if s.busy is not None:
+                        s.busy.result()
+                        s.busy = None
+                lock.acquire()
                 # A save was loaded: every seat starts over from it, with the memory saved with it.
                 events = events[loads[-1] + 1:]
                 for s in active:
@@ -176,18 +235,34 @@ def run_multi(args):
                 p = ev["data"]["player"]
                 if p in seats and not seats[p].done:
                     by_player.setdefault(p, []).extend(x for x in ev["data"]["reasons"].split(",") if x)
+                    due_by_player.setdefault(p, []).append(ev)
             now = time.time()
             for s in active:
-                if s.player not in by_player and now - s.last_service_time >= args.max_wait_seconds:
+                if s.player not in by_player and s.busy is None and not s.waiting and now - s.last_service_time >= args.max_wait_seconds:
                     by_player[s.player] = ["timer"]
+            # A busy seat keeps what came for it; a free one is served with everything that waited, on its own thread.
             for p, reasons in by_player.items():
-                seats[p].view.update(api, p)
-                service_decision(api, seats[p], args, reasons or ["timer"])
-            if loads and by_player:
+                seats[p].waiting += [r for r in reasons if r not in seats[p].waiting]
+                seats[p].waiting_due += due_by_player.get(p, [])
+            served = []
+            for s in seats.values():
+                if s.done or s.busy is not None or not s.waiting:
+                    continue
+                reasons, due, s.waiting, s.waiting_due = s.waiting, s.waiting_due, [], []
+                s.view.update(api, s.player)
+                s.busy = pool.submit(service_decision, api, s, args, reasons, due, lock)
+                served.append(s)
+            if loads and served:
                 # A loaded save with no human keeper is paused for the agents: every seat has decided on it, so play.
-                p = next(iter(by_player))
-                resume_agent_pause(api, p, seats[p].view.view)
+                lock.release()
+                for s in served:
+                    s.busy.result()
+                    s.busy = None
+                lock.acquire()
+                resume_agent_pause(api, served[0].player, served[0].view.view)
+            lock.release()
     finally:
+        pool.shutdown(wait=True)
         for s in seats.values():
             if s.log:
                 s.log.close()

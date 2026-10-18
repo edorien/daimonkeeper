@@ -98,6 +98,29 @@ class StatsTests(unittest.TestCase):
         self.assertIn("| start -> first cast | - |", md)
         self.assertEqual(combat_report.markdown([]), "(no games with combat statistics)")
 
+    def test_latency_chain_from_a_decision_log(self):
+        import json
+        import tempfile
+        recs = [{"decision": 1, "latency": [{"hold": 80, "delivery": 30, "think": 70, "queue": 25, "gesture": 15, "total": 205,
+                                             "think_seconds": 15.5}]},
+                {"decision": 2, "latency": []},
+                {"decision": 3, "latency": [{"hold": 0, "delivery": 2, "think": 40, "total": 50, "think_seconds": 9.0}]}]
+        with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as f:
+            f.write("\n".join(json.dumps(r) for r in recs) + "\n")
+        try:
+            rows = combat_report.latency_rows_from_decision_logs([f.name])
+        finally:
+            os.unlink(f.name)
+        lat = rows[0][1]
+        self.assertEqual(lat["decisions"], 2)
+        self.assertEqual(lat["links"]["hold"], {"median": 0, "max": 80, "n": 2})
+        md = combat_report.latency_markdown(rows)
+        self.assertIn("| total | 50 (2.5s) (max 205) |", md)
+        self.assertIn("| gesture | 15 (0.8s) (max 15) |", md)
+        self.assertIn("| think, wall clock | 9.0s |", md)
+        line = combat_report.render_latency_text(lat)
+        self.assertIn("hold 0 (0.0s); delivery 2 (0.1s); think 40 (2.0s)", line)
+
     def test_median_is_the_lower_middle(self):
         self.assertEqual(combat_report.median([4, 1, 3, 2]), 2)
         self.assertIsNone(combat_report.median([]))

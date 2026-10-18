@@ -1,6 +1,7 @@
 // docs/newFeatures/llm/03 P2: the combat assistant's rules set through an External seat (set_assist's verb, ESV_SetAssist):
 // planned as packets, written one a turn, live only on the commit's turn; then acting in a fight; reported in own.assist;
-// a one-rule change sending only that rule; and the decision-due reasons for a spent budget and the gold guard.
+// a one-rule change sending only that rule; and the decision-due reasons for a spent budget, the gold guard and the
+// whole set's cap for the pay day (max_spend).
 #include "ftest_ai_seat_assist.h"
 
 #ifdef FUNCTESTING
@@ -36,6 +37,7 @@
 #include "slab_data.h"
 #include "thing_creature.h"
 #include "thing_list.h"
+#include "thing_navigate.h"
 
 #include "post_inc.h"
 
@@ -52,6 +54,7 @@ static NetUserId U = -1;
 static ThingIndex orc = 0, hero = 0;
 static int64_t s_phase_start = 0, s_planned = 0, s_live_turn = 0;
 static TbBool s_live_early = false;
+static int64_t s_seq_before = 0;
 static struct ExtSeatVerb s_verb;
 
 static int64_t now(void) { return (int64_t)get_gameturn(); }
@@ -95,6 +98,7 @@ FTestActionResult sa05_check_change_then_budget(struct FTestActionArgs* const ar
 FTestActionResult sa06_check_budget_reason_then_cta(struct FTestActionArgs* const args);
 FTestActionResult sa07_guard(struct FTestActionArgs* const args);
 FTestActionResult sa08_check_guard_reason(struct FTestActionArgs* const args);
+FTestActionResult sa09_check_cap_reason(struct FTestActionArgs* const args);
 
 void ftest_ai_seat_assist_pre_start() { fe_computer_players = 1; }
 
@@ -109,6 +113,7 @@ TbBool ftest_ai_seat_assist_init()
     ftest_append_action(sa06_check_budget_reason_then_cta, 1, NULL);
     ftest_append_action(sa07_guard, 1, NULL);
     ftest_append_action(sa08_check_guard_reason, 1, NULL);
+    ftest_append_action(sa09_check_cap_reason, 1, NULL);
     return true;
 }
 
@@ -287,6 +292,41 @@ FTestActionResult sa08_check_guard_reason(struct FTestActionArgs* const args)
         else return FTRs_Repeat_Current_Action;
     }
     CHECK_TRUE("the guard switched call to arms off", !player_uses_power_call_to_arms(P));
+    // The whole set's cap for the pay day (the live bug: 14,300 gold in one pay day with none): the heal rule's own
+    // budget off, a cap below one heal, and the fight brought back (Call to Arms took the orc away).
+    s_verb.assist_rules[0].budget = 0;
+    s_verb.assist_globals.max_spend = 1;
+    if (submit()) SOFT_FAIL("the cap was refused");
+    struct Thing* a = creature(orc);
+    struct Thing* h = creature(hero);
+    if (a && h) {
+        struct Coord3d pos = a->mappos;
+        pos.x.val += COORD_PER_STL;
+        move_thing_in_map(h, &pos);
+    }
+    TbBool combat;
+    int64_t turn;
+    api_seat_decision_latest(P, &s_seq_before, &turn, &combat);
+    s_phase_start = now();
+    return FTRs_Go_To_Next_Action;
+}
+
+FTestActionResult sa09_check_cap_reason(struct FTestActionArgs* const args)
+{
+    hold(30);
+    int64_t seq = 0, turn = 0;
+    TbBool combat = false;
+    api_seat_decision_latest(P, &seq, &turn, &combat);
+    if ((st()->globals.max_spend != 1) || (st()->run[0].last_refusal != KAR_MaxSpend) || (seq <= s_seq_before) || !reasons_have("assist_budget")) {
+        if (phase_over(300)) {
+            SOFT_FAIL("no assist_budget decision once the cap held a heal back (cap %d, refusal %d, decisions %" PRId64 " -> %" PRId64 ")",
+                      (int)st()->globals.max_spend, (int)st()->run[0].last_refusal, s_seq_before, seq);
+        } else {
+            return FTRs_Repeat_Current_Action;
+        }
+    } else {
+        FTESTLOG("assist_budget raised for the set's cap %" PRId64 " turns after it was sent", now() - s_phase_start);
+    }
     api_seat_decision_set_min_interval(100);
     if (s_failures > 0) { FTEST_FAIL_TEST("%" PRId64 " set_assist check(s) failed", s_failures); return FTRs_Go_To_Next_Action; }
     FTESTLOG("Test passed: rules set through the seat, live on the commit, acting, in the view, minimal changes, decision reasons");

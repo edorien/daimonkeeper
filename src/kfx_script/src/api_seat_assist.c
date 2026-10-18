@@ -5,6 +5,8 @@
 #include "config_magic.h"
 #include "keeper_assist_state.h"
 #include "kfx_sim_state.h"
+#include "player_data.h"
+#include "seat_reflexes.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -57,7 +59,62 @@ void api_assist_add_to_view(VALUE *own, PlayerNumber plyr_idx)
         value_init_int64(value_dict_add(e, "spent"), run->spent_total);
         value_init_int64(value_dict_add(e, "spent_this_payday"), run->spent_this_payday);
         if (run->last_cast_turn != 0) value_init_int64(value_dict_add(e, "last_turn"), (int64_t)run->last_cast_turn);
-        value_init_string(value_dict_add(e, "state"), refusal_name(run->last_refusal));
+        if (keeper_assist_action_is_hand(r->action)) {
+            // A hand rule is the seat's (seat_reflexes.h): its own reason for holding back.
+            const char *why = seat_reflexes_refusal(get_player(plyr_idx)->user_id, s);
+            value_init_string(value_dict_add(e, "state"), why ? why : "ok");
+        } else {
+            value_init_string(value_dict_add(e, "state"), refusal_name(run->last_refusal));
+        }
+    }
+    {
+        // What the hand rules did: each trip, the creatures and where they went.
+        struct SeatReflexAction acts[SEAT_REFLEX_LOG];
+        const int64_t na = seat_reflexes_log(get_player(plyr_idx)->user_id, acts, SEAT_REFLEX_LOG);
+        VALUE *rx = value_dict_add(a, "reflexes");
+        value_init_array(rx);
+        for (int64_t k = 0; k < na; k++) {
+            VALUE *e = value_array_append(rx);
+            value_init_dict(e);
+            value_init_int64(value_dict_add(e, "turn"), acts[k].turn);
+            value_init_int32(value_dict_add(e, "rule"), acts[k].slot);
+            value_init_string(value_dict_add(e, "hand"), keeper_assist_hand_name(acts[k].action));
+            value_init_int64(value_dict_add(e, "verb_id"), acts[k].verb_id);
+            VALUE *th = value_dict_add(e, "things");
+            value_init_array(th);
+            for (int t = 0; t < acts[k].count; t++) value_init_int64(value_array_append(th), acts[k].things[t]);
+            if (acts[k].y >= 0) {
+                VALUE *pos = value_dict_add(e, "pos");
+                value_init_array(pos);
+                value_init_int64(value_array_append(pos), acts[k].x);
+                value_init_int64(value_array_append(pos), acts[k].y);
+            } else {
+                value_init_int64(value_dict_add(e, "to_room"), acts[k].x);
+            }
+        }
+    }
+    // The banks: complete rule sets kept ready, made live in one packet (use_assist_bank).
+    value_init_int32(value_dict_add(a, "active_bank"), st->active_bank);
+    VALUE *banks = value_dict_add(a, "banks");
+    value_init_array(banks);
+    for (int b = 0; b < KEEPER_ASSIST_BANKS; b++) {
+        const struct KeeperAssistBank *bk = &st->bank[b];
+        if (!bk->used) continue;
+        VALUE *e = value_array_append(banks);
+        value_init_dict(e);
+        value_init_int32(value_dict_add(e, "bank"), b + 1);
+        value_init_bool(value_dict_add(e, "enabled"), bk->globals.enabled != 0);
+        value_init_int64(value_dict_add(e, "reserve"), bk->globals.reserve);
+        value_init_int64(value_dict_add(e, "max_spend"), bk->globals.max_spend);
+        VALUE *br = value_dict_add(e, "rules");
+        value_init_array(br);
+        for (int s = 0; s < KEEPER_ASSIST_RULES; s++) {
+            if (!bk->rules[s].used) continue;
+            VALUE *re = value_array_append(br);
+            value_init_dict(re);
+            value_init_int32(value_dict_add(re, "slot"), s);
+            keeper_assist_rule_to_value(re, &bk->rules[s]);
+        }
     }
     VALUE *casts = value_dict_add(a, "casts");
     value_init_array(casts);

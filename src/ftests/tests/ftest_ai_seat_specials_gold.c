@@ -3,7 +3,9 @@
 // use_special: an increase-level box levels the seat's creatures; a resurrect box brings back the dead creature the
 // order names (refused MISSING_CHOICE without one); a transfer box takes the creature the order names; a box on land
 // not the seat's is CANNOT_REACH. Loose gold outside the treasure room is listed -- every pile the hand can reach by id,
-// beyond the few shown in detail -- and carried into it with the hand.
+// beyond the few shown in detail -- and carried into it with the hand; a pile on another keeper's land is listed with
+// whose land it is. Another keeper's traps are seen (visible.traps) when not hidden, a hidden one only once revealed,
+// and a hero gate is listed (visible.hero_gates).
 #include "ftest_ai_seat_specials_gold.h"
 
 #ifdef FUNCTESTING
@@ -34,6 +36,8 @@
 #include "thing_corpses.h"
 #include "thing_list.h"
 #include "thing_objects.h"
+#include "thing_traps.h"
+#include "config_trapdoor.h"
 
 #include "post_inc.h"
 
@@ -51,6 +55,7 @@ static MapSlabCoord hsx, hsy;
 static ThingIndex s_level_box = 0, s_res_box = 0, s_trans_box = 0, s_far_box = 0, s_orc = 0, s_troll = 0, s_gold = 0;
 #define EXTRA_PILES 20
 static ThingIndex s_extra[EXTRA_PILES], s_far_gold = 0;
+static ThingIndex s_enemy_gold = 0, s_boulder = 0, s_alarm = 0, s_gate = 0;
 static RoomIndex s_treasure = 0;
 static int64_t s_orcs_before = 0, s_treasure_gold_before = 0;
 static CrtrExpLevel s_orc_level_before = 0;
@@ -114,6 +119,46 @@ static TbBool gold_ids_complete(void)
     FTESTLOG("loose_gold ids: %d of the %d reachable test piles; the pile on unclaimed path listed %d, reachable %d", (int)found, (int)want, (int)far, (int)far_reach);
     value_fini(&v);
     return ok && (found == want) && (want == 1 + EXTRA_PILES) && (s_far_gold != 0) && ((far != 0) == far_reach);
+}
+/** Whether visible.<list> has `id` (and, when `owner` >= 0, with that owner). */
+static TbBool visible_has(const char* list, ThingIndex id, int owner)
+{
+    VALUE v; api_seat_build_view(&v, P);
+    VALUE* arr = value_dict_get(value_dict_get(&v, "visible"), list);
+    TbBool found = false;
+    for (size_t i = 0; arr && i < value_array_size(arr); i++) {
+        VALUE* e = value_array_get(arr, i);
+        if (value_int32(value_dict_get(e, "id")) != id) continue;
+        found = (owner < 0) || (value_int32(value_dict_get(e, "owner")) == owner);
+    }
+    value_fini(&v);
+    return found;
+}
+/** visible.traps: the trap's charges (-2 when it is not listed). */
+static int64_t trap_charges(ThingIndex id)
+{
+    VALUE v; api_seat_build_view(&v, P);
+    VALUE* arr = value_dict_get(value_dict_get(&v, "visible"), "traps");
+    int64_t c = -2;
+    for (size_t i = 0; arr && i < value_array_size(arr); i++) {
+        VALUE* e = value_array_get(arr, i);
+        if (value_int32(value_dict_get(e, "id")) == id) c = value_int64(value_dict_get(e, "charges"));
+    }
+    value_fini(&v);
+    return c;
+}
+/** loose_gold.piles: the pile's land owner (-2 when it is not listed). */
+static int pile_land(ThingIndex id)
+{
+    VALUE v; api_seat_build_view(&v, P);
+    VALUE* arr = value_dict_get(value_dict_get(value_dict_get(&v, "own"), "loose_gold"), "piles");
+    int land = -2;
+    for (size_t i = 0; arr && i < value_array_size(arr); i++) {
+        VALUE* e = value_array_get(arr, i);
+        if (value_int32(value_dict_get(e, "id")) == id) land = value_int32(value_dict_get(e, "land"));
+    }
+    value_fini(&v);
+    return land;
 }
 static TbBool dead_listed(const char* kind, int level)
 {
@@ -181,6 +226,22 @@ FTestActionResult sg01_setup(struct FTestActionArgs* const args)
     struct Coord3d fpos; set_coords_to_slab_center(&fpos, hsx + 4, hsy + 7);
     struct Thing* far_gold = drop_gold_pile(30, &fpos);
     s_far_gold = thing_is_invalid(far_gold) ? 0 : far_gold->index;
+    // Another keeper's claimed ground beyond the path: gold lying on it, a boulder trap, a (hidden) alarm trap; and a
+    // hero gate on the path.
+    const PlayerNumber E = my_player_number;
+    ftest_util_replace_slabs(hsx + 5, hsy + 8, hsx + 7, hsy + 8, SlbT_CLAIMED, E);
+    struct Coord3d epos; set_coords_to_slab_center(&epos, hsx + 5, hsy + 8);
+    struct Thing* eg = drop_gold_pile(500, &epos);
+    s_enemy_gold = thing_is_invalid(eg) ? 0 : eg->index;
+    set_coords_to_slab_center(&epos, hsx + 6, hsy + 8);
+    struct Thing* tb = create_trap(&epos, (ThingModel)trap_model_id("BOULDER"), E);
+    set_coords_to_slab_center(&epos, hsx + 7, hsy + 8);
+    struct Thing* ta = create_trap(&epos, (ThingModel)trap_model_id("ALARM"), E);
+    s_boulder = thing_is_invalid(tb) ? 0 : tb->index;
+    s_alarm = thing_is_invalid(ta) ? 0 : ta->index;
+    set_coords_to_slab_center(&epos, hsx + 2, hsy + 8);
+    struct Thing* gate = create_object(&epos, ObjMdl_HeroGate, PLAYER_GOOD, -1);
+    s_gate = thing_is_invalid(gate) ? 0 : gate->index;
     return FTRs_Go_To_Next_Action;
 }
 
@@ -192,6 +253,22 @@ FTestActionResult sg02_check_view_then_use(struct FTestActionArgs* const args)
     CHECK_TRUE("with a resurrect box about, the seat's dead are listed", dead_listed("ORC", 3));
     CHECK_TRUE("the loose gold pile is listed", s_gold && view_lists("gold", s_gold, &reach) && reach);
     CHECK_TRUE("every reachable pile is named in loose_gold.ids, more than the detailed list holds", gold_ids_complete());
+    const int land = pile_land(s_enemy_gold);
+    FTESTLOG("gold on the other keeper's land: listed with land %d; boulder %d, alarm %d, gate %d", land,
+        (int)visible_has("traps", s_boulder, my_player_number), (int)visible_has("traps", s_alarm, -1), (int)visible_has("hero_gates", s_gate, -1));
+    CHECK_TRUE("a pile on another keeper's land is listed, with whose land it is", s_enemy_gold && (land == my_player_number));
+    CHECK_TRUE("the other keeper's boulder trap is seen, with its owner", s_boulder && visible_has("traps", s_boulder, my_player_number));
+    CHECK_TRUE("its alarm trap (a hidden kind) is not, until revealed", s_alarm && !visible_has("traps", s_alarm, -1));
+    thing_get(s_alarm)->trap.revealed = 1;
+    CHECK_TRUE("and is once revealed", visible_has("traps", s_alarm, my_player_number));
+    CHECK_TRUE("the hero gate is listed", s_gate && visible_has("hero_gates", s_gate, -1));
+    // Charges: the engine's own shot count, as it changes.
+    struct Thing* boulder = thing_get(s_boulder);
+    const int64_t before = trap_charges(s_boulder);
+    boulder->trap.num_shots = 3;
+    const int64_t after = trap_charges(s_boulder);
+    FTESTLOG("boulder charges: %d, then %d", (int)before, (int)after);
+    CHECK_TRUE("a seen trap reports its charges", (before >= 0) && (after == 3));
     const char* e = submit(special(s_far_box));
     CHECK_TRUE("a box the hand cannot reach is CANNOT_REACH", e && strcmp(e, "CANNOT_REACH") == 0);
     e = submit(special(s_res_box));

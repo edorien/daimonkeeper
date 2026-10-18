@@ -35,6 +35,7 @@
 #include "net_resync.h"
 
 #include "player_data.h"
+#include "player_instances.h"
 #include "player_utils.h"
 #include "player_computer.h"
 #include "light_registry.h"
@@ -199,6 +200,24 @@ void net_clear_external_seats(void)
     }
 }
 
+/**
+ * The locks on a user's own input (UsrIF_KeyboardInputDisabled/UsrIF_MouseInputDisabled) that a player instance set --
+ * the heart-zoom intro at level start, possession, zoom to a position -- follow the player to its new user. The instance
+ * lifts them from get_player_user_state(), the state of whatever user the player has when it ends; a lock left behind on
+ * the user it had when it began is never lifted, and the local camera and keys stay dead for the rest of the game.
+ */
+static void move_input_locks(NetUserId from, NetUserId to)
+{
+    const uint64_t mask = UsrIF_KeyboardInputDisabled | UsrIF_MouseInputDisabled;
+    struct UserState *from_state = get_user_state(from);
+    struct UserState *to_state = get_user_state(to);
+    if (user_state_invalid(from_state) || user_state_invalid(to_state) || (from == to)) {
+        return;
+    }
+    to_state->init_flags |= (from_state->init_flags & mask);
+    from_state->init_flags &= ~mask;
+}
+
 NetUserId net_add_external_seat(PlayerNumber plyr_idx)
 {
     if (network_is_active() || (plyr_idx < 0) || (plyr_idx >= PLAYERS_COUNT)) {
@@ -244,12 +263,24 @@ NetUserId net_add_external_seat(PlayerNumber plyr_idx)
             setup_a_computer_player(plyr_idx, comp_player_conf.player_assist_default);
         }
     }
+    // An agent has no use for the level-start intro (16 turns of zoom and 16 of zoom out, input locked, the first half in
+    // the spectator creature's view): its orders would be consumed by the possession handlers. A claim during it ends
+    // it now, while the keeper still has its old user (the locks it set are on that one), and a seat never gets one
+    // (game_loop() starts it only for keepers that do not skip it).
+    if (exists) {
+        player_finish_heart_zoom_now(player);
+    }
+    const NetUserId previous_user = player->user_id;
     player->id_number = plyr_idx;
     player->user_id = user;
     set_flag(player->allocflags, PlaF_Allocated | PlaF_ExternalSeat);
     player->view_mode_restore = PVM_IsoWibbleView;
     init_player(player, 0);
+    player->skip_heart_zoom = true; // init_player() took the setting's value
     init_user_state(user);
+    if (exists) {
+        move_input_locks(previous_user, user);
+    }
     set_creature_tendencies(player, CrTend_Imprison, IMPRISON_BUTTON_DEFAULT);
     set_creature_tendencies(player, CrTend_Flee, FLEE_BUTTON_DEFAULT);
     snprintf(player->player_name, sizeof(player->player_name), "External %d", (int)user);
@@ -293,6 +324,7 @@ TbBool net_release_external_seat(PlayerNumber plyr_idx)
     net_local_external_player[user] = -1;
     clear_flag(player->allocflags, PlaF_ExternalSeat);
     player->user_id = SOLO_HUMAN_ID;
+    move_input_locks(user, SOLO_HUMAN_ID);
     player->player_name[0] = '\0';
     if (plyr_idx == my_player_number) {
         // The local human reclaims their own seat: never hand it to the built-in AI --

@@ -2,12 +2,13 @@
 # An agent applies them through the API (get_assist_presets, then set_assist); the Options screen offers them to a
 # player. Each [preset] takes the same fields as set_assist (docs/newFeatures/llm/02-rule-language.md): the settings,
 # then the rules, tried in the order given. A rule's `name` is how a player's sliders find it (heal, buff, cta_floor,
-# obey_floor); the game itself ignores it.
+# obey_floor); the game itself ignores it. max_spend caps what the whole set may spend in one pay day (0 = no cap).
 
 [guardian]
-description = "Heal fighters in trouble, speed them up when a fight is going badly, and keep Call to Arms and Must Obey from draining the treasury."
+description = "Heal fighters in trouble, speed them up when a fight is going badly, and keep Call to Arms and Must Obey from draining the treasury. Spends at most 3000 gold a pay day."
 enabled = true
 reserve = 1000
+max_spend = 3000
 
 [[guardian.rules]]
 name = "heal"
@@ -35,9 +36,10 @@ power_off = "POWER_OBEY"
 when = [["gold", "<", 800]]
 
 [striker]
-description = "Guardian, and also Chicken on the strongest enemy on your ground when a fight is going badly, and Lightning to finish off a hurt enemy when none of your allies' creatures is in reach."
+description = "Guardian, and also Chicken on the strongest enemy on your ground when a fight is going badly, and Lightning to finish off a hurt enemy when none of your allies' creatures is in reach. Spends at most 5000 gold a pay day."
 enabled = true
 reserve = 1000
+max_spend = 5000
 
 [[striker.rules]]
 name = "heal"

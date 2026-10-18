@@ -98,5 +98,24 @@ class RenderTests(unittest.TestCase):
         self.assertEqual((out["enabled"], out["reserve"]), (True, 500))
 
 
+
+class HandRuleTests(unittest.TestCase):
+    def test_hand_rules_in_words_and_what_they_did(self):
+        import standing_orders
+        self.assertIn("evacuate_diggers (hand: lift the imps near an enemy to (91,217), up to 6)",
+                      standing_orders.describe({"hand": "evacuate_diggers", "to": [91, 217], "count": 6}))
+        self.assertIn("to a lair", standing_orders.describe({"hand": "lift_wounded", "count": 8}))
+        self.assertIn("each at least 70% of the strongest enemy",
+                      standing_orders.describe({"hand": "reinforce", "count": 3, "min_match": 70, "when": [["force_ratio", ">=", 100]]}))
+        view = {"turn": 500, "paused": False, "own": {"creatures": [{"id": 7, "kind": "IMP", "health": 50}], "assist": {
+            "enabled": True, "interval": 2, "reserve": 0, "spent_this_payday": 0, "max_spend": 0,
+            "rules": [{"slot": 0, "hand": "evacuate_diggers", "to": [91, 217], "count": 6, "fired": 0, "spent": 0, "state": "NO_DROP_SPOT"}],
+            "reflexes": [{"turn": 480, "rule": 0, "hand": "evacuate_diggers", "things": [7], "pos": [92, 217], "verb_id": 3}],
+            "casts": []}}, "visible": {"creatures": []}, "seat": {}}
+        lines = "\n".join(standing_orders.render(view, None, {"_turn": 400}))
+        self.assertIn("held back: nowhere to drop near it", lines)
+        self.assertIn("hand rules since last decision: turn 480 rule 0 moved #7 (now 50 hp) to (92,217)", lines)
+
+
 if __name__ == "__main__":
     unittest.main()

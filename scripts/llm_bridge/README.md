@@ -1,6 +1,53 @@
 # LLM bridge
 
-Two ways to play a dAImon Keeper External seat, and a shared core underneath them.
+Two ways to play a dAImon Keeper External seat, and a shared core underneath them. The engine side is described in
+`docs/Architecture/architecture.md` §5a and the wire protocol in `docs/Architecture/agent-api.md`.
+
+## Quick start: real-time play
+
+A model replies in tens of seconds; a fight is settled in a few. So the agent writes its fast reactions ahead, on a calm
+decision, and the game and the bridge carry them out. Setup:
+
+1. **The game**: `API_ENABLED=TRUE` in `daimonkeeper.cfg`. A seat: a Skirmish slot set to **External agent (API)**, a
+   campaign with **Seat control: LLM**, or `connect(claim: N)` in a running game.
+2. **The server**, started before the client's session: `python3 scripts/llm_bridge/mcp_http_server.py`, registered
+   with `claude mcp add --transport http daimonkeeper http://127.0.0.1:5600/mcp` (details below).
+3. **In the conversation**: `connect` (`agent`, `experience_path`; `on_urgent` defaults to `auto`: the game pauses for
+   each urgent decision where the agent may pause anyway), then `get_instructions` once.
+4. **On the first, calm decision**, set up the fast layers:
+   - `set_rally_points({"safe": [x, y]})`: a subtile on a pocket of your floor imps cannot walk out of (walled in, or
+     across water with no bridge). Imps run back to defend an attacked heart, so anywhere they can walk from is not safe.
+   - `set_combat_rules` with heals, gold guards and hand rules, for example:
+
+     ```json
+     {"enabled": true, "reserve": 1500, "max_spend": 3000, "rules": [
+       {"name": "heal", "power": "POWER_HEAL_CREATURE", "level": 2, "when": [["health_pct", "<", 35]]},
+       {"name": "evacuate", "hand": "evacuate_diggers", "to": [91, 217]},
+       {"name": "lift", "hand": "lift_wounded"},
+       {"name": "reinforce", "hand": "reinforce", "count": 4, "min_match": 50},
+       {"name": "cta_floor", "power_off": "POWER_CALL_TO_ARMS", "when": [["gold", "<", 1500]]}]}
+     ```
+
+     `lift` acts only when `heal` cannot (its cap or the reserve reached, or no gold); `reinforce` sends only fighters
+     that are a match for the enemy, and only if they turn the fight.
+   - Optionally a second set in a bank (`set_combat_rules(bank: 2, label: "war", ...)`, switched to with
+     `use_combat_bank(2)` in one packet), and bridge triggers (`apply_trigger_preset`, `set_triggers`) for reactions the
+     rules do not cover.
+5. **Then the loop**: `wait_for_decision`, decide, `submit_orders`. A **flash decision** (severity 1 or 0: a fight, an
+   intruder, a loss) is short: answer it at once with at most 4 orders (urgent by default) or `[]`. An urgent decision
+   that comes in while you are busy shows as `ALERT` on other replies and comes back in `submit_orders`' reply as
+   `next_decision`.
+
+What then happens without a reply:
+
+| Layer | Set with | Acts |
+|---|---|---|
+| hand rules: evacuate_diggers, lift_wounded, reinforce | `set_combat_rules` (`"hand"`) | the seat, every 2 turns, with your hand |
+| cast rules and gold guards | `set_combat_rules` (`"power"`, `"power_off"`) | the game, every 2 turns |
+| triggers | `set_triggers`, `apply_trigger_preset` | the bridge, 1-3 turns after the game's push |
+| the urgent hold | `connect(on_urgent)` | the game waits for your answer, where pausing is fair |
+
+STANDING ORDERS and TRIGGERS in each decision say what these did, and why one held back.
 
 ## Recommended: MCP
 
@@ -40,8 +87,12 @@ Same tools and prompt, MCP's Streamable HTTP transport (plain JSON answers, no S
 with the Host/Origin headers checked (no DNS rebinding from a browser page); `--port` moves it, `--token SECRET` (or
 `DAIMONKEEPER_MCP_TOKEN`) requires `Authorization: Bearer SECRET` and is required for a non-loopback `--host`. The game
 connection belongs to the server process, not the client: a client that restarts finds the seat still connected, and
-stopping the server (Ctrl-C) disconnects it. Keep `wait_for_decision`'s `timeout_seconds` below the client's own request
-timeout (60 s in the reference SDKs; the default 50 fits).
+stopping the server (Ctrl-C) disconnects it. A client gives up on a reply after its own request
+timeout (60 s in the reference SDKs), and a decision produced after that goes nowhere -- the agent never sees it (once
+seen live: a quarter decision at the end of a long `advance_turns`). So a wait is capped at 50 s
+(`DAIMONKEEPER_MAX_WAIT_SECONDS`; a longer `timeout_seconds` returns `due: false` with a note to call again), and a
+decision that came after a wait of 30 s or more (`DAIMONKEEPER_RISKY_WAIT_SECONDS`, for a client with a shorter timeout)
+is handed out again by the next `wait_for_decision` (`repeated: true`) unless `submit_orders` answered it first.
 
 Start the server **before** the client session: a client connects to its MCP servers when the session starts, and one
 started first reports the server as failed (connection refused) until that session is restarted.
@@ -64,6 +115,52 @@ map (`look` shows a window of it); `--save FILE` keeps the full text. Exit statu
 (default 1500 turns, about 75 s at normal speed). An agent that takes longer to decide can pass a larger `max_age_turns` to
 `connect`, at the cost of acting on an older view, or slow the game with `set_game_speed`.
 
+**What the seat sees of others**: `visible.traps` and `visible.doors` (another keeper's, a hidden trap only once it is
+revealed; ENEMY TRAPS SEEN / ENEMY DOORS SEEN), `visible.hero_gates` (HERO GATES), and every trap's `charges` (0: empty
+until re-armed with a crate, -1: unlimited), `max_charges` and `rearming`, its own too. Loose gold lists piles on other
+keepers' land with whose land it is (`land`), and LOOSE GOLD names the ones the hand cannot reach yet. Sight of Evil
+counts as seen while it is open, as on a human's screen (the engine uncovers its area only while a frame is drawn, so the
+view is built the same way); `own.active_powers.POWER_SIGHT` gives its `pos` and `until_turn`, and the ground goes dark
+again once it closes. Once it stops widening the agent is called at once (reason `sight_open`), and POWER_SIGHT reports
+what it uncovered: `slab_rect`, and the other keepers' `hearts`, `rooms` (slabs in sight), `creatures`, `traps`, `doors`,
+`loose_gold`, `stored_gold` and `gold_slabs` in it. The bridge renders it as SIGHT OF EVIL (with the map of the area) and
+keeps the last report in the game's memory, shown as LAST SIGHT OF EVIL once the sight has closed, until the next cast.
+
+**Holding and attacking**: `move_creature` holds a creature where it is sent (a held creature does not fight; the
+game hands it back when attacked, hungry, owed pay, before pay day or after `hold_turns`: SEAT `auto_released`), and
+`release_creature` hands it back (`NOT_HELD` if it is not held; a release whose clicks miss is finished by the game,
+`auto_released: released`). `attack(thing_id, pos)` walks a creature there held and, on arrival, sets it fighting what is
+there as at a Call to Arms banner: an enemy door beside the spot, the enemy heart in sight, an enemy trap beside it, the
+enemy room it is in, else the enemies about (`auto_released: attacking`); `NOTHING_TO_ATTACK` when none is there. Call
+to Arms itself calls only the creatures within its range (`own.active_powers.POWER_CALL_TO_ARMS.range`, larger when
+overcharged); recast, the banner moves and the creatures it called follow it.
+
+**Watching, and stepping in**: a human watching an agent play their own keeper (campaign Seat control: LLM) has pause,
+chat, the camera and event boxes, but their clicks do not reach the dungeon -- they would land between the agent's steps.
+In an emergency, with cheat mode on, the cheat menu works: its one-shot cheats (all rooms, magic, traps and doors,
+reveal the map, everything free, win or lose the level) and its placement modes (make a creature, place terrain...: the
+human's clicks act while the keeper is in that mode, and the agent's next order ends it). It can cut across what the
+agent is doing; that is the price of an override.
+
+**Large rooms and long bridges**: the engine's build drag is at most 9 slabs a side (it clips the rest without a word), so
+`build_room` makes a larger rectangle as several drags from its start corner, each after the last is built -- a bridge of
+any length goes out from the land in 9-slab pieces.
+
+**Losses and the pay day report**: the game compares the seat's map turn by turn (`api_seat_decision.c`, `note_losses`)
+rather than trusting its own events (a room taken by enemy imps, a smashed room slab, floor claimed or dug through raise
+none, or one easily missed): `room_captured`, `room_destroyed` and `ground_lost` wake the agent at once, skipping the
+minimum interval, then at most every 60 turns while the losses go on (so do the fight reasons `enemy_fight`,
+`heart_attacked`, `room_under_attack` and `breach`: a fight is settled in seconds); the decision's `losses` (LOSSES in the state) say
+what, how many slabs, where and by whom. An enemy creature on the seat's ground (not neutral, an ally's, a prisoner
+or knocked out) raises `intruder` on the same rhythm, once per creature until it has been gone 1200 turns; `own.intruders`
+(INTRUDERS) lists them while they are there. Not losses: a room the seat sold or rebuilt, a slab its own imps were marked to
+dig, a bridge sold back to water or lava. On the decision a pay day's checkpoint is taken at, PAYDAY REPORT compares it
+with the last one: fighters and fighter score (and three pay days back) against the enemy fighter score in sight,
+ground (`own.territory`), room slabs by kind, lair places, creatures against the portal's limit (`own.creature_limit`),
+gold -- with warnings for losing ground, falling behind, a full lair and the creature limit.
+
+A keeper an agent plays never gets the level-start heart-zoom intro (about 32 turns with input locked): a seat claimed before the level starts skips it, and a claim during it ends it at once, so opening orders sent right after `connect` take effect. (An order queue also waits out any input lock a player instance sets, e.g. a zoom to a position.)
+
 **Pausing (games no human plays a keeper in)**: a campaign or scenario started with **Seat control: LLM** (or a Skirmish
 whose keepers are all External agents and built-in AI) starts **paused**, and so does a save of one when loaded, the pause the agent's (the view's
 `agent_only`, `agent_pause`), so it can read the objective, look at the map and send first orders before anything moves;
@@ -72,7 +169,8 @@ running). `set_pause(paused)` resumes or pauses it again whenever a decision nee
 `set_pause(paused: false, turns: N)` runs N turns and pauses again. Orders sent while paused wait for the game to run.
 `wait_for_decision` answers at once while the agent holds the pause (`due: false, paused: true`). In such a game the
 engine's 60 s pause watchdog does not fire. With a human playing, the engine refuses an agent's pause and advance
-(`HUMAN_PLAYING`; the raw API's `force: true` is for tests and tools), and `set_game_speed` is the only lever. `bridge.py`
+(`HUMAN_PLAYING`; the raw API's `force: true` is for tests and tools) unless the Skirmish page's **LLM pause** box was ticked
+(the view's `can_pause` says which), and then `set_game_speed` is the only lever. `bridge.py`
 and `agent_vs_agent.py` resume a level that started paused once their first decision is sent.
 
 **Playing**: `daimonkeeper.cfg` needs `API_ENABLED=TRUE`; start a Skirmish game with a slot set to **External agent (API)** on
@@ -80,7 +178,9 @@ the Slots & AI page (or the tool's `claim` argument converts a computer keeper i
 conversation: `connect`, `get_instructions` (once, near the start), then repeatedly `wait_for_decision` -> decide ->
 `submit_orders`, for as long as you want to keep playing, `disconnect` when done. `wait_for_decision` blocks until the
 game says a decision is due (each quarter of a pay day, or an event: a fight, an attack, a breach, a room lost, a new
-creature kind, open ground appearing behind your walls) or its timeout elapses (`due: false`: call it again, e.g. from a scheduled wake-up in a client that
+creature kind, open ground appearing behind your walls, your ground or rooms being taken, the event panel's problems --
+hungry creatures, a full or missing treasure room, an annoyed creature, no lair space, an unreachable room -- or finished
+research) or its timeout elapses (`due: false`: call it again, e.g. from a scheduled wake-up in a client that
 supports one, so the conversation is not left blocking). The plan, notes and recent decisions are kept **by the game**
 and saved with it (see Memory below), so a reconnect picks up where it left off and a loaded save brings back the plan as
 it was. `connect(agent: "Claude")` names your seat; `experience_path` picks the experience store (`""`: none).
@@ -116,11 +216,16 @@ a strong enemy on your ground, switch Call to Arms or Must Obey off before they 
 `get_combat_rules` (the live rules by name, ready to edit, and what they did), `apply_combat_preset` (`guardian`,
 `striker`, `miser` from `fxdata/combat_assist_presets.toml`, with overrides; no name lists them), `get_combat_stats`
 (fights, losses and reaction times as the game measured them). The rules' names live in the agent's memory, which the game
-saves. Each decision's state has a STANDING ORDERS section; `assist_budget`, `assist_reserve` and `assist_gold_guard`
-call the agent when a rule hits a limit. Code: `standing_orders.py`; tests: `test_standing_orders.py`. `bridge.py
+saves, and follow their rules: a change goes live only when its queued order runs (a few turns, or once a paused game
+runs), so its names wait until then (STANDING ORDERS says the change is queued), are dropped if the order is refused,
+and a slot whose rule changes some other way loses its name. `max_spend` caps what the whole set spends in a pay day:
+guardian brings 3000, striker 5000, and casting rules sent while nothing caps them get `DEFAULT_MAX_SPEND` (5000; the
+reply says so, and `max_spend: 0` means no cap). Each decision's state has a STANDING ORDERS section (spent this pay day
+against the cap); `assist_budget` (a rule's budget or the cap), `assist_reserve` and `assist_gold_guard` call the agent
+when a rule hits a limit. Code: `standing_orders.py`; tests: `test_standing_orders.py`. `bridge.py
 --assist-preset NAME` starts an automated run from a preset.
 Tests: `test_mcp_server.py` (protocol, tool dispatch, and a fake-game integration test, offline), `test_mcp_http_server.py`
-(the HTTP transport: framing, batches, Host/Origin/token checks, the one tool thread, a fake game over HTTP, offline),
+(the HTTP transport: framing, batches, Host/Origin/token checks, tool calls during an open wait, a fake game over HTTP, offline),
 `test_mcp_http_client.py` (the command-line client, against a stub and the fake game, offline); the
 real engine is covered by `scripts/run_ftest_ai_bridge_mcp.sh`.
 
@@ -209,16 +314,111 @@ python3 scripts/llm_bridge/cost_report.py run.jsonl
 python3 scripts/llm_bridge/cost_report.py --dir out/agent-logs --prices scripts/llm_bridge/model_prices.example.json --model claude-sonnet-5
 ```
 
+## Reacting while the model thinks: the pump, alerts and flash decisions
+
+The session's game connection is a `gamelink.GameLink` (docs/plans/llm-bridge-realtime.md, Phases 1 and 2). A pump thread
+reads the game's pushes the moment they arrive and refreshes the view every 10 game turns (`DAIMONKEEPER_PUMP_TURNS`; at
+once after an urgent push; `DAIMONKEEPER_PUMP=0` turns it off), so nothing piles up in the socket while the model thinks.
+Every tool call holds the session's lock, and `wait_for_decision` lets go of it while it waits, so over HTTP (each request
+on its own thread) `status`, `look` and the rest answer during an open wait.
+
+Each decision has a **severity**, the game's (`DECISION_DUE` `severity`, and `where`, the subtile of its most severe
+located cause; `seat.decision` in the view has both): 0 critical (heart attacked), 1 combat (a fight, an intruder, ground
+or a room lost, an alarm), 2 problem (the event panel's, the standing orders' limits, Sight of Evil), 3 routine (quarters,
+research, new kinds). `gamelink.reason_severity` mirrors the engine's table (`test_gamelink.py` checks they agree).
+
+- An urgent decision (severity <= 1, not a start or a load) is a **flash decision** (`flash: true`; `prompt.render_flash`):
+  the spot and a 9x9 map of it, the enemies and the seat's own creatures within 6 slabs, the imps at risk, the powers and
+  their prices, the standing orders, the plan's first line -- about 1.5 KB, answered with at most 4 orders.
+  `status(full: true)` gives the whole state. `bridge.py --policy anthropic` gets the same flash text.
+- An urgent decision that arrives while the agent is busy with another one is announced on every other tool's reply
+  (`ALERT ...`, once each), and `submit_orders` hands it back inline (`next_decision`); a wait before answering it hands
+  it out again (`repeated`).
+- `submit_orders` says what changed since the view the decision showed (`since_your_view`), and its orders expire counting
+  from that view, however fresh the pump keeps the view since.
+- In the engine, an urgent reason the last urgent wake-up did not have (an intruder, then the fight it starts) goes out at
+  once instead of waiting out the 60-turn gap; the same reason again still waits.
+
+`bridge.py`'s pump only reads the pushes (its policy reads the view on the main thread), and `agent_vs_agent.py` runs each
+seat's policy on its own thread, so one seat's think no longer holds the others back.
+
+## Urgent orders, rule banks and triggers
+
+docs/plans/llm-bridge-realtime.md, Phases 3 and 4.
+
+- **Two lanes.** An order with `priority: "now"` goes ahead of every routine order; a long routine build, dig, unmark,
+  sell or rule change that is running is cut where it stands (the tool left, the button released) and goes back to the
+  front of its lane, to be planned again from the live state once the urgent ones are done (`seat.results` says
+  `suspended`). Hand orders, casts and orders to a creature run to their end. An urgent order expires after 200 turns
+  unless it says otherwise (`max_age_turns`); the answer to a flash decision is urgent by default. `cancel` takes one
+  order (`id`) or every order waiting in a lane (`lane`). The view's `seat.queue` shows what runs and what waits.
+- **Rule banks.** `set_combat_rules(bank=1..3, label=...)` stores a whole set without making it live; `use_combat_bank(N)`
+  makes it live in one urgent packet (`PckA_AssistUseBank`), rules the same in both keeping their counters. STANDING
+  ORDERS lists the banks (`own.assist.banks`, `active_bank`).
+- **Triggers** (`triggers.py`): `set_triggers` / `check_triggers` / `get_triggers` / `apply_trigger_preset`
+  (`evacuate_imps`, `lift_wounded`, `reinforce_heart`) and `set_rally_points`. A trigger names the urgent reasons it is
+  for, optionally a region or a rally point and up to 4 facts, and up to 4 orders with placeholders (`$where`,
+  `$rally:NAME`, `$drop_near:...` -- the game's `find_drop_spot` --, `$imps`, `$fighters`, `$wounded`, `$reserve`,
+  `$enemy`, `$heart`). The session's pump fires it the moment the game pushes a matching DECISION_DUE, with no tool call
+  in flight, its orders urgent; two refusals in a row disarm it. Triggers, their counters, the firing log and the rally
+  points are kept in the agent's memory (saved with the game); TRIGGERS in the state shows them and what they did. Only
+  the MCP session fires triggers (`bridge.py`'s policies decide for themselves). Imps run back to defend an attacked
+  heart, so a safe spot for imps is a pocket of floor they cannot walk out of.
+
+**Hand rules** (Phase 5, `seat_reflexes.c`): combat assistant rules with `"hand"` instead of a power, carried out by
+the External seat with the keeper's own hand, as urgent `pick_up_and_drop` orders, one trip at a time, re-checked every
+assistant interval. `evacuate_diggers` (`to`: required) lifts the imps within `radius` slabs of a visible enemy fighter to
+the safe spot; `lift_wounded` lifts fighters in a fight under 35% health (or the rule's `health_pct` condition) to `to`,
+else a lair, only when no heal rule of the assistant could heal them now; `reinforce` drops healthy fighters from away
+from a fight the seat is losing or matching (`force_ratio` 80, or the rule's condition), each at least `min_match`% (50)
+of the strongest enemy's force, and only enough to turn it -- none at all if everything it may send would not. The view
+shows each rule's reason for holding back (`state`: HEAL_READY, NO_MATCH, WOULD_NOT_TURN_IT, NO_DROP_SPOT, NO_LAIR) and
+`own.assist.reflexes` what they did. An agent's only: a human's profile drops them, and none run in multiplayer.
+`RAID_MODE=reflex` plays the raid with an evacuate_diggers rule.
+
+**Time to think** (Phase 6, `api_urgent_hold.c`): `connect(on_urgent=auto|pause|slow|none, hold_seconds, slow_turns_per_second)`.
+With pause (auto's choice where the agent may pause anyway: no human keeper, or the Skirmish page's LLM Pause; never
+otherwise), each urgent decision stops the game until the agent answers it (`submit_orders`, which acks the decision:
+`ack_decision`, and tags its orders with `decision_seq`), until the agent takes the pause or the speed itself (`set_pause`,
+`advance_turns`, `set_game_speed`), or for at most `hold_seconds` (60). An advance the hold interrupted gets its turns
+back. slow runs the game at a few turns a second instead. A second urgent decision during a hold keeps it until that one
+is answered too; a trigger's orders answer none. The view's `seat.decision.hold` and the text (THE GAME IS PAUSED FOR YOUR
+ANSWER) say so. `bridge.py --on-urgent pause|slow` opts in (it never pauses by default).
+
+`RAID_MODE=triggers scripts/run_ftest_ai_bridge_raid.sh ...` plays the raid with the `evacuate_imps` trigger and an agent
+that does nothing.
+
+## Latency chain and the raid scenario
+
+`latency.py` follows each decision from cause to the hand (docs/plans/llm-bridge-realtime.md, Phase 0), in game turns:
+`hold` (a reason raised -> the game sends `DECISION_DUE`; the push's `raised` says when each reason was raised), `delivery`
+(-> the agent has it), `think` (-> the game accepts its first order), `queue` (-> that order starts; `seat.results` carries
+each order's `submitted` and `started` turns), `gesture` (-> its last step), `total` (raised -> started), plus the think in
+wall-clock seconds. All three entry points keep it through `experience.Recorder`: the game's record gets the medians and
+the last 16 chains (`final.latency`), `bridge.py`/`agent_vs_agent.py` logs carry each decision's finished chains
+(`latency`, and a closing `{"latency": [...]}` line), and the MCP `get_combat_stats` tool adds one line of medians.
+`combat_report.py --store ...` / `--decisions LOG` prints them as a second table.
+
+`scripts/run_ftest_ai_bridge_raid.sh [ftest-build] [data]` is the model-free yardstick: two hero knights raid a seat's imps,
+and `bridge.py --policy evacuate` (`policies.EvacuatePolicy`: lift the imps near an intruder to the heart) answers. It prints
+`RAID_CHAIN` (raid -> told, -> the hand acting, -> done), the imps lost and what building a view costs the game
+(`RAID_RESULT=FILE` keeps the chain as JSON). Each phase of the real-time plan should move these numbers.
+
+NEW EVENTS and MAP CHANGES cover everything since the last decision's text (`ViewState.last_diff` is the news, every diff
+since merged; `raw_diff` the latest reply), so a `look` or `status` in between, or the view taken while waiting, no longer
+hides what happened while the model was thinking.
+
 ## Shared core
 
 `api.py` (TCP client to the game, plus MCP-style pushed-event handling: `wait_event`/`drain_events`), `viewstate.py` (full
 view + diff patching), `prompt.py` (view -> text, `render_for_agent` used by both entry points, the `submit_orders`/`look`
 tool schemas), `orders.py` (turning a decided order into `submit_action`, shared by `bridge.py` and `mcp_session.py`),
 `memory.py` (plan, notes, decision log; kept in the game), `experience.py` (game records and lessons across games),
+`latency.py` (each decision's latency chain), `gamelink.py` (the pump, severity), `triggers.py` (contingency triggers),
 `mcp_session.py` (the MCP-tools-driven step-by-step session), `policies.py`
-(`ScriptedPolicy`), `anthropic_policy.py`, `bridge.py` (the autonomous loop), `agent_vs_agent.py` (the multi-seat
+(`ScriptedPolicy`, `EvacuatePolicy`), `anthropic_policy.py`, `bridge.py` (the autonomous loop), `agent_vs_agent.py` (the multi-seat
 harness), `mcp_server.py` (the MCP transport, stdio), `mcp_http_server.py` (the same over HTTP), `mcp_http_client.py` (its tools from a shell), `cost_report.py` (decision-log summarizer), `experience_report.py`
-(experience store viewer), `test_bridge.py` / `test_mcp_server.py` / `test_mcp_http_server.py` / `test_mcp_http_client.py` / `test_experience.py` / `test_cost_report.py`
+(experience store viewer), `test_bridge.py` / `test_mcp_server.py` / `test_mcp_http_server.py` / `test_mcp_http_client.py` / `test_experience.py` / `test_cost_report.py` / `test_latency.py` / `test_gamelink.py` / `test_triggers.py`
 (offline tests).
 Environment (bridge.py --policy anthropic only): `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` (default `claude-sonnet-5`),
 `ANTHROPIC_BASE_URL`.

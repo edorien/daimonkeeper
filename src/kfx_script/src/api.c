@@ -34,6 +34,7 @@
 #include "keeper_assist_packets.h"
 #include "keeper_assist_state.h"
 #include "api_log_tail.h"
+#include "api_urgent_hold.h"
 #include "bflib_basics.h"
 #include "external_seat.h"
 #include "net_game.h"
@@ -88,6 +89,12 @@ static char api_token[128] = "";
  *  the token (always, when none is needed). */
 static TbBool api_conn_checked = false;
 static TbBool api_conn_authenticated = false;
+/** The client stopped reading: a send made no progress for API_SEND_STALL_MS. Nothing more is sent to it (a message cut
+ *  off part-way leaves the stream unreadable anyway) and api_update_server() drops it after the messages being handled. */
+static TbBool api_conn_stalled = false;
+/** How long a send to the client may make no progress before the client counts as gone. The game loop waits that long
+ *  at most: an unbounded wait froze the game whenever a client stopped reading with its receive buffer full. */
+#define API_SEND_STALL_MS 2000
 
 static void api_drop_client(const char *why);
 
@@ -213,7 +220,7 @@ static void add_dig_reach_warning(VALUE *data, PlayerNumber plyr_idx, const stru
 }
 static void api_send(const char *data, int64_t len)
 {
-    if (api.activeSocket == KFX_INVALID_SOCKET || len <= 0)
+    if (api.activeSocket == KFX_INVALID_SOCKET || len <= 0 || api_conn_stalled)
         return;
     int64_t sent = 0;
     while (sent < len)
@@ -235,8 +242,15 @@ static void api_send(const char *data, int64_t len)
                 fd_set wfds;
                 FD_ZERO(&wfds);
                 FD_SET(api.activeSocket, &wfds);
-                if (select((int64_t)(api.activeSocket + 1), NULL, &wfds, NULL, NULL) > 0)
+                struct timeval tv;
+                tv.tv_sec = API_SEND_STALL_MS / 1000;
+                tv.tv_usec = (API_SEND_STALL_MS % 1000) * 1000;
+                if (select((int64_t)(api.activeSocket + 1), NULL, &wfds, NULL, &tv) > 0)
                     continue;
+                if (!api_conn_stalled)
+                    WARNLOG("API client stopped reading: no part of a %" PRId64 "-byte message could be sent for %d ms; dropping it",
+                            len - sent, API_SEND_STALL_MS);
+                api_conn_stalled = true;
             }
         }
         break;
@@ -587,7 +601,7 @@ void api_return_var_update(PlayerNumber plyr_idx, const char *var_name, int64_t 
 
     // Add the new value
     VALUE *val_var_new_val = value_dict_add(val_var, "value");
-    value_init_int32(val_var_new_val, value);
+    value_init_int64(val_var_new_val, value);
 
     api_send_json(json_root, NULL);
 }
@@ -635,7 +649,7 @@ static void api_return_data_number(int64_t data, VALUE *ack_id)
 
     // Create success key
     VALUE *val_data = value_dict_add(json_root, "data");
-    value_init_int32(val_data, data);
+    value_init_int64(val_data, data);
 
     api_send_json(json_root, ack_id);
 }
@@ -1157,8 +1171,9 @@ static void api_action_subscribe_event(const struct ApiRequest *req)
         return;
     }
 
-    // Make sure event name is not too long
-    if (strlen(event_name) > COMMAND_WORD_LEN)
+    // Make sure event name is not too long: the slot keeps COMMAND_WORD_LEN - 1 characters, and a longer name
+    // would be stored cut short and never match.
+    if (strlen(event_name) >= COMMAND_WORD_LEN)
     {
         api_err("STRING_TOO_LONG", req->ack_id);
         return;
@@ -1298,11 +1313,11 @@ static void api_action_get_all_player_flags(const struct ApiRequest *req)
         for (size_t flag_index = 0; flag_index < get_max_flags(); flag_index++)
         {
             // Get flag value
-            int64_t flag_value = get_condition_value(req->player_id, SVar_FLAG, flag_index);
+            int64_t flag_value = get_condition_value((PlayerNumber)player_index, SVar_FLAG, flag_index);
 
             // Add flag to player flag
             const char *flag_string = get_conf_parameter_text(flag_desc, flag_index);
-            value_init_int32(value_dict_add(player_info, flag_string), flag_value);
+            value_init_int64(value_dict_add(player_info, flag_string), flag_value);
         }
     }
 
@@ -1368,8 +1383,42 @@ static void api_action_set_decision_policy(const struct ApiRequest *req)
 {
     // Minimum game turns between two DECISION_DUE events (default 100); reasons inside the window are held and delivered together.
     VALUE *mi = value_dict_get(req->root, "min_interval_turns");
-    if (value_type(mi) != VALUE_INT32) { api_err("MISSING_MIN_INTERVAL", req->ack_id); return; }
-    api_seat_decision_set_min_interval(value_int32(mi));
+    // on_urgent: "none" | "pause" | "slow" (with slow_turns_per_second, default 4), held at most hold_seconds (default 60)
+    // for the agent's answer to an urgent decision (api_urgent_hold.h) -- only where the agent may pause anyway.
+    const char *ou = value_string(value_dict_get(req->root, "on_urgent"));
+    if ((value_type(mi) != VALUE_INT32) && (ou == NULL)) { api_err("MISSING_MIN_INTERVAL", req->ack_id); return; }
+    enum UrgentHoldMode mode = UHM_None;
+    if (ou != NULL) {
+        if (strcasecmp(ou, "pause") == 0) mode = UHM_Pause;
+        else if (strcasecmp(ou, "slow") == 0) mode = UHM_Slow;
+        else if (strcasecmp(ou, "none") != 0) { api_err("BAD_ON_URGENT", req->ack_id); return; }
+        if ((mode != UHM_None) && !extseat_may_pause()) { api_err("HUMAN_PLAYING", req->ack_id); return; }
+    }
+    if (value_type(mi) == VALUE_INT32) api_seat_decision_set_min_interval(value_int32(mi));
+    if (ou != NULL) {
+        VALUE *st = value_dict_get(req->root, "slow_turns_per_second");
+        VALUE *hs = value_dict_get(req->root, "hold_seconds");
+        api_urgent_hold_set_policy(mode, (value_type(st) == VALUE_INT32) ? value_int32(st) : URGENT_HOLD_DEFAULT_SLOW_TPS,
+                                   (value_type(hs) == VALUE_INT32) ? 1000 * (int64_t)value_int32(hs) : URGENT_HOLD_DEFAULT_MS);
+        if (mode == UHM_None) api_urgent_hold_cancel();
+    }
+    extseat_note_activity();
+    api_ok(req->ack_id);
+}
+
+/** The decision an order answers (`decision_seq`): -1 when the request does not say (a raw client: any order answers),
+ *  0 for one that answers none (a trigger's). */
+static int64_t request_decision_seq(const struct ApiRequest *req)
+{
+    VALUE *sq = value_dict_get(req->root, "decision_seq");
+    return (value_type(sq) == VALUE_INT32) ? value_int32(sq) : -1;
+}
+
+/** ack_decision: the seat's agent has answered its decision (with or without orders): an urgent hold ends. */
+static void api_action_ack_decision(const struct ApiRequest *req)
+{
+    VALUE *sq = value_dict_get(req->root, "seq");
+    api_urgent_hold_answered(req->seat_id, (value_type(sq) == VALUE_INT32) ? value_int32(sq) : -1);
     extseat_note_activity();
     api_ok(req->ack_id);
 }
@@ -1391,6 +1440,7 @@ static void api_action_set_game_speed(const struct ApiRequest *req)
     } else {
         kfx_sim_state.turns_per_second = requested;
     }
+    api_urgent_hold_cancel(); // the agent sets the pace itself now
     extseat_note_activity();
     VALUE data_real; VALUE *data = &data_real;
     value_init_dict(data);
@@ -1479,12 +1529,13 @@ static void api_action_get_player_view(const struct ApiRequest *req)
 }
 
 /** An agent may stop the game only when no human plays a keeper in it (extseat_human_playing): pausing a game a human
- *  plays would hold them up. `force` (tests and tools) pauses anyway. */
+ *  plays would hold them up -- unless the game's setup allowed it (the Skirmish page's LLM Pause, extseat_may_pause).
+ *  `force` (tests and tools) pauses anyway. */
 static TbBool api_pause_refused(const struct ApiRequest *req)
 {
     VALUE *fv = value_dict_get(req->root, "force");
     const TbBool force = ((value_type(fv) == VALUE_BOOL) && value_bool(fv)) || ((value_type(fv) == VALUE_INT32) && (value_int32(fv) != 0));
-    if (!force && extseat_human_playing()) { api_err("HUMAN_PLAYING", req->ack_id); return true; }
+    if (!force && !extseat_may_pause()) { api_err("HUMAN_PLAYING", req->ack_id); return true; }
     return false;
 }
 
@@ -1495,6 +1546,7 @@ static void api_action_set_pause(const struct ApiRequest *req)
     if (value_type(pa) != VALUE_BOOL && value_type(pa) != VALUE_INT32) { api_err("MISSING_PAUSED", req->ack_id); return; }
     const TbBool want = (value_type(pa) == VALUE_BOOL) ? value_bool(pa) : (value_int32(pa) != 0);
     if (want && api_pause_refused(req)) return;
+    api_urgent_hold_cancel();
     if (want) extseat_pause(); else extseat_resume();
     api_ok(req->ack_id);
 }
@@ -1548,6 +1600,7 @@ static void api_action_advance_turns(const struct ApiRequest *req)
     const int32_t turns = value_int32(tv);
     if ((turns < 1) || (turns > 100000)) { api_err("BAD_TURNS", req->ack_id); return; }
     if (api_pause_refused(req)) return; // it pauses again when the turns are run
+    api_urgent_hold_cancel();
     extseat_advance(turns);
     api_ok(req->ack_id);
 }
@@ -1578,6 +1631,7 @@ static void api_action_submit_action(const struct ApiRequest *req)
     else if (strcasecmp(vname, "set_tendency") == 0) verb.kind = ESV_SetTendency;
     else if (strcasecmp(vname, "move_creature") == 0) verb.kind = ESV_MoveCreature;
     else if (strcasecmp(vname, "release_creature") == 0) verb.kind = ESV_ReleaseCreature;
+    else if (strcasecmp(vname, "attack") == 0) verb.kind = ESV_Attack;
     else if (strcasecmp(vname, "set_alliance") == 0) verb.kind = ESV_SetAlliance;
     else { api_err("UNKNOWN_VERB", req->ack_id); return; }
 
@@ -1659,6 +1713,25 @@ static void api_action_submit_action(const struct ApiRequest *req)
     VALUE *ap = value_dict_get(req->root, "ally_player");
     if (value_type(ap) == VALUE_INT32) { verb.has_target_player = true; verb.target_player = value_int32(ap); }
     else if (value_type(ap) == VALUE_STRING) { verb.has_target_player = true; verb.target_player = get_id(player_desc, (char *)value_string(ap)); }
+    // priority "now" (or true): the urgent lane, ahead of every routine verb (external_seat.h, EXTSEAT_LANE_NOW).
+    VALUE *pr = value_dict_get(req->root, "priority");
+    if (value_type(pr) == VALUE_STRING) {
+        if (strcasecmp(value_string(pr), "now") == 0) verb.priority = true;
+        else if (strcasecmp(value_string(pr), "routine") != 0) { api_err("BAD_PRIORITY", req->ack_id); return; }
+    } else if (value_type(pr) == VALUE_BOOL) {
+        verb.priority = value_bool(pr);
+    }
+    // cancel: one verb (id), the waiting verbs of a lane (lane "now" / "routine"), or everything.
+    if (verb.kind == ESV_Cancel) {
+        VALUE *cid = value_dict_get(req->root, "id");
+        if (value_type(cid) == VALUE_INT32) verb.cancel_id = value_int32(cid);
+        const char *cl = value_string(value_dict_get(req->root, "lane"));
+        if (cl != NULL) {
+            if (strcasecmp(cl, "now") == 0) verb.cancel_lane = EXTSEAT_LANE_NOW + 1;
+            else if (strcasecmp(cl, "routine") == 0) verb.cancel_lane = EXTSEAT_LANE_ROUTINE + 1;
+            else { api_err("BAD_LANE", req->ack_id); return; }
+        }
+    }
     // Real-time play: queue=true lets a verb wait behind the running gesture. view_turn (the `turn` of the
     // view the decision was based on) with max_age_turns bounds how stale the order may be when it starts.
     VALUE *qv = value_dict_get(req->root, "queue");
@@ -1697,6 +1770,7 @@ static void api_action_submit_action(const struct ApiRequest *req)
     const char *err = extseat_submit_verb_ex(req->seat_user, req->seat_id, &verb, queue, &info);
     if (err != NULL) { api_err(err, req->ack_id); return; }
     api_seat_combatstats_note_order(req->seat_id);
+    api_urgent_hold_answered(req->seat_id, request_decision_seq(req));
     VALUE data_real; VALUE *data = &data_real;
     value_init_dict(data);
     // After the submit: this verb now counts as pending itself, so only its own rectangle is being judged.
@@ -1717,8 +1791,18 @@ static void api_action_set_assist(const struct ApiRequest *req)
     struct ExtSeatVerb verb;
     memset(&verb, 0, sizeof(verb));
     verb.kind = ESV_SetAssist;
+    // bank: 1..KEEPER_ASSIST_BANKS stores the set in that bank (made live later by use_assist_bank) instead of live.
+    VALUE *bk = value_dict_get(req->root, "bank");
+    if (value_type(bk) == VALUE_INT32) {
+        verb.assist_bank = value_int32(bk);
+        if ((verb.assist_bank < 0) || (verb.assist_bank > KEEPER_ASSIST_BANKS)) { api_err("BAD_BANK", req->ack_id); return; }
+    }
+    // What the request leaves out comes from the set it changes: the bank's (once it holds one), else the live set.
+    const struct KeeperAssistBank *bank = (verb.assist_bank > 0) ? &st->bank[verb.assist_bank - 1] : NULL;
+    const struct KeeperAssistRule *base_rules = (bank != NULL && bank->used) ? bank->rules : st->live;
+    const struct KeeperAssistGlobals *base_globals = (bank != NULL && bank->used) ? &bank->globals : &st->globals;
     int bad_rule = -1;
-    const char *err = keeper_assist_parse_set(req->root, st->live, &st->globals, verb.assist_rules, &verb.assist_globals, &bad_rule);
+    const char *err = keeper_assist_parse_set(req->root, base_rules, base_globals, verb.assist_rules, &verb.assist_globals, &bad_rule);
     if (err != NULL) { api_err_rule(err, bad_rule, req->ack_id); return; }
     VALUE *dr = value_dict_get(req->root, "dry_run");
     const TbBool dry_run = ((value_type(dr) == VALUE_BOOL) && value_bool(dr)) || ((value_type(dr) == VALUE_INT32) && (value_int32(dr) != 0));
@@ -1726,7 +1810,8 @@ static void api_action_set_assist(const struct ApiRequest *req)
     value_init_dict(data);
     // Against the rules live now (a set_assist still queued would change that; the game plans again when it starts).
     struct KeeperAssistPacket pk[KEEPER_ASSIST_MAX_PACKETS];
-    const int np = keeper_assist_plan_packets(st, verb.assist_rules, &verb.assist_globals, pk);
+    const int np = (verb.assist_bank > 0) ? keeper_assist_plan_bank_packets(st, (int)verb.assist_bank, verb.assist_rules, &verb.assist_globals, pk)
+                                          : keeper_assist_plan_packets(st, verb.assist_rules, &verb.assist_globals, pk);
     int changed = 0;
     for (int i = 0; i < np; i++) if (pk[i].action == PckA_AssistStageRule) changed++;
     value_init_int32(value_dict_add(data, "steps"), np);
@@ -1747,8 +1832,61 @@ static void api_action_set_assist(const struct ApiRequest *req)
     err = extseat_submit_verb_ex(req->seat_user, req->seat_id, &verb, queue, &info);
     if (err != NULL) { value_fini(data); api_err(err, req->ack_id); return; }
     api_seat_combatstats_note_order(req->seat_id);
+    api_urgent_hold_answered(req->seat_id, request_decision_seq(req));
     value_init_int32(value_dict_add(data, "id"), (int32_t)info.id);
     value_init_int32(value_dict_add(data, "queued_behind"), (int32_t)info.queued_behind);
+    api_return_data(true, data_real, req->ack_id);
+}
+
+/** use_assist_bank: makes one of the combat assistant's banks the live set -- one packet, in the urgent lane by default
+ *  (priority "routine" to queue it behind the running verbs instead). */
+static void api_action_use_assist_bank(const struct ApiRequest *req)
+{
+    struct ExtSeatVerb verb;
+    memset(&verb, 0, sizeof(verb));
+    verb.kind = ESV_AssistUseBank;
+    verb.priority = true;
+    VALUE *bk = value_dict_get(req->root, "bank");
+    if (value_type(bk) != VALUE_INT32) { api_err("MISSING_BANK", req->ack_id); return; }
+    verb.assist_bank = value_int32(bk);
+    const char *pr = value_string(value_dict_get(req->root, "priority"));
+    if ((pr != NULL) && (strcasecmp(pr, "routine") == 0)) verb.priority = false;
+    struct ExtSeatSubmitInfo info;
+    memset(&info, 0, sizeof(info));
+    const char *err = extseat_submit_verb_ex(req->seat_user, req->seat_id, &verb, true, &info);
+    if (err != NULL) { api_err(err, req->ack_id); return; }
+    api_seat_combatstats_note_order(req->seat_id);
+    api_urgent_hold_answered(req->seat_id, request_decision_seq(req));
+    VALUE data_real; VALUE *data = &data_real;
+    value_init_dict(data);
+    value_init_int32(value_dict_add(data, "id"), (int32_t)info.id);
+    value_init_int32(value_dict_add(data, "steps"), (int32_t)info.steps);
+    value_init_int32(value_dict_add(data, "queued_behind"), (int32_t)info.queued_behind);
+    api_return_data(true, data_real, req->ack_id);
+}
+
+/** find_drop_spot: the nearest subtile to `pos` (within `radius`, default 15) where the seat's hand could drop one of
+ *  its creatures (`thing_id`, else any) as an ordinary drop -- never into its prison, torture chamber, portal or a pool. */
+static void api_action_find_drop_spot(const struct ApiRequest *req)
+{
+    VALUE *pos = value_dict_get(req->root, "pos");
+    if ((value_type(pos) != VALUE_ARRAY) || (value_array_size(pos) != 2)) { api_err("MISSING_POSITION", req->ack_id); return; }
+    const int64_t x = value_int32(value_array_get(pos, 0)), y = value_int32(value_array_get(pos, 1));
+    VALUE *rv = value_dict_get(req->root, "radius");
+    const int64_t radius = (value_type(rv) == VALUE_INT32) ? value_int32(rv) : 15;
+    VALUE *tv = value_dict_get(req->root, "thing_id");
+    const int64_t tid = (value_type(tv) == VALUE_INT32) ? value_int32(tv) : 0;
+    int64_t ox = 0, oy = 0;
+    const char *err = extseat_find_drop_spot(req->seat_id, tid, x, y, radius, &ox, &oy);
+    if (err != NULL) { api_err(err, req->ack_id); return; }
+    VALUE data_real; VALUE *data = &data_real;
+    value_init_dict(data);
+    VALUE *p = value_dict_add(data, "pos");
+    value_init_array(p);
+    value_init_int64(value_array_append(p), ox);
+    value_init_int64(value_array_append(p), oy);
+    value_init_int64(value_dict_add(data, "distance"), ((ox - x < 0) ? x - ox : ox - x) > ((oy - y < 0) ? y - oy : oy - y)
+        ? ((ox - x < 0) ? x - ox : ox - x) : ((oy - y < 0) ? y - oy : oy - y));
     api_return_data(true, data_real, req->ack_id);
 }
 
@@ -1984,6 +2122,9 @@ static const struct ApiAction api_actions[] = {
     {"advance_turns",         api_action_advance_turns,          ApiNeeds_Seat},
     {"submit_action",         api_action_submit_action,          ApiNeeds_Seat},
     {"set_assist",            api_action_set_assist,             ApiNeeds_Seat},
+    {"use_assist_bank",       api_action_use_assist_bank,        ApiNeeds_Seat},
+    {"ack_decision",          api_action_ack_decision,           ApiNeeds_Seat},
+    {"find_drop_spot",        api_action_find_drop_spot,         ApiNeeds_Seat},
     {"get_assist_presets",    api_action_get_assist_presets,     ApiNeeds_LocalGame},
     {"read_var",              api_action_read_var,               ApiNeeds_LocalGame},
     {"set_var",               api_action_set_var,                ApiNeeds_LocalGame},
@@ -2214,6 +2355,7 @@ static void api_rx_process(void)
 /** Closes the connection of the client now open, as if it had gone away. */
 static void api_drop_client(const char *why)
 {
+    api_urgent_hold_end("the agent's connection went away");
     api_clear_all_subscriptions();
     extseat_on_client_lost();
     if (api.activeSocket != KFX_INVALID_SOCKET)
@@ -2274,6 +2416,7 @@ void api_update_server()
                 api.activeSocket = client;
                 api_rx_clear();
                 api_conn_checked = false;
+                api_conn_stalled = false;
                 api_conn_authenticated = (api_token[0] == '\0');
                 JUSTLOG("Client connected");
             }
@@ -2325,8 +2468,13 @@ void api_update_server()
         // What arrived before a disconnect still counts (a client's last word is often a set_var).
         if (api.activeSocket != KFX_INVALID_SOCKET)
             api_rx_process();
+        if (api_conn_stalled && (api.activeSocket != KFX_INVALID_SOCKET))
+        {
+            api_drop_client("the client stopped reading");
+        }
         if (lost && (api.activeSocket != KFX_INVALID_SOCKET))
         {
+            api_urgent_hold_end("the agent's connection went away");
             api_clear_all_subscriptions();
             extseat_on_client_lost();
             kfx_closesocket(api.activeSocket);

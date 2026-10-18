@@ -63,13 +63,46 @@ def apply_diff(view, diff):
     return view
 
 
+NEWS_CAP = 400  # events and map runs kept in the news between two decisions (a scripted loop may never render one)
+
+
+def _merge_news(news, diff):
+    """Folds one diff reply into the news since the last decision's text, keeping only what the text reads from it: new
+    events, map changes and reveals (all of them, in order), and the latest value of anything else (players, rules)."""
+    for k, v in diff.items():
+        if k in _META:
+            continue
+        if k == "map" and isinstance(v, dict):
+            m = news.setdefault("map", {})
+            for part in ("changes", "revealed"):
+                if v.get(part):
+                    lst = m.setdefault(part, [])
+                    lst.extend(copy.deepcopy(v[part]))
+                    del lst[:-NEWS_CAP]
+        elif k == "own" and isinstance(v, dict):
+            added = (v.get("events") or {}).get("added") or []
+            if added:
+                lst = news.setdefault("own", {}).setdefault("events", {}).setdefault("added", [])
+                lst.extend(copy.deepcopy(e) for e in added if e not in lst)
+                del lst[:-NEWS_CAP]
+        elif k == "rules" and isinstance(v, dict):
+            news.setdefault("rules", {}).update(copy.deepcopy(v))
+        else:
+            news[k] = copy.deepcopy(v)
+
+
 class ViewState:
-    """The latest view of one seat, kept current with diffs, plus what changed in the last update."""
+    """The latest view of one seat, kept current with diffs, plus what changed since the agent was last shown it."""
 
     def __init__(self):
         self.view = None
         self.view_id = None
-        self.last_diff = None       # the raw diff reply of the latest update (None after a full view)
+        # What changed since the last decision's text (mark_rendered): every diff since, merged (_merge_news), so a look
+        # or status in between, or the view taken while waiting, does not hide what happened while the model was
+        # thinking. None while the agent has not yet been shown the latest full view (it then gets every event).
+        self.last_diff = None
+        self.raw_diff = None        # the raw diff reply of the latest update (None after a full view)
+        self._full_unrendered = True
         self.full_bytes = 0
         self.diff_bytes = 0
         self.resyncs = 0
@@ -86,14 +119,25 @@ class ViewState:
         if reply.get("mode") == "diff":
             self.diff_bytes += size
             self.diff_count += 1
-            self.last_diff = reply
+            self.raw_diff = reply
+            if not self._full_unrendered:
+                if self.last_diff is None:
+                    self.last_diff = {}
+                _merge_news(self.last_diff, reply)
             apply_diff(self.view, reply)
         else:
             if self.view is not None:
                 self.resyncs += 1
             self.full_bytes += size
+            self.raw_diff = None
             self.last_diff = None
+            self._full_unrendered = True
             self.view = {k: v for k, v in reply.items() if k not in _META}
         self.view_id = reply["view_id"]
         self.view["view_id"] = self.view_id
         return self.view
+
+    def mark_rendered(self):
+        """The agent has been shown the view as it is now: news starts again from here."""
+        self.last_diff = {}
+        self._full_unrendered = False

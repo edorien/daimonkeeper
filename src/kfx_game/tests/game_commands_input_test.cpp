@@ -168,6 +168,59 @@ TEST_CASE_METHOD(ResetStates, "a watcher's control-state action on an External s
     net_clear_external_seats();
 }
 
+// In an emergency the human watching an agent play their keeper may use the cheat menu (cheat mode on, a local game):
+// its one-shot cheats, and its placement modes -- entering a cheat work state and leaving it back to dungeon control,
+// not choosing an ordinary control state. Cheats acting on a possessed creature are not a watcher's to use.
+TEST_CASE_METHOD(ResetStates, "a watcher may use the cheat menu on an External seat's player when cheats are on", "[kfx_game][game_commands_input]") {
+    clear_flag(local_system_flags, GSF_NetworkActive);
+    replay.load_enable = 0;
+    kfx_sim_state.game_kind = GKind_LocalGame;
+    struct PlayerInfo* seat = &kfx_sim_state.players[1];
+    seat->allocflags = PlaF_Allocated | PlaF_ExternalSeat;
+    seat->id_number = 1;
+    seat->user_id = 1;
+    seat->work_state = PSt_CtrlDungeon;
+    net_restore_external_seats_after_load();
+    my_player_number = 1;
+    struct Packet probe;
+    std::memset(&probe, 0, sizeof(probe));
+    // Cheat mode off: nothing.
+    kfx_sim_state.easter_eggs_enabled = 0;
+    set_packet_action(&probe, PckA_CheatAllRooms, 0, 0, 0, 0);
+    CHECK_FALSE(cheat_action_allowed_for_seat_watcher(seat, &probe));
+    struct Packet* watcher = get_packet(SOLO_HUMAN_ID);
+    set_packet_action(watcher, PckA_SetPlyrState, PSt_MkGoodCreatr, 0, 0, 0);
+    CHECK(process_user_global_packet_action(SOLO_HUMAN_ID));
+    CHECK(seat->work_state == PSt_CtrlDungeon);
+    // Cheat mode on.
+    kfx_sim_state.easter_eggs_enabled = 1;
+    for (int64_t ok : {PckA_CheatAllRooms, PckA_CheatAllMagic, PckA_CheatRevealMap, PckA_CheatWinLevel, PckA_CheatLoseLevel,
+                       PckA_CheatAllTraps, PckA_CheatSwitchCreature, PckA_CheatSwitchPlayer}) {
+        set_packet_action(&probe, ok, 0, 0, 0, 0);
+        CHECK(cheat_action_allowed_for_seat_watcher(seat, &probe));
+    }
+    for (int64_t no : {PckA_CheatKillCreature, PckA_CheatLevelUp, PckA_CheatLevelDown, PckA_CheatApplySpell,
+                       PckA_CheatCtrlCrtrSetInstnc, PckA_UsePwrHandPick, PckA_ToggleTendency}) {
+        set_packet_action(&probe, no, 0, 0, 0, 0);
+        CHECK_FALSE(cheat_action_allowed_for_seat_watcher(seat, &probe));
+    }
+    // A placement mode: in, and back out to dungeon control.
+    set_packet_action(watcher, PckA_SetPlyrState, PSt_MkGoodCreatr, 0, 0, 0);
+    process_user_global_packet_action(SOLO_HUMAN_ID);
+    CHECK(seat->work_state == PSt_MkGoodCreatr);
+    set_packet_action(watcher, PckA_SetPlyrState, PSt_CtrlDungeon, 0, 0, 0);
+    process_user_global_packet_action(SOLO_HUMAN_ID);
+    CHECK(seat->work_state == PSt_CtrlDungeon);
+    // Not an ordinary control state, and not "back to dungeon control" when it never left it for a cheat.
+    set_packet_action(watcher, PckA_SetPlyrState, PSt_PlaceDoor, 1, 0, 0);
+    CHECK(process_user_global_packet_action(SOLO_HUMAN_ID));
+    CHECK(seat->work_state == PSt_CtrlDungeon);
+    set_packet_action(&probe, PckA_SetPlyrState, PSt_CtrlDungeon, 0, 0, 0);
+    CHECK_FALSE(cheat_action_allowed_for_seat_watcher(seat, &probe));
+    kfx_sim_state.easter_eggs_enabled = 0;
+    net_clear_external_seats();
+}
+
 TEST_CASE("global_action_allowed_for_seat_watcher keeps pause, chat and camera, refuses control actions", "[kfx_game][game_commands_input]") {
     for (int64_t ok : {PckA_TogglePause, PckA_UpdatePause, PckA_QuitToMainMenu, PckA_PlyrMsgEnd, PckA_PlyrFastMsg,
                        PckA_ZoomToEvent, PckA_ZoomToPosition, PckA_SwitchView, PckA_EventBoxClose}) {

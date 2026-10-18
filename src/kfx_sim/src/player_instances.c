@@ -866,6 +866,25 @@ void set_player_instance(struct PlayerInfo *player, int64_t ninum, TbBool force)
     }
 }
 
+void player_finish_heart_zoom_now(struct PlayerInfo *player)
+{
+    int64_t unused = 0;
+    if (player->instance_num == PI_HeartZoom)
+    {
+        // The zoom's own end only starts the zoom out; run that one's start and end instead.
+        player->instance_num = PI_Unset;
+        player->instance_remain_turns = 0;
+        pinstfs_zoom_out_of_heart(player, &unused);
+        pinstfe_zoom_out_of_heart(player, &unused);
+    } else
+    if (player->instance_num == PI_HeartZoomOut)
+    {
+        player->instance_num = PI_Unset;
+        player->instance_remain_turns = 0;
+        pinstfe_zoom_out_of_heart(player, &unused);
+    }
+}
+
 void process_player_instance(struct PlayerInfo *player)
 {
     struct PlayerInstanceInfo *inst_info;

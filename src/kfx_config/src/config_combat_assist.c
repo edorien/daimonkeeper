@@ -96,6 +96,7 @@ TbBool keeper_assist_profile_load_from(const char *path, struct KeeperAssistProf
         for (size_t i = 0; (i < value_array_size(rules)) && (p->custom_count < KEEPER_ASSIST_RULES); i++) {
             struct KeeperAssistRule r;
             err = keeper_assist_parse_rule(value_array_get(rules, i), &r);
+            if ((err == NULL) && keeper_assist_action_is_hand(r.action)) err = "HAND_RULES_ARE_AGENT_ONLY";
             if (err != NULL) {
                 WARNLOG("Combat assistant profile %s: rule %d dropped (%s)", path, (int)i, err);
                 continue;
@@ -223,7 +224,7 @@ const char *keeper_assist_profile_expand(const struct KeeperAssistProfile *p, VA
     int n = 0;
     for (int i = 0; i < KEEPER_ASSIST_RULES; i++) {
         struct KeeperAssistRule r = from[i];
-        if (!r.used) continue;
+        if (!r.used || keeper_assist_action_is_hand(r.action)) continue; // a hand rule is an agent's only
         if ((r.power >= 32) || ((p->tuning.powers & (1u << r.power)) == 0)) continue; // a power the player turned off
         const char *name = preset_rule_name(presets, p->preset, i);
         if (strcmp(name, "heal") == 0) {

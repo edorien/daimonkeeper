@@ -32,7 +32,7 @@ def summarize(order):
     return " ".join(bits)
 
 
-def submit_batch(api, seat, orders, decision_turn, max_age_turns, dry_run=False, memory=None):
+def submit_batch(api, seat, orders, decision_turn, max_age_turns, dry_run=False, memory=None, decision_seq=None):
     """Submits each order (queued, expiring: prompt.order_to_request) in the order given. With dry_run=True, each is
     validated (the same checks and error codes a real submit would give) but never queued or spent -- see
     external_seat.c's extseat_check_verb. `memory` (if given) resolves an order's `name` to the creature's thing_id.
@@ -44,6 +44,8 @@ def submit_batch(api, seat, orders, decision_turn, max_age_turns, dry_run=False,
     batch_digs = []   # a dry run queues nothing, so the batch's earlier mark_digs are passed on as already marked
     for order in orders:
         req = prompt.order_to_request(order, seat, decision_turn, max_age_turns, memory=memory)
+        if decision_seq is not None:
+            req["decision_seq"] = decision_seq   # which decision it answers (an urgent hold ends on it; 0: none)
         if dry_run:
             req["dry_run"] = True
             if batch_digs:

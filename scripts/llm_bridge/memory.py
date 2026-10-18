@@ -32,7 +32,8 @@ NAMES_PRUNE_AT = 400      # past this many names, those of creatures no longer i
 CHECKPOINTS_CAP = 120     # past this, every other old checkpoint is dropped (a coarser history, never a gap at the end)
 
 _FIELDS = ("format", "game_id", "level", "started_at", "start_turn", "branch", "parent_branch", "plan", "notes", "decisions", "seen_kinds",
-           "count", "creature_names", "_kind_counters", "checkpoints", "stats", "rule_names")
+           "count", "creature_names", "_kind_counters", "checkpoints", "stats", "rule_names", "rule_sigs", "pending_rules",
+           "last_sight", "bank_names", "triggers", "trigger_log", "rally")
 
 
 def creature_key(thing_id, born=None):
@@ -60,7 +61,16 @@ class Memory:
         self.checkpoints = []        # [{"turn", ...stats}], one per pay day (experience.py)
         self.stats = {"decisions": 0, "sent": 0, "refused": 0, "refusals": {}}   # the whole game's, for its record
         self.rule_names = []         # the combat assistant's rules by slot: the agent's own name for each (set_combat_rules)
+        self.rule_sigs = []          # by slot: the rule each name was given to (standing_orders.rule_sig), None if unchecked
+        self.pending_rules = None    # a change accepted but not live yet: {"names", "before" (live sigs then), "id"}
+        self.last_sight = None       # the latest Sight of Evil report (prompt.render_sight): {"turn", "lines"}, kept once it closes
+        self.bank_names = {}         # the combat assistant's banks: {"1": {"label", "names"}} (set_combat_rules(bank=N))
+        self.triggers = []           # the agent's contingency triggers, with their counters (triggers.py)
+        self.trigger_log = []        # their latest firings, newest last (triggers.LOG_KEPT)
+        self.rally = {}              # named spots (subtiles) triggers and the flash view refer to: {"safe": [x, y], ...}
+        self._assist_note = None     # said once in STANDING ORDERS (a change refused) (not saved)
         self._assist_seen = {}       # each rule's [fired, spent] at the last decision, for STANDING ORDERS (not saved)
+        self._trig_seen = None       # the turn TRIGGERS was last shown: firings after it are news (not saved)
         self._live = None            # keys of the creatures in the latest view (not saved)
         self._sink = None            # where flush() sends the blob
         self._pushed = None

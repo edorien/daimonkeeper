@@ -93,6 +93,8 @@ def main():
     check("the log has one line per decision, in real time (the game was never paused)", len(lines) == 4 and lines[-1]["turn"] > lines[0]["turn"], lines)
     check("the first decision was 'start', the later ones were raised by the game (enemy_fight events)",
           lines[0]["reasons"] == ["start"] and all("enemy_fight" in l["reasons"] for l in lines[1:]), [l["reasons"] for l in lines])
+    check("the seat digging, claiming and building its own dungeon is never a loss (room_captured, room_destroyed, ground_lost)",
+          not any(r in ("room_captured", "room_destroyed", "ground_lost") for l in lines for r in l["reasons"]), [l["reasons"] for l in lines])
     check("decisions came from game events, not a timer (turn gaps of at least the minimum interval)",
           all(b["turn"] - a["turn"] >= 40 for a, b in zip(lines, lines[1:])), [l["turn"] for l in lines])
     check("the first decision sent the three scripted orders", [o["verb"] for o in lines[0]["sent"]] == ["cast_power", "build_room", "mark_dig"], lines[0])
@@ -135,14 +137,14 @@ def main():
     time.sleep(1.0)
     api.data(action="set_pause", player=seat, paused=True, force=True)
     state.update(api, seat)
-    if state.last_diff is not None:
-        print("last diff sizes by key:", {k: len(json.dumps(v)) for k, v in state.last_diff.items()})
-    check("this update was a diff", state.last_diff is not None, "resynced")
+    if state.raw_diff is not None:
+        print("last diff sizes by key:", {k: len(json.dumps(v)) for k, v in state.raw_diff.items()})
+    check("this update was a diff", state.raw_diff is not None, "resynced")
     patched = strip(state.view)
     raw_full = api.data(action="get_player_view", player=seat)
     full = strip(raw_full)
     check("after more game time, patch + diff still equals the full view", patched == full, [k for k in full if patched.get(k) != full[k]])
-    check("the diff carried real changes (turn moved)", state.last_diff is not None and "turn" in state.last_diff)
+    check("the diff carried real changes (turn moved)", state.raw_diff is not None and "turn" in state.raw_diff)
     api.data(action="set_pause", player=seat, paused=False)
 
     api.call(action="set_var", var="FLAG0", value=2 if failures else 1, player=0)

@@ -31,6 +31,7 @@ void clear_users_button_state(void);
 void process_user_packet(NetUserId user);
 TbBool process_user_global_packet_action(NetUserId user);
 TbBool global_action_allowed_for_seat_watcher(int64_t action);
+TbBool cheat_action_allowed_for_seat_watcher(const struct PlayerInfo *player, const struct Packet *pckt);
 void process_user_dungeon_control_packet_control(NetUserId user);
 TbBool process_user_dungeon_control_packet_action(NetUserId user);
 void process_user_creature_control_packet_control(NetUserId user);

@@ -705,7 +705,11 @@ static CoroutineLoopState startup_network_game_tail(CoroutineLoop *context)
     computer_players_set_dungeons(); // as after a load (P5-F21)
     // What the Skirmish page asked for at Play that is not part of the level script (the whole map revealed): once
     // the keepers and their dungeons exist, and always consumed so a later game does not inherit it.
-    level_start_options_apply(get_loaded_level_number());
+    {
+        const struct LevelStartOptions start_opts = level_start_options_take(get_loaded_level_number());
+        level_start_options_apply_world(&start_opts);
+        extseat_allow_pause_with_human(start_opts.llm_pause);
+    }
     post_init_packets();
     if (kfx_sim_state.game_kind == GKind_LocalGame) {
         // Slots the Skirmish page marked External (docs/refactor/AI/LLM/01 M5): after the script has run, so the

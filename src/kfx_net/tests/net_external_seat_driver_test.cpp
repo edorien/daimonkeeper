@@ -8,6 +8,7 @@
 #include "net_game.h"
 #include "packet_data.h"
 #include "player_data.h"
+#include "player_instances.h"
 #include "bflib_datetm.h"
 #include "kfx_sim_state.h"
 #include "kfx_net_state.h"
@@ -476,6 +477,7 @@ void run_until_idle(int64_t limit = 2000) {
 TEST_CASE_METHOD(DriverFixture, "queue=true lets verbs wait their turn and run in order; without it a busy seat refuses", "[kfx_net][extseat][queue]") {
     ExtSeatSubmitInfo a{}, b{}, c{};
     ExtSeatVerb v = dig_verb(1, 1);
+    const int64_t submit_turn = (int64_t)g_turn;
     REQUIRE(extseat_submit_verb_ex(1, 2, &v, false, &a) == nullptr);
     CHECK(a.queued_behind == 0);
     CHECK(std::string(extseat_submit_verb_ex(1, 2, &v, false, &b)) == "ACTION_ALREADY_QUEUED");
@@ -496,6 +498,13 @@ TEST_CASE_METHOD(DriverFixture, "queue=true lets verbs wait their turn and run i
     REQUIRE(n == 3);
     CHECK(res[0].id == a.id); CHECK(res[1].id == b.id); CHECK(res[2].id == c.id);
     for (int i = 0; i < 3; i++) CHECK_FALSE(res[i].rejected);
+    // When each was accepted and when it started (the agent's latency chain: the queue in front of an order).
+    for (int i = 0; i < 3; i++) CHECK(res[i].submitted == submit_turn);
+    CHECK(res[0].started == submit_turn);                // an idle seat starts it at once
+    CHECK(res[1].started > res[0].submitted);            // the others waited for the one in front
+    CHECK(res[1].started >= res[0].turn);
+    CHECK(res[2].started >= res[1].turn);
+    CHECK(res[2].turn > res[2].started);
 }
 
 TEST_CASE_METHOD(DriverFixture, "the verb queue is bounded, and a full one says QUEUE_FULL", "[kfx_net][extseat][queue]") {
@@ -527,6 +536,7 @@ TEST_CASE_METHOD(DriverFixture, "a verb whose expiry passed is refused at submit
     CHECK(res[1].id == w.id);
     CHECK(res[1].rejected);
     CHECK(std::string(res[1].error) == "EXPIRED");
+    CHECK(res[1].started == -1);                         // it never ran
 }
 
 TEST_CASE_METHOD(DriverFixture, "cancel drops the waiting verbs too and reports them CANCELLED", "[kfx_net][extseat][queue]") {
@@ -596,6 +606,48 @@ TEST_CASE_METHOD(DriverFixture, "set_alliance validates a target and enabled, ho
     CHECK(sim_packets[1].actn_par1 == 0);
 }
 
+// The level-start heart zoom (and zoom out) locks the keeper's input for about 32 turns, and in its first half the player
+// is possessing the spectator creature: a step written then is consumed by the creature-control handlers and lost (the
+// opening dig marks of an agent that connected as the level loaded). The seat's queue waits for the lock to end.
+TEST_CASE_METHOD(DriverFixture, "the seat's queue waits while the heart zoom, or any input lock, holds the keeper", "[kfx_net][extseat][alliance]") {
+    ExtSeatVerb v; std::memset(&v, 0, sizeof(v)); v.kind = ESV_SetAlliance;
+    v.has_target_player = true; v.target_player = 0; v.has_enabled = true; v.enabled = true;
+    REQUIRE(extseat_submit_verb_ex(1, 2, &v, false, nullptr) == nullptr);
+
+    kfx_sim_state.players[2].instance_num = PI_HeartZoom;
+    extseat_tick();
+    CHECK(sim_packets[1].action == PckA_None);          // nothing written while the zoom runs
+    kfx_sim_state.players[2].instance_num = PI_HeartZoomOut;
+    extseat_tick();
+    CHECK(sim_packets[1].action == PckA_None);          // nor while it zooms out
+    kfx_sim_state.players[2].instance_num = PI_Unset;
+    kfx_sim_state.user_states[1].init_flags |= UsrIF_MouseInputDisabled;
+    extseat_tick();
+    CHECK(sim_packets[1].action == PckA_None);          // nor while the mouse is locked (possession fades...)
+    CHECK_FALSE(extseat_idle(1));                        // and the verb is still waiting
+    kfx_sim_state.user_states[1].init_flags &= ~UsrIF_MouseInputDisabled;
+    extseat_tick();
+    CHECK(sim_packets[1].action == PckA_PlyrToggleAlly); // released: the step goes out
+}
+
+// A seat never gets the level-start intro: its flag is set (game_loop() starts the intro only for keepers that do not skip
+// it), and a claim while the intro runs ends it at once.
+TEST_CASE_METHOD(DriverFixture, "an External seat skips the heart zoom, and a claim during it ends it", "[kfx_net][extseat]") {
+    struct PlayerInfo *me = &kfx_sim_state.players[0];
+    me->skip_heart_zoom = false;
+    me->instance_num = PI_HeartZoom;
+    me->instance_remain_turns = 12;
+    kfx_sim_state.user_states[0].init_flags |= UsrIF_MouseInputDisabled | UsrIF_KeyboardInputDisabled;
+    const NetUserId u = net_add_external_seat(0);
+    REQUIRE(u > SOLO_HUMAN_ID);
+    CHECK(me->skip_heart_zoom);
+    CHECK(me->instance_num == PI_Unset);
+    CHECK(me->instance_remain_turns == 0);
+    CHECK((kfx_sim_state.user_states[0].init_flags & UsrIF_MouseInputDisabled) == 0);
+    CHECK((kfx_sim_state.user_states[u].init_flags & UsrIF_MouseInputDisabled) == 0);
+    net_release_external_seat(0);
+}
+
 // Agent-only games (no human plays a keeper): the agent may pause, the level starts paused for it, and the watchdog
 // leaves its pause alone -- it is there to keep a stalled agent from holding a human up.
 TEST_CASE_METHOD(DriverFixture, "a human plays while the local keeper is neither a seat nor the built-in AI's, and is still in", "[kfx_net][extseat][agent_only]") {
@@ -608,6 +660,18 @@ TEST_CASE_METHOD(DriverFixture, "a human plays while the local keeper is neither
     kfx_sim_state.players[0].victory_state = VicS_Undecided;
     kfx_sim_state.game_kind = GKind_MultiGame;                      // a network game always has humans elsewhere
     CHECK(extseat_human_playing());
+}
+
+// The Skirmish page's LLM Pause: an agent may pause although a human plays; a game start sets it either way.
+TEST_CASE_METHOD(DriverFixture, "an agent may pause with a human playing only when the game's setup allowed it", "[kfx_net][extseat][agent_only]") {
+    extseat_allow_pause_with_human(false);
+    CHECK(extseat_human_playing());
+    CHECK_FALSE(extseat_may_pause());
+    extseat_allow_pause_with_human(true);
+    CHECK(extseat_may_pause());
+    extseat_allow_pause_with_human(false);
+    set_flag(kfx_sim_state.players[0].allocflags, PlaF_CompCtrl); // no human plays: pausing is always allowed
+    CHECK(extseat_may_pause());
 }
 
 TEST_CASE_METHOD(DriverFixture, "a level with External seats and no human keeper starts paused for the agent", "[kfx_net][extseat][agent_only]") {
@@ -637,4 +701,131 @@ TEST_CASE_METHOD(DriverFixture, "with no human playing the watchdog never takes 
     CHECK(extseat_agent_owns_pause());
     extseat_resume();
     CHECK_FALSE(paused());
+}
+
+namespace {
+ExtSeatVerb big_dig() {
+    ExtSeatVerb v = dig_verb(10, 10);
+    v.slab_x1 = 19; v.slab_y1 = 29;     // one long held sweep (two steps a row): the button down throughout
+    return v;
+}
+int64_t result_index(const ExtSeatResult *res, int64_t n, int64_t id) {
+    for (int64_t i = 0; i < n; i++) if (res[i].id == id) return i;
+    return -1;
+}
+}
+
+TEST_CASE_METHOD(DriverFixture, "an urgent verb cuts a long routine one, which resumes after it", "[kfx_net][extseat][lanes]") {
+    ExtSeatVerb routine = big_dig();
+    ExtSeatSubmitInfo a{}, b{};
+    REQUIRE(extseat_submit_verb_ex(1, 2, &routine, true, &a) == nullptr);
+    REQUIRE(a.steps > 20);
+    const int64_t started_turn = (int64_t)g_turn;
+    for (int i = 0; i < 5; i++) { g_turn++; extseat_tick(); }
+    REQUIRE(extseat_mid_gesture(1));               // in the middle of the sweep
+    ExtSeatVerb urgent = dig_verb(40, 40);
+    urgent.priority = true;
+    REQUIRE(extseat_submit_verb_ex(1, 2, &urgent, false, &b) == nullptr);   // urgent: queues even without queue=true
+    CHECK(b.queued_behind == 0);                   // the running verb will be cut for it
+    ExtSeatQueueInfo qi;
+    extseat_queue_info(1, &qi);
+    CHECK(qi.running_id == a.id);
+    CHECK(qi.lane_count[EXTSEAT_LANE_NOW] == 1);
+
+    // The next tick cuts the sweep where it stands: the tool is left and the button released, then the urgent verb.
+    g_turn++; extseat_tick();
+    extseat_queue_info(1, &qi);
+    CHECK(qi.running_id == 0);
+    CHECK(qi.lane_count[EXTSEAT_LANE_ROUTINE] == 1);
+    CHECK(qi.lane_ids[EXTSEAT_LANE_ROUTINE][0] == a.id);
+    CHECK(qi.lane_suspended[EXTSEAT_LANE_ROUTINE][0]);
+    int64_t urgent_start = -1;
+    for (int i = 0; i < 10 && urgent_start < 0; i++) {
+        g_turn++; extseat_tick();
+        extseat_queue_info(1, &qi);
+        if (qi.running_id == b.id) urgent_start = (int64_t)g_turn;
+    }
+    REQUIRE(urgent_start > 0);
+    CHECK(urgent_start - (started_turn + 5) <= 4);   // within a few turns of being submitted
+    run_until_idle();
+    g_turn++; extseat_tick();
+    ExtSeatResult res[EXTSEAT_RESULT_RING];
+    const int64_t n = extseat_results(1, res, EXTSEAT_RESULT_RING);
+    const int64_t ia = result_index(res, n, a.id), ib = result_index(res, n, b.id);
+    REQUIRE(ia >= 0);
+    REQUIRE(ib >= 0);
+    CHECK(ib < ia);                                // the urgent one finished first
+    CHECK_FALSE(res[ia].rejected);
+    CHECK_FALSE(res[ib].rejected);
+    CHECK(res[ia].suspended == 1);
+    CHECK(res[ia].started == started_turn);        // it kept its first start
+    CHECK(res[ia].lane == EXTSEAT_LANE_ROUTINE);
+    CHECK(res[ib].lane == EXTSEAT_LANE_NOW);
+    CHECK_FALSE(extseat_mid_gesture(1));
+}
+
+TEST_CASE_METHOD(DriverFixture, "urgent verbs run ahead of waiting routine ones, and are not cut themselves", "[kfx_net][extseat][lanes]") {
+    ExtSeatVerb first = big_dig();
+    first.priority = true;                          // an urgent long verb is never cut
+    ExtSeatVerb waits = dig_verb(30, 30);
+    ExtSeatVerb jumps = dig_verb(31, 31);
+    jumps.priority = true;
+    ExtSeatSubmitInfo a{}, w{}, j{};
+    REQUIRE(extseat_submit_verb_ex(1, 2, &first, true, &a) == nullptr);
+    REQUIRE(extseat_submit_verb_ex(1, 2, &waits, true, &w) == nullptr);
+    REQUIRE(extseat_submit_verb_ex(1, 2, &jumps, true, &j) == nullptr);
+    CHECK(w.queued_behind == 1);
+    CHECK(j.queued_behind == 1);                    // behind the running urgent verb only, not the routine one
+    run_until_idle();
+    g_turn++; extseat_tick();
+    ExtSeatResult res[EXTSEAT_RESULT_RING];
+    const int64_t n = extseat_results(1, res, EXTSEAT_RESULT_RING);
+    REQUIRE(n == 3);
+    CHECK(res[0].id == a.id); CHECK(res[1].id == j.id); CHECK(res[2].id == w.id);
+    CHECK(res[0].suspended == 0);
+}
+
+TEST_CASE_METHOD(DriverFixture, "cancel takes one verb by id, or a lane's waiting verbs", "[kfx_net][extseat][lanes]") {
+    ExtSeatVerb run = big_dig();
+    ExtSeatVerb r1 = dig_verb(30, 30), r2 = dig_verb(31, 31), u1 = dig_verb(32, 32);
+    u1.priority = true;
+    ExtSeatSubmitInfo a{}, b{}, c{}, d{};
+    REQUIRE(extseat_submit_verb_ex(1, 2, &run, true, &a) == nullptr);
+    REQUIRE(extseat_submit_verb_ex(1, 2, &r1, true, &b) == nullptr);
+    REQUIRE(extseat_submit_verb_ex(1, 2, &r2, true, &c) == nullptr);
+    ExtSeatVerb cancel; std::memset(&cancel, 0, sizeof(cancel));
+    cancel.kind = ESV_Cancel;
+    cancel.cancel_id = b.id;
+    CHECK(extseat_submit_verb_ex(1, 2, &cancel, true, nullptr) == nullptr);
+    cancel.cancel_id = 9999;
+    CHECK(std::string(extseat_submit_verb_ex(1, 2, &cancel, true, nullptr)) == "NO_SUCH_ORDER");
+    REQUIRE(extseat_submit_verb_ex(1, 2, &u1, true, &d) == nullptr);
+    // The routine lane's waiting verbs go; the urgent one and the running one stay.
+    cancel.cancel_id = 0;
+    cancel.cancel_lane = EXTSEAT_LANE_ROUTINE + 1;
+    CHECK(extseat_submit_verb_ex(1, 2, &cancel, true, nullptr) == nullptr);
+    ExtSeatQueueInfo qi;
+    extseat_queue_info(1, &qi);
+    CHECK(qi.running_id == a.id);
+    CHECK(qi.lane_count[EXTSEAT_LANE_ROUTINE] == 0);
+    CHECK(qi.lane_count[EXTSEAT_LANE_NOW] == 1);
+    // The running verb by id: ended cleanly.
+    g_turn++; extseat_tick();                       // the urgent verb cuts the running dig back into the routine lane...
+    extseat_queue_info(1, &qi);
+    REQUIRE(qi.lane_count[EXTSEAT_LANE_ROUTINE] == 1);
+    cancel.cancel_lane = 0;
+    cancel.cancel_id = a.id;                        // ... and cancelling it there works too
+    CHECK(extseat_submit_verb_ex(1, 2, &cancel, true, nullptr) == nullptr);
+    run_until_idle();
+    g_turn++; extseat_tick();
+    ExtSeatResult res[EXTSEAT_RESULT_RING];
+    const int64_t n = extseat_results(1, res, EXTSEAT_RESULT_RING);
+    const int64_t ia = result_index(res, n, a.id), ib = result_index(res, n, b.id), ic = result_index(res, n, c.id), id = result_index(res, n, d.id);
+    REQUIRE(ia >= 0); REQUIRE(ib >= 0); REQUIRE(ic >= 0); REQUIRE(id >= 0);
+    CHECK(std::string(res[ib].error) == "CANCELLED");
+    CHECK(std::string(res[ic].error) == "CANCELLED");
+    CHECK(std::string(res[ia].error) == "CANCELLED");
+    CHECK(res[ia].started >= 0);
+    CHECK_FALSE(res[id].rejected);
+    CHECK_FALSE(extseat_mid_gesture(1));
 }

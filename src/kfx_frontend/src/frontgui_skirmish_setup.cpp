@@ -828,6 +828,18 @@ void draw_slots()
     FeSeparator();
     FeSubheading("Teams");
     FeCaption("Players on the same team are allied. Leave at 'None' for free-for-all.");
+    {
+        const char *const sharing_names[] = { "None", "Vision", "Vision + land" };
+        int64_t sharing = s.sharing;
+        FeBodyText("Sharing");
+        ImGui::SameLine(200.0);
+        ImGui::SetNextItemWidth(160.0);
+        if (FeCombo("##sharing", &sharing, sharing_names, 3))
+            s.sharing = sharing;
+        FeCaption("Vision: teammates see what the others have explored. Vision + land: and may drop their creatures on each other's land. As the level has it when None.");
+        FeCheckbox("LLM pause", &s.llm_pause);
+        FeCaption("An External agent may pause the game (set_pause, advance_turns) although you play too. Otherwise only a game no human plays can be paused by an agent.");
+    }
     for (int64_t p = 0; p < s.players; p++)
     {
         ImGui::PushID(1000 + p);

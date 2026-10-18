@@ -19,12 +19,13 @@
 extern "C" {
 #endif
 
-// PckA_AssistStageRule par1: slot 4 bits, action 2, target 2, pick 3, cond_count 3, level 4, power 12 (bits 0-29).
+// PckA_AssistStageRule par1: slot 4 bits, action 2, target 2, pick 3, cond_count 3, level 4, power 12 (bits 0-29), and the
+// action's third bit (30) -- the hand rules are actions 3-5.
 int32_t keeper_assist_pack_rule(int slot, const struct KeeperAssistRule *r, int32_t *par2)
 {
     const uint32_t p1 = ((uint32_t)slot & 0xF) | (((uint32_t)r->action & 0x3) << 4) | (((uint32_t)r->target & 0x3) << 6)
         | (((uint32_t)r->pick & 0x7) << 8) | (((uint32_t)r->cond_count & 0x7) << 11) | (((uint32_t)r->level & 0xF) << 14)
-        | (((uint32_t)r->power & 0xFFF) << 18);
+        | (((uint32_t)r->power & 0xFFF) << 18) | ((((uint32_t)r->action >> 2) & 0x1) << 30);
     *par2 = (int32_t)((uint32_t)r->cooldown | ((uint32_t)r->target_cooldown << 16));
     return (int32_t)p1;
 }
@@ -35,7 +36,7 @@ void keeper_assist_unpack_rule(int32_t par1, int32_t par2, int *slot, struct Kee
     memset(r, 0, sizeof(*r));
     *slot = (int)(p1 & 0xF);
     r->used = 1;
-    r->action = (uint8_t)((p1 >> 4) & 0x3);
+    r->action = (uint8_t)(((p1 >> 4) & 0x3) | (((p1 >> 30) & 0x1) << 2));
     r->target = (uint8_t)((p1 >> 6) & 0x3);
     r->pick = (uint8_t)((p1 >> 8) & 0x7);
     r->cond_count = (uint8_t)((p1 >> 11) & 0x7);
@@ -51,6 +52,25 @@ static void emit(struct KeeperAssistPacket *out, int *n, uint8_t action, int32_t
     out[*n].par1 = par1;
     out[*n].par2 = par2;
     (*n)++;
+}
+
+/** A rule's packets: the rule, its money (budget, max_allies_hit), a hand rule's hand fields, and its conditions. */
+static void emit_rule(struct KeeperAssistPacket *out, int *n, int s, const struct KeeperAssistRule *r)
+{
+    int32_t p2 = 0;
+    const int32_t p1 = keeper_assist_pack_rule(s, r, &p2);
+    emit(out, n, PckA_AssistStageRule, p1, p2);
+    emit(out, n, PckA_AssistStageRuleMoney, (int32_t)((uint32_t)s | ((uint32_t)(r->max_allies_hit & 0xF) << 4)), r->budget);
+    if (keeper_assist_action_is_hand(r->action)) {
+        emit(out, n, PckA_AssistStageRuleHand,
+             (int32_t)((uint32_t)s | ((uint32_t)(r->count & 0xF) << 4) | ((uint32_t)(r->radius & 0xF) << 8) | ((uint32_t)r->min_match << 12)),
+             (int32_t)((uint32_t)r->dest_x | ((uint32_t)r->dest_y << 16)));
+    }
+    for (int c = 0; (c < r->cond_count) && (c < KEEPER_ASSIST_CONDS); c++) {
+        const struct KeeperAssistCond *cond = &r->cond[c];
+        emit(out, n, PckA_AssistStageCond,
+             (int32_t)((uint32_t)s | ((uint32_t)c << 4) | ((uint32_t)cond->fact << 6) | (((uint32_t)cond->op & 0xF) << 14)), cond->value);
+    }
 }
 
 static int32_t global_value(const struct KeeperAssistGlobals *g, enum KeeperAssistGlobalField f)
@@ -91,15 +111,7 @@ int keeper_assist_plan_packets(const struct KeeperAssistState *st, const struct 
         keep |= 1u << s;
         if (st->live[s].used && (memcmp(r, &st->live[s], sizeof(*r)) == 0)) continue;
         changed |= 1u << s;
-        int32_t p2 = 0;
-        const int32_t p1 = keeper_assist_pack_rule(s, r, &p2);
-        emit(out, &n, PckA_AssistStageRule, p1, p2);
-        emit(out, &n, PckA_AssistStageRuleMoney, (int32_t)((uint32_t)s | ((uint32_t)(r->max_allies_hit & 0xF) << 4)), r->budget);
-        for (int c = 0; (c < r->cond_count) && (c < KEEPER_ASSIST_CONDS); c++) {
-            const struct KeeperAssistCond *cond = &r->cond[c];
-            emit(out, &n, PckA_AssistStageCond,
-                 (int32_t)((uint32_t)s | ((uint32_t)c << 4) | ((uint32_t)cond->fact << 6) | (((uint32_t)cond->op & 0xF) << 14)), cond->value);
-        }
+        emit_rule(out, &n, s, r);
     }
     const TbBool globals_changed = (memcmp(globals, &st->globals, sizeof(*globals)) != 0);
     if (globals_changed) {
@@ -111,6 +123,36 @@ int keeper_assist_plan_packets(const struct KeeperAssistState *st, const struct 
         return 0;
     }
     emit(out, &n, PckA_AssistCommit, (int32_t)(keep | (changed << 16)), globals_changed ? 1 : 0);
+    return n;
+}
+
+int keeper_assist_plan_bank_packets(const struct KeeperAssistState *st, int bank, const struct KeeperAssistRule *rules,
+    const struct KeeperAssistGlobals *globals, struct KeeperAssistPacket *out)
+{
+    if ((bank < 1) || (bank > KEEPER_ASSIST_BANKS)) return -1;
+    const struct KeeperAssistBank *b = &st->bank[bank - 1];
+    uint32_t keep = 0;
+    TbBool same = b->used && (memcmp(globals, &b->globals, sizeof(*globals)) == 0);
+    for (int s = 0; s < KEEPER_ASSIST_RULES; s++) {
+        if (rules[s].used) keep |= 1u << s;
+        if (rules[s].used != b->rules[s].used) same = false;
+        else if (rules[s].used && (memcmp(&rules[s], &b->rules[s], sizeof(rules[s])) != 0)) same = false;
+    }
+    if (same) return 0;
+    int n = 0;
+    // The bank is made from the staging copy: stage what differs from it.
+    for (int s = 0; s < KEEPER_ASSIST_RULES; s++) {
+        const struct KeeperAssistRule *r = &rules[s];
+        if (!r->used) continue;
+        if (st->staging[s].used && (memcmp(r, &st->staging[s], sizeof(*r)) == 0)) continue;
+        emit_rule(out, &n, s, r);
+    }
+    if (memcmp(globals, &st->staging_globals, sizeof(*globals)) != 0) {
+        for (int f = KAG_None + 1; f < KAG_Count; f++) {
+            emit(out, &n, PckA_AssistStageGlobal, f, global_value(globals, (enum KeeperAssistGlobalField)f));
+        }
+    }
+    emit(out, &n, PckA_AssistCommitBank, (int32_t)((uint32_t)bank | (keep << 4)), 0);
     return n;
 }
 
@@ -138,6 +180,15 @@ void keeper_assist_apply_packet(struct KeeperAssistState *st, uint8_t action, in
         r->budget = par2;
         break;
     }
+    case PckA_AssistStageRuleHand: {
+        struct KeeperAssistRule *r = &st->staging[p1 & 0xF];
+        r->count = (uint8_t)((p1 >> 4) & 0xF);
+        r->radius = (uint8_t)((p1 >> 8) & 0xF);
+        r->min_match = (uint8_t)((p1 >> 12) & 0xFF);
+        r->dest_x = (uint16_t)((uint32_t)par2 & 0xFFFF);
+        r->dest_y = (uint16_t)(((uint32_t)par2 >> 16) & 0xFFFF);
+        break;
+    }
     case PckA_AssistStageCond: {
         const uint32_t idx = (p1 >> 4) & 0x3;
         struct KeeperAssistCond *c = &st->staging[p1 & 0xF].cond[idx];
@@ -149,7 +200,49 @@ void keeper_assist_apply_packet(struct KeeperAssistState *st, uint8_t action, in
     case PckA_AssistStageGlobal:
         set_global(&st->staging_globals, par1, par2);
         break;
+    case PckA_AssistCommitBank: {
+        const int bank = (int)(p1 & 0xF);
+        const uint32_t keep = (p1 >> 4) & 0xFFFF;
+        if ((bank < 1) || (bank > KEEPER_ASSIST_BANKS)) break;
+        struct KeeperAssistBank *b = &st->bank[bank - 1];
+        memset(b, 0, sizeof(*b));
+        for (int s = 0; s < KEEPER_ASSIST_RULES; s++) {
+            if ((keep & (1u << s)) == 0) continue;
+            if (st->staging[s].used && (keeper_assist_rule_validate(&st->staging[s]) == NULL)) {
+                b->rules[s] = st->staging[s];
+            } else {
+                WARNLOG("Combat assistant: rule %d left out of bank %d (%s)", s, bank,
+                        st->staging[s].used ? keeper_assist_rule_validate(&st->staging[s]) : "not staged");
+            }
+        }
+        b->globals = (keeper_assist_globals_validate(&st->staging_globals) == NULL) ? st->staging_globals : st->globals;
+        b->used = 1;
+        break;
+    }
+    case PckA_AssistUseBank: {
+        const int bank = (int)(p1 & 0xF);
+        if ((bank < 1) || (bank > KEEPER_ASSIST_BANKS) || !st->bank[bank - 1].used) {
+            WARNLOG("Combat assistant: bank %d is empty; the live set stays", bank);
+            break;
+        }
+        const struct KeeperAssistBank *b = &st->bank[bank - 1];
+        // As a commit of the bank's whole set: a slot that holds the same rule keeps its cooldowns and budget.
+        for (int s = 0; s < KEEPER_ASSIST_RULES; s++) {
+            if (!b->rules[s].used) {
+                clear_slot(st, s);
+            } else if (!st->live[s].used || (memcmp(&b->rules[s], &st->live[s], sizeof(b->rules[s])) != 0)) {
+                clear_slot(st, s);
+                st->live[s] = b->rules[s];
+            }
+            st->staging[s] = b->rules[s];
+        }
+        st->globals = b->globals;
+        st->staging_globals = b->globals;
+        st->active_bank = (uint8_t)bank;
+        break;
+    }
     case PckA_AssistCommit: {
+        st->active_bank = 0;
         const uint32_t keep = p1 & 0xFFFF, changed = (p1 >> 16) & 0xFFFF;
         for (int s = 0; s < KEEPER_ASSIST_RULES; s++) {
             if ((keep & (1u << s)) == 0) {

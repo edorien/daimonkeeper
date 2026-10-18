@@ -106,6 +106,8 @@ static void add_creature_list(VALUE *arr, int64_t first, TbBool digger)
         value_init_string(value_dict_add(e, "kind"), creature_code_name(thing->model));
         value_init_int32(value_dict_add(e, "level"), (int32_t)(cctrl->exp_level + 1));
         value_init_int32(value_dict_add(e, "health"), (int32_t)thing->health);
+        // Of its maximum, as the health bar over it shows (a trigger lifting the wounded out of a fight reads it).
+        value_init_int32(value_dict_add(e, "health_pct"), (cctrl->max_health > 0) ? (int32_t)(100 * thing->health / cctrl->max_health) : 100);
         value_init_bool(value_dict_add(e, "digger"), digger);
         add_pos(e, "pos", thing->mappos.x.stl.num, thing->mappos.y.stl.num);
         value_init_string(value_dict_add(e, "state"), creature_state_code_name(get_creature_state_besides_interruptions(thing)));
@@ -389,6 +391,14 @@ static void add_traps_and_doors(VALUE *traps, VALUE *doors, PlayerNumber plyr_id
         value_init_dict(e);
         value_init_int32(value_dict_add(e, "id"), (int32_t)thing->index);
         value_init_string(value_dict_add(e, "kind"), trap_code_name(thing->model));
+        // Shots left (0: spent, until an imp re-arms it with a crate; -1: it never runs out), of how many a crate gives,
+        // and whether it is between shots (rearm_turn) -- for the seat's own traps and the ones it sees alike.
+        {
+            const struct TrapConfigStats *ts = get_trap_model_stats(thing->model);
+            value_init_int64(value_dict_add(e, "charges"), (thing->trap.num_shots == INFINITE_CHARGES) ? -1 : (int64_t)thing->trap.num_shots);
+            value_init_int64(value_dict_add(e, "max_charges"), (ts->shots == INFINITE_CHARGES) ? -1 : (int64_t)ts->shots);
+            value_init_bool(value_dict_add(e, "rearming"), (thing->trap.num_shots > 0) && (thing->trap.rearm_turn > get_gameturn()));
+        }
         if (own) {
             // Whether a slap sets it off now (and, for one that shoots, that the slap needs a direction).
             value_init_bool(value_dict_add(e, "slappable"), thing_slappable(thing, plyr_idx));
@@ -728,6 +738,146 @@ static void add_graveyard_and_temples(VALUE *out, VALUE *own, PlayerNumber plyr_
     }
 }
 
+// What a Sight of Evil has uncovered (built while it is uncovered, api_seat_build_view): the area it has opened, as a
+// slab rectangle, and the other keepers' things in it -- creatures, rooms, traps, doors, hearts and gold. The sight
+// closes after a while and that ground goes dark again, so this is the agent's one look at it (decision sight_open).
+#define SIGHT_LISTED 24
+static void add_sight_report(VALUE *c, PlayerNumber plyr_idx, const struct Thing *eye)
+{
+    const MapSubtlCoord ex = eye->mappos.x.stl.num, ey = eye->mappos.y.stl.num;
+    int64_t x0 = INT32_MAX, y0 = INT32_MAX, x1 = -1, y1 = -1, open = 0, gold_slabs = 0;
+    for (int64_t y = ey - MAX_SOE_RADIUS; y < ey + MAX_SOE_RADIUS; y++) {
+        for (int64_t x = ex - MAX_SOE_RADIUS; x < ex + MAX_SOE_RADIUS; x++) {
+            if ((x < 0) || (y < 0) || !subtile_has_slab((MapSubtlCoord)x, (MapSubtlCoord)y) || !power_sight_explored((MapSubtlCoord)x, (MapSubtlCoord)y, plyr_idx)) continue;
+            open++;
+            const int64_t sx = subtile_slab(x), sy = subtile_slab(y);
+            if (sx < x0) x0 = sx;
+            if (sy < y0) y0 = sy;
+            if (sx > x1) x1 = sx;
+            if (sy > y1) y1 = sy;
+        }
+    }
+    value_init_int64(value_dict_add(c, "open_subtiles"), open);
+    if (open == 0) return;
+    VALUE *r = value_dict_add(c, "slab_rect");
+    value_init_array(r);
+    value_init_int64(value_array_append(r), x0); value_init_int64(value_array_append(r), y0);
+    value_init_int64(value_array_append(r), x1); value_init_int64(value_array_append(r), y1);
+    // Rooms by the slabs of theirs it opened over (a slab counts when its centre is open).
+    RoomIndex room_ids[SIGHT_LISTED]; int64_t room_slabs[SIGHT_LISTED]; int64_t nrooms = 0;
+    for (int64_t sy = y0; sy <= y1; sy++) {
+        for (int64_t sx = x0; sx <= x1; sx++) {
+            const MapSubtlCoord cx = slab_subtile_center(sx), cy = slab_subtile_center(sy);
+            if (!power_sight_explored(cx, cy, plyr_idx)) continue;
+            const struct SlabMap *slb = get_slabmap_block(sx, sy);
+            if ((slb->kind == SlbT_GOLD) || (slb->kind == SlbT_GEMS)) gold_slabs++;
+            const struct Room *room = subtile_room_get(cx, cy);
+            if (room_is_invalid(room) || (room->owner == plyr_idx)) continue;
+            int64_t k = 0;
+            while ((k < nrooms) && (room_ids[k] != room->index)) k++;
+            if (k == nrooms) {
+                if (nrooms == SIGHT_LISTED) continue;
+                room_ids[nrooms] = room->index; room_slabs[nrooms] = 0; nrooms++;
+            }
+            room_slabs[k]++;
+        }
+    }
+    VALUE *rooms = value_dict_add(c, "rooms");
+    value_init_array(rooms);
+    for (int64_t k = 0; k < nrooms; k++) {
+        const struct Room *room = room_get(room_ids[k]);
+        VALUE *e = value_array_append(rooms);
+        value_init_dict(e);
+        value_init_int32(value_dict_add(e, "id"), (int32_t)room->index);
+        value_init_string(value_dict_add(e, "kind"), room_code_name(room->kind));
+        value_init_int32(value_dict_add(e, "owner"), (int32_t)room->owner);
+        value_init_int64(value_dict_add(e, "slabs"), room_slabs[k]);
+    }
+    VALUE *crs = value_dict_add(c, "creatures");
+    value_init_array(crs);
+    int64_t ncr = 0, more = 0;
+    int64_t idx = kfx_sim_state.thing_lists[TngList_Creatures].index;
+    for (int64_t guard = 0; (idx > 0) && (guard < VIEW_LIST_CAP); guard++) {
+        const struct Thing *t = thing_get((ThingIndex)idx);
+        if (thing_is_invalid(t)) break;
+        idx = t->next_of_class;
+        if ((t->owner == plyr_idx) || !power_sight_explored(t->mappos.x.stl.num, t->mappos.y.stl.num, plyr_idx) || !creature_visible_to(t, plyr_idx)) continue;
+        if (ncr++ >= SIGHT_LISTED) { more++; continue; }
+        const struct CreatureControl *cctrl = creature_control_get_from_thing(t);
+        VALUE *e = value_array_append(crs);
+        value_init_dict(e);
+        value_init_int32(value_dict_add(e, "id"), (int32_t)t->index);
+        value_init_string(value_dict_add(e, "kind"), creature_code_name(t->model));
+        value_init_int32(value_dict_add(e, "level"), (int32_t)(cctrl->exp_level + 1));
+        value_init_int32(value_dict_add(e, "owner"), (int32_t)t->owner);
+        add_pos(e, "pos", t->mappos.x.stl.num, t->mappos.y.stl.num);
+    }
+    if (more > 0) value_init_int64(value_dict_add(c, "creatures_not_listed"), more);
+    VALUE *traps = value_dict_add(c, "traps");
+    value_init_array(traps);
+    idx = kfx_sim_state.thing_lists[TngList_Traps].index;
+    for (int64_t guard = 0; (idx > 0) && (guard < VIEW_LIST_CAP); guard++) {
+        const struct Thing *t = thing_get((ThingIndex)idx);
+        if (thing_is_invalid(t)) break;
+        idx = t->next_of_class;
+        if (!thing_is_deployed_trap(t) || (t->owner == plyr_idx) || !power_sight_explored(t->mappos.x.stl.num, t->mappos.y.stl.num, plyr_idx)
+            || !trap_visible_to(t, plyr_idx)) continue;
+        VALUE *e = value_array_append(traps);
+        value_init_dict(e);
+        value_init_int32(value_dict_add(e, "id"), (int32_t)t->index);
+        value_init_string(value_dict_add(e, "kind"), trap_code_name(t->model));
+        value_init_int32(value_dict_add(e, "owner"), (int32_t)t->owner);
+        add_pos(e, "pos", t->mappos.x.stl.num, t->mappos.y.stl.num);
+    }
+    VALUE *doors = value_dict_add(c, "doors");
+    value_init_array(doors);
+    idx = kfx_sim_state.thing_lists[TngList_Doors].index;
+    for (int64_t guard = 0; (idx > 0) && (guard < VIEW_LIST_CAP); guard++) {
+        struct Thing *t = thing_get((ThingIndex)idx);
+        if (thing_is_invalid(t)) break;
+        idx = t->next_of_class;
+        if (!thing_is_deployed_door(t) || (t->owner == plyr_idx) || !power_sight_explored(t->mappos.x.stl.num, t->mappos.y.stl.num, plyr_idx)
+            || !door_visible_to(t, plyr_idx)) continue;
+        VALUE *e = value_array_append(doors);
+        value_init_dict(e);
+        value_init_int32(value_dict_add(e, "id"), (int32_t)t->index);
+        value_init_string(value_dict_add(e, "kind"), door_code_name(t->model));
+        value_init_int32(value_dict_add(e, "owner"), (int32_t)t->owner);
+        value_init_bool(value_dict_add(e, "locked"), t->door.is_locked != 0);
+        add_pos(e, "pos", t->mappos.x.stl.num, t->mappos.y.stl.num);
+    }
+    VALUE *hearts = value_dict_add(c, "hearts");
+    value_init_array(hearts);
+    for (PlayerNumber p = 0; p < PLAYERS_COUNT; p++) {
+        if (p == plyr_idx) continue;
+        const struct Thing *h = find_players_dungeon_heart(p);
+        if (thing_is_invalid(h) || !power_sight_explored(h->mappos.x.stl.num, h->mappos.y.stl.num, plyr_idx)) continue;
+        VALUE *e = value_array_append(hearts);
+        value_init_dict(e);
+        value_init_int32(value_dict_add(e, "owner"), (int32_t)p);
+        value_init_int64(value_dict_add(e, "health"), h->health);
+        add_pos(e, "pos", h->mappos.x.stl.num, h->mappos.y.stl.num);
+    }
+    // Gold: lying loose, and stored in other keepers' treasure rooms; and the gold and gem seams it opened over.
+    int64_t loose = 0, stored = 0;
+    idx = kfx_sim_state.thing_lists[TngList_Objects].index;
+    for (int64_t guard = 0; (idx > 0) && (guard < 20000); guard++) {
+        const struct Thing *t = thing_get((ThingIndex)idx);
+        if (thing_is_invalid(t)) break;
+        idx = t->next_of_class;
+        if (!object_is_gold(t) || !power_sight_explored(t->mappos.x.stl.num, t->mappos.y.stl.num, plyr_idx)) continue;
+        const struct Room *room = get_room_thing_is_on((struct Thing *)t);
+        if (!room_is_invalid(room) && room_role_matches(room->kind, RoRoF_GoldStorage)) {
+            if (room->owner != plyr_idx) stored += t->valuable.gold_stored;
+        } else {
+            loose += t->valuable.gold_stored;
+        }
+    }
+    value_init_int64(value_dict_add(c, "loose_gold"), loose);
+    value_init_int64(value_dict_add(c, "stored_gold"), stored);
+    value_init_int64(value_dict_add(c, "gold_slabs"), gold_slabs);
+}
+
 // Lasting powers the seat has running, which power_off can end early.
 static void add_active_powers(VALUE *own, PlayerNumber plyr_idx)
 {
@@ -739,8 +889,26 @@ static void add_active_powers(VALUE *own, PlayerNumber plyr_idx)
         VALUE *c = value_dict_add(ap, "POWER_CALL_TO_ARMS");
         value_init_dict(c);
         if (!thing_is_invalid(flag)) add_pos(c, "pos", flag->mappos.x.stl.num, flag->mappos.y.stl.num);
+        // Who it calls: creatures within this many subtiles of the banner (its strength at the level cast; the ones it
+        // already called follow a moved banner wherever it goes).
+        const struct PowerConfigStats *powerst = get_power_model_stats(PwrK_CALL2ARMS);
+        if (powerst != NULL) {
+            value_init_int64(value_dict_add(c, "range"), powerst->strength[get_players_num_dungeon(plyr_idx)->cta_power_level]);
+        }
     }
-    if (player_uses_power_sight(plyr_idx)) { VALUE *c = value_dict_add(ap, "POWER_SIGHT"); value_init_dict(c); }
+    if (player_uses_power_sight(plyr_idx)) {
+        // Where it was cast and about when it closes: what it shows is in the view only while it is open (build_view).
+        const struct Dungeon *dungeon = get_players_num_dungeon(plyr_idx);
+        const struct Thing *eye = thing_get(dungeon->sight_casted_thing_idx);
+        VALUE *c = value_dict_add(ap, "POWER_SIGHT");
+        value_init_dict(c);
+        if (!thing_is_invalid(eye)) add_pos(c, "pos", eye->mappos.x.stl.num, eye->mappos.y.stl.num);
+        const struct PowerConfigStats *powerst = get_power_model_stats(PwrK_SIGHT);
+        if (powerst != NULL) {
+            value_init_int64(value_dict_add(c, "until_turn"), dungeon->sight_casted_gameturn + powerst->strength[dungeon->sight_casted_power_level]);
+        }
+        if (!thing_is_invalid(eye)) add_sight_report(c, plyr_idx, eye);
+    }
     if (player_uses_power_obey(plyr_idx)) { VALUE *c = value_dict_add(ap, "POWER_OBEY"); value_init_dict(c); }
 }
 
@@ -750,7 +918,7 @@ static void add_active_powers(VALUE *own, PlayerNumber plyr_idx)
 // imps left can carry all of it home with pick_up_and_drop(thing_ids, to_room), not just the piles it was shown.
 #define LOOSE_GOLD_LISTED 16
 #define LOOSE_GOLD_MAX 1024
-struct LoosePile { int64_t id; int64_t gold; MapSubtlCoord x, y; TbBool reachable; };
+struct LoosePile { int64_t id; int64_t gold; MapSubtlCoord x, y; TbBool reachable; PlayerNumber land; };
 static int cmp_pile_gold_desc(const void *a, const void *b)
 {
     const struct LoosePile *pa = (const struct LoosePile *)a, *pb = (const struct LoosePile *)b;
@@ -794,6 +962,7 @@ static void add_pickups(VALUE *own, PlayerNumber plyr_idx, const struct Dungeon 
                 pl->x = thing->mappos.x.stl.num;
                 pl->y = thing->mappos.y.stl.num;
                 pl->reachable = can_thing_be_picked_up_by_player(thing, plyr_idx);
+                pl->land = slabmap_owner(get_slabmap_for_subtile(pl->x, pl->y));
             }
         }
     }
@@ -815,6 +984,9 @@ static void add_pickups(VALUE *own, PlayerNumber plyr_idx, const struct Dungeon 
                 value_init_int32(value_dict_add(e, "id"), (int32_t)piles[i].id);
                 value_init_int64(value_dict_add(e, "gold"), piles[i].gold);
                 value_init_bool(value_dict_add(e, "reachable"), piles[i].reachable);
+                // Whose land it lies on (-1: nobody's): gold on another keeper's land is the seat's once it claims it.
+                value_init_int32(value_dict_add(e, "land"),
+                    (piles[i].land == kfx_config_state.neutral_player_num) ? -1 : (int32_t)piles[i].land);
                 add_pos(e, "pos", piles[i].x, piles[i].y);
             }
             if (piles[i].reachable) {
@@ -939,6 +1111,24 @@ static void add_visible(VALUE *out, PlayerNumber plyr_idx)
     VALUE *doors = value_dict_add(vis, "doors");
     value_init_array(doors);
     add_traps_and_doors(traps, doors, plyr_idx, false);
+
+    // Hero gates the seat has seen: where heroes come into the level. One the level's script hides (HIDE_HERO_GATE:
+    // into limbo) is not there to see.
+    VALUE *gates = value_dict_add(vis, "hero_gates");
+    value_init_array(gates);
+    int64_t oi = kfx_sim_state.thing_lists[TngList_Objects].index;
+    for (int64_t guard = 0; (oi > 0) && (guard < 20000); guard++) {
+        const struct Thing *thing = thing_get((ThingIndex)oi);
+        if (thing_is_invalid(thing)) break;
+        oi = thing->next_of_class;
+        if (!object_is_hero_gate(thing) || thing_is_picked_up(thing)) continue;
+        if (!subtile_revealed(thing->mappos.x.stl.num, thing->mappos.y.stl.num, plyr_idx)) continue;
+        VALUE *e = value_array_append(gates);
+        value_init_dict(e);
+        value_init_int32(value_dict_add(e, "id"), (int32_t)thing->index);
+        value_init_int32(value_dict_add(e, "number"), (int32_t)thing->hero_gate.number);
+        add_pos(e, "pos", thing->mappos.x.stl.num, thing->mappos.y.stl.num);
+    }
 }
 
 // ---- creature summary and per-kind profile ---------------------------------------------------------------------------
@@ -1055,7 +1245,22 @@ static void add_creature_intel(VALUE *own, const struct Dungeon *dungeon)
     }
 }
 
+static void build_view(VALUE *out, PlayerNumber plyr_idx);
+
 void api_seat_build_view(VALUE *out, PlayerNumber plyr_idx)
+{
+    // Sight of Evil: the engine keeps what the sight has opened (soe_explored_flags) and uncovers it on the map only
+    // while the local player's frame is drawn, covering it again after (frame_compose.c). The seat sees it the same way:
+    // uncovered while its view is built, so the sight's ground, creatures, traps and doors are in it while the sight
+    // lasts, and gone again once it closes, as on a human's screen.
+    struct PlayerInfo *player = get_player(plyr_idx);
+    const TbBool sight = player_exists(player) && player_uses_power_sight(plyr_idx);
+    if (sight) update_explored_flags_for_power_sight(player);
+    build_view(out, plyr_idx);
+    if (sight) remove_explored_flags_for_power_sight(player);
+}
+
+static void build_view(VALUE *out, PlayerNumber plyr_idx)
 {
     const struct PlayerInfo *player = get_player(plyr_idx);
     const struct Dungeon *dungeon = get_players_dungeon(player);
@@ -1066,6 +1271,8 @@ void api_seat_build_view(VALUE *out, PlayerNumber plyr_idx)
     value_init_bool(value_dict_add(out, "advancing"), extseat_advancing());
     // No human plays a keeper: the agent may pause (set_pause), and the level started paused for it.
     value_init_bool(value_dict_add(out, "agent_only"), !extseat_human_playing());
+    // set_pause / advance_turns are accepted: no human plays a keeper, or the game's setup allows an agent to pause anyway.
+    value_init_bool(value_dict_add(out, "can_pause"), extseat_may_pause());
     // The simulation's real-time pace (set_game_speed), global to the game, not per seat -- shown so an agent that
     // slowed the game down for itself to think can see the current rate, not just the value it last requested.
     value_init_int64(value_dict_add(out, "turns_per_second"), (int64_t)kfx_sim_state.turns_per_second);
@@ -1093,11 +1300,42 @@ void api_seat_build_view(VALUE *out, PlayerNumber plyr_idx)
             value_init_string(value_dict_add(e, "status"), res[i].rejected ? "rejected" : "done");
             if (res[i].rejected) value_init_string(value_dict_add(e, "error"), res[i].error);
             value_init_int64(value_dict_add(e, "turn"), res[i].turn);
+            value_init_int64(value_dict_add(e, "submitted"), res[i].submitted); // accepted, and first step (-1: never started)
+            value_init_int64(value_dict_add(e, "started"), res[i].started);
+            if (res[i].lane == EXTSEAT_LANE_NOW) value_init_string(value_dict_add(e, "lane"), "now");
+            if (res[i].suspended > 0) value_init_int32(value_dict_add(e, "suspended"), (int32_t)res[i].suspended);
+        }
+    }
+    {
+        // The queue as it stands: the running verb, then what waits in each lane (urgent first). A waiting verb that was
+        // cut part-way for an urgent one is marked: it resumes, planned again, from where things are.
+        struct ExtSeatQueueInfo qi;
+        extseat_queue_info(player->user_id, &qi);
+        VALUE *qv = value_dict_add(seat, "queue");
+        value_init_dict(qv);
+        if (qi.running_id != 0) {
+            VALUE *r = value_dict_add(qv, "running");
+            value_init_dict(r);
+            value_init_int32(value_dict_add(r, "id"), (int32_t)qi.running_id);
+            value_init_string(value_dict_add(r, "lane"), (qi.running_lane == EXTSEAT_LANE_NOW) ? "now" : "routine");
+            value_init_int32(value_dict_add(r, "steps_left"), (int32_t)qi.running_steps_left);
+        }
+        static const char *const lane_names[EXTSEAT_LANES] = { "now", "routine" };
+        for (int l = 0; l < EXTSEAT_LANES; l++) {
+            VALUE *arr = value_dict_add(qv, lane_names[l]);
+            value_init_array(arr);
+            for (int64_t i = 0; i < qi.lane_count[l]; i++) {
+                VALUE *e = value_array_append(arr);
+                value_init_dict(e);
+                value_init_int32(value_dict_add(e, "id"), (int32_t)qi.lane_ids[l][i]);
+                if (qi.lane_suspended[l][i]) value_init_bool(value_dict_add(e, "suspended"), true);
+            }
         }
     }
     api_seat_decision_add_to_view(seat, plyr_idx);
     // Creatures sent somewhere with move_creature: how many are still held, and the ones the safety net handed back
-    // (why: max_hold, payday, owed_pay, hungry, agent_lost) so the agent knows they are working again.
+    // (why: max_hold, payday, owed_pay, hungry, attacked, agent_lost, released: a release whose clicks missed) so the
+    // agent knows they are working again.
     value_init_int32(value_dict_add(seat, "ordered_creatures"), (int32_t)extseat_ordered_count(player->user_id));
     {
         struct ExtSeatAutoRelease ar[EXTSEAT_AUTO_RELEASE_RING];
@@ -1207,10 +1445,22 @@ void api_seat_build_view(VALUE *out, PlayerNumber plyr_idx)
         return;
     }
     value_init_int64(value_dict_add(own, "gold"), (int64_t)dungeon->total_money_owned);
+    // The seat's ground (every slab it owns: floor, walls, rooms, bridges), and its creatures against the portal's
+    // limit (room_entrance.c: none come once num_active_creatrs reaches max_creatures_attracted) -- the pay day report.
+    {
+        int64_t slabs = 0;
+        for (MapSlabCoord y = 0; y < kfx_sim_state.map_tiles_y; y++)
+            for (MapSlabCoord x = 0; x < kfx_sim_state.map_tiles_x; x++)
+                if (slabmap_owner(get_slabmap_block(x, y)) == plyr_idx) slabs++;
+        value_init_int64(value_dict_add(own, "territory"), slabs);
+        value_init_int64(value_dict_add(own, "creatures_active"), dungeon->num_active_creatrs);
+        value_init_int64(value_dict_add(own, "creature_limit"), dungeon->max_creatures_attracted);
+    }
     // The level's standing brief as the objective box shows it (every DISPLAY_OBJECTIVE / QUICK_OBJECTIVE lands in
     // evntbox_text_objective), and the ones before it, since the sim keeps only the latest.
     value_init_string(value_dict_add(own, "objective"), kfx_sim_state.evntbox_text_objective[plyr_idx]);
     api_seat_decision_add_objectives(own, plyr_idx);
+    api_seat_decision_add_intruders(own, plyr_idx); // enemy creatures on the seat's ground
     api_assist_add_to_view(own, plyr_idx); // the combat assistant: its rules and what they did
 
     VALUE *crs = value_dict_add(own, "creatures");
@@ -1270,7 +1520,7 @@ void api_seat_build_view(VALUE *out, PlayerNumber plyr_idx)
         value_init_dict(av);
         VALUE *ar = value_dict_add(av, "rooms");
         value_init_array(ar);
-        for (int64_t rk = 1; rk < TERRAIN_ITEMS_MAX; rk++) {
+        for (int64_t rk = 1; rk < kfx_config_state.conf.slab_conf.room_types_count; rk++) {
             if (is_room_available(plyr_idx, (RoomKind)rk)) value_init_string(value_array_append(ar), room_code_name((RoomKind)rk));
         }
         // Gold per slab of each unlocked room, so build_room's cost (area x this) is computable without a submit round
@@ -1278,7 +1528,7 @@ void api_seat_build_view(VALUE *out, PlayerNumber plyr_idx)
         // affordability check: slab_count * roomst->cost <= total_money_owned), not progressive with room size.
         VALUE *rc = value_dict_add(own, "room_costs");
         value_init_dict(rc);
-        for (int64_t rk = 1; rk < TERRAIN_ITEMS_MAX; rk++) {
+        for (int64_t rk = 1; rk < kfx_config_state.conf.slab_conf.room_types_count; rk++) {
             if (is_room_available(plyr_idx, (RoomKind)rk)) {
                 value_init_int64(value_dict_add(rc, room_code_name((RoomKind)rk)), get_room_kind_stats((RoomKind)rk)->cost);
             }

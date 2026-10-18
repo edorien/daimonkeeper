@@ -22,9 +22,18 @@ extern "C" {
 
 /** Rules per keeper, and conditions per rule (all must hold; OR is two rules). */
 #define KEEPER_ASSIST_RULES 16
+/** Complete rule sets a keeper may keep ready to make live in one packet (keeper_assist_state.h's banks). */
+#define KEEPER_ASSIST_BANKS 3
 #define KEEPER_ASSIST_CONDS 4
 /** Highest overcharge level a rule may ask for (the engine's levels are 0-8). */
 #define KEEPER_ASSIST_MAX_LEVEL 8
+/** Hand rules (docs/plans/llm-bridge-realtime.md, Phase 5): most creatures one firing moves, and the defaults. */
+#define KEEPER_ASSIST_HAND_MAX 8
+#define KEEPER_ASSIST_DEFAULT_HAND_RADIUS 6       /**< slabs */
+#define KEEPER_ASSIST_DEFAULT_MIN_MATCH 50        /**< reinforce: % of the strongest enemy's force each fighter sent must have */
+#define KEEPER_ASSIST_DEFAULT_HAND_COOLDOWN 60
+#define KEEPER_ASSIST_DEFAULT_WOUNDED_PCT 35      /**< lift_wounded without a health condition */
+#define KEEPER_ASSIST_DEFAULT_REINFORCE_RATIO 80  /**< reinforce without a force_ratio condition: losing or matched */
 
 #pragma pack(1)
 
@@ -32,6 +41,12 @@ enum KeeperAssistAction {
     KAA_None = 0,
     KAA_Cast,       /**< cast `power` on a target picked from `target` */
     KAA_PowerOff,   /**< switch a lasting power off (Call to Arms, Must Obey); no target */
+    /* Hand rules: carried out by an External seat's own hand (kfx_net's seat reflexes), never by the simulation, and only
+     * for an agent: a human player's profile or Options screen cannot hold them. */
+    KAA_EvacuateDiggers, /**< lift the keeper's diggers near an enemy to `dest` (its safe spot) */
+    KAA_LiftWounded,     /**< lift its wounded fighters out of a fight (to `dest`, else a lair) when no heal rule can heal them */
+    KAA_Reinforce,       /**< drop its healthy fighters, each a match for the enemy, beside a fight they can turn */
+    KAA_Count,
 };
 
 enum KeeperAssistTarget {
@@ -107,6 +122,11 @@ struct KeeperAssistRule {
     uint16_t target_cooldown;/**< turns before this rule casts on the same creature again */
     int32_t budget;          /**< gold this rule may spend per pay period; 0 = no limit */
     struct KeeperAssistCond cond[KEEPER_ASSIST_CONDS];
+    uint16_t dest_x, dest_y; /**< hand rules: the subtile to drop on (0, 0: none -- a lair for the wounded) */
+    uint8_t count;           /**< hand rules: most creatures one firing moves (1..KEEPER_ASSIST_HAND_MAX) */
+    uint8_t radius;          /**< hand rules: slabs from an enemy (evacuate) or a fight (reinforce) that count as near it */
+    uint8_t min_match;       /**< reinforce: % of the strongest enemy's force each fighter sent must have (0..200) */
+    uint8_t reserved_hand;
 };
 
 /** The keeper-wide settings. */
@@ -128,6 +148,10 @@ struct KeeperAssistGlobals {
 #define KEEPER_ASSIST_DEFAULT_ALLY_TARGET_COOLDOWN 100
 /** Turns a human holds the button per overcharge level (process_dungeon_control_packet_spell_overcharge). */
 #define KEEPER_ASSIST_TURNS_PER_LEVEL 4
+
+/** Whether a rule action is a hand rule (an External seat's reflex, not the simulation's). */
+TbBool keeper_assist_action_is_hand(uint8_t action);
+const char *keeper_assist_hand_name(uint8_t action);
 
 /** Default globals: disabled, interval 2, charge time on, min gap 4, no reserve, no cap. */
 void keeper_assist_default_globals(struct KeeperAssistGlobals *g);

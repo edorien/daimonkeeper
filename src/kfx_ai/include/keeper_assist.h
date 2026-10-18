@@ -22,6 +22,7 @@ extern "C" {
 #endif
 
 struct KeeperAssistState;
+struct Thing;
 
 /** Most candidate targets looked at in one evaluation. */
 #define KEEPER_ASSIST_MAX_CANDIDATES 128
@@ -70,6 +71,16 @@ void keeper_assist_note_cast(struct KeeperAssistState *st, int slot, ThingIndex 
  *  see (`want_fights`), and its other creatures (`want_any`). Fills up to KEEPER_ASSIST_MAX_CANDIDATES; returns how many.
  *  What process_keeper_assists() works from; public so the fog and concealment filters can be checked at one instant. */
 int keeper_assist_candidates(PlayerNumber plyr_idx, TbBool want_fights, TbBool want_any, struct KeeperAssistCandidate *out);
+
+/** The keeper's dungeon facts (gold, fights, heart health...), indexed by enum KeeperAssistFact. */
+void keeper_assist_dungeon_facts(PlayerNumber plyr_idx, int64_t *facts);
+/** A creature's target facts, as the assistant sees them (no battle facts: those come from its battle). */
+void keeper_assist_fill_candidate(PlayerNumber plyr_idx, const struct Thing *thing, struct KeeperAssistCandidate *cand);
+/** Whether every condition of `rule` holds for `cand` (NULL: dungeon facts only). */
+TbBool keeper_assist_conds_hold(const struct KeeperAssistRule *rule, const int64_t *dungeon_facts, const struct KeeperAssistCandidate *cand);
+/** Whether one of the keeper's live heal rules (a cast of Heal on its creatures) could cast now: the power researched and
+ *  the price within its gold, reserve, the rule's budget and the pay day's cap. Reads only. lift_wounded waits for it. */
+TbBool keeper_assist_heal_ready(PlayerNumber plyr_idx, const struct KeeperAssistState *st);
 
 /** Once per game turn, from the game loop: every keeper's rules, every `interval` turns. Nothing in a multiplayer
  *  game, nothing for a keeper the built-in AI plays. */

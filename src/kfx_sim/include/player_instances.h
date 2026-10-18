@@ -101,6 +101,9 @@ TbBool is_thing_directly_controlled_by_player(const struct Thing *thing, PlayerN
 TbBool is_thing_passenger_controlled_by_player(const struct Thing *thing, PlayerNumber plyr_idx);
 
 void set_player_zoom_to_position(struct PlayerInfo *player,struct Coord3d *pos);
+/** Ends a running level-start heart zoom (or zoom out) at once, as its remaining turns would: the keeper is back in the
+ *  dungeon view with its input free and the camera where the zoom out leaves it. Nothing when none is running. */
+void player_finish_heart_zoom_now(struct PlayerInfo *player);
 
 struct Room *player_build_room_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx, RoomKind rkind, int64_t slabs_left);
 TbBool player_place_trap_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx, ThingModel tngmodel);

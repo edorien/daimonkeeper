@@ -80,7 +80,10 @@ TEST_CASE_METHOD(Fixture, "a full set goes live exactly as wanted, within the pa
     for (int s = 0; s < KEEPER_ASSIST_RULES; s++) heal(s, 10 + s);
     wg.reserve = 1500; wg.max_spend = 90000; wg.min_gap = 9; wg.interval = 3; wg.charge_time = 0;
     const int n = plan();
-    CHECK(n == KEEPER_ASSIST_MAX_PACKETS);
+    // A full set of cast rules: two packets a rule and one a condition, the globals and the commit (a hand rule takes one
+    // more, which KEEPER_ASSIST_MAX_PACKETS allows for).
+    CHECK(n == KEEPER_ASSIST_RULES * (2 + KEEPER_ASSIST_CONDS) + (KAG_Count - 1) + 1);
+    CHECK(n <= KEEPER_ASSIST_MAX_PACKETS);
     CHECK(count(pk, n, PckA_AssistCommit) == 1);
     CHECK(pk[n - 1].action == PckA_AssistCommit);
     apply(n);
@@ -173,4 +176,65 @@ TEST_CASE_METHOD(Fixture, "enable switches at once, without a commit", "[kfx_ai]
     CHECK(st.live[0].used == 1);
     keeper_assist_apply_packet(&st, PckA_AssistEnable, 1, 0);
     CHECK(st.globals.enabled == 1);
+}
+
+TEST_CASE_METHOD(Fixture, "a rule set stored in a bank is made live by one packet, keeping the counters of unchanged rules", "[kfx_ai][keeper_assist_packets][banks]") {
+    // Live: the calm set (one heal).
+    heal(0, 35);
+    apply(plan());
+    REQUIRE(live_is_wanted());
+    st.run[0].fired_total = 7;                      // the calm heal has a history
+    KeeperAssistRule calm[KEEPER_ASSIST_RULES];
+    std::memcpy(calm, want, sizeof(want));
+    // Bank 2: the war set (the same heal and a second one), not live yet.
+    heal(1, 60);
+    KeeperAssistRule war[KEEPER_ASSIST_RULES];
+    std::memcpy(war, want, sizeof(want));
+    CHECK(keeper_assist_plan_bank_packets(&st, 0, war, &wg, pk) == -1);
+    CHECK(keeper_assist_plan_bank_packets(&st, KEEPER_ASSIST_BANKS + 1, war, &wg, pk) == -1);
+    const int n = keeper_assist_plan_bank_packets(&st, 2, war, &wg, pk);
+    REQUIRE(n > 0);
+    CHECK(pk[n - 1].action == PckA_AssistCommitBank);
+    CHECK(count(pk, n, PckA_AssistCommit) == 0);
+    apply(n);
+    CHECK(st.bank[1].used);
+    CHECK(std::memcmp(st.bank[1].rules, war, sizeof(war)) == 0);
+    CHECK_FALSE(st.live[1].used);                   // the live set is untouched
+    CHECK(keeper_assist_plan_bank_packets(&st, 2, war, &wg, pk) == 0);  // the bank holds it already
+    // One packet makes it live.
+    keeper_assist_apply_packet(&st, PckA_AssistUseBank, 2, 0);
+    CHECK(st.active_bank == 2);
+    CHECK(std::memcmp(st.live, war, sizeof(war)) == 0);
+    CHECK(st.run[0].fired_total == 7);              // the unchanged rule kept its counters
+    // An empty bank changes nothing.
+    keeper_assist_apply_packet(&st, PckA_AssistUseBank, 3, 0);
+    CHECK(st.active_bank == 2);
+    CHECK(st.live[1].used);
+    // A plain change of the live set is no longer a bank's.
+    std::memcpy(want, calm, sizeof(calm));
+    apply(plan());
+    CHECK(live_is_wanted());
+    CHECK(st.active_bank == 0);
+}
+
+TEST_CASE_METHOD(Fixture, "a hand rule travels with its destination, count, radius and match", "[kfx_ai][keeper_assist_packets][hand]") {
+    KeeperAssistRule &r = want[3];
+    std::memset(&r, 0, sizeof(r));
+    r.used = 1; r.action = KAA_Reinforce; r.target = KAT_AllyInFight;
+    r.count = 5; r.radius = 9; r.min_match = 140; r.cooldown = 77; r.dest_x = 401; r.dest_y = 33;
+    r.cond[0] = {KAF_ForceRatio, KAO_Ge, 90}; r.cond_count = 1;
+    REQUIRE(keeper_assist_rule_validate(&r) == nullptr);
+    const int n = plan();
+    CHECK(count(pk, n, PckA_AssistStageRuleHand) == 1);
+    apply(n);
+    CHECK(live_is_wanted());
+    CHECK((st.live[3].action == KAA_Reinforce && st.live[3].dest_x == 401 && st.live[3].min_match == 140));
+    // and through a bank the same
+    KeeperAssistRule set[KEEPER_ASSIST_RULES];
+    std::memcpy(set, want, sizeof(want));
+    set[3].dest_x = 12;
+    const int nb = keeper_assist_plan_bank_packets(&st, 1, set, &wg, pk);
+    REQUIRE(nb > 0);
+    apply(nb);
+    CHECK(st.bank[0].rules[3].dest_x == 12);
 }

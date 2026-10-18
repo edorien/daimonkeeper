@@ -97,6 +97,58 @@ class DiffTests(unittest.TestCase):
         self.assertEqual(st.view["view_id"], 2)
         self.assertEqual((st.full_bytes, st.diff_bytes), (10, 10))
 
+    def test_news_keeps_every_diff_since_the_last_decision(self):
+        """What happened while the model thought (and was then hidden by the view taken while waiting, or by a look) still
+        reaches the next decision's NEW EVENTS and MAP CHANGES; a decision's text starts the news again."""
+        fight = {"id": 3, "kind": "enemy_fight", "pos": [10, 10], "target": 0}
+        replies = [dict(make_view(), view_id=1, mode="full"),
+                   {"mode": "diff", "base": 1, "view_id": 2, "turn": 300, "own": {"events": {"added": [fight]}},
+                    "map": {"changes": [{"y": 3, "x": 1, "cells": "B0"}]}},
+                   {"mode": "diff", "base": 2, "view_id": 3, "turn": 301},
+                   {"mode": "diff", "base": 3, "view_id": 4, "turn": 302}]
+
+        class FakeApi:
+            bytes_received = 0
+            n = 0
+
+            def data(self, **req):
+                FakeApi.n += 1
+                return replies[FakeApi.n - 1]
+
+        st = ViewState()
+        st.update(FakeApi(), 1)
+        prompt.render_for_agent(st, None, first=True)          # the first decision: news starts here
+        self.assertEqual(st.last_diff, {})
+        st.update(FakeApi(), 1)                                # while the model thinks: the fight starts
+        st.update(FakeApi(), 1)                                # a look, or the view taken while waiting
+        self.assertEqual(st.raw_diff["view_id"], 3)
+        text = prompt.render_state(st)
+        self.assertIn("NEW EVENTS: ", text)
+        self.assertIn("enemy_fight", text.split("NEW EVENTS: ")[1].split("\n")[0])
+        self.assertIn("MAP CHANGES", text)
+        prompt.render_for_agent(st, None)
+        st.update(FakeApi(), 1)
+        self.assertIn("NEW EVENTS: none", prompt.render_state(st))
+
+    def test_news_after_a_resync_is_the_whole_view(self):
+        replies = [dict(make_view(), view_id=1, mode="full"), dict(make_view(), view_id=5, mode="full"),
+                   {"mode": "diff", "base": 5, "view_id": 6, "turn": 400}]
+
+        class FakeApi:
+            bytes_received = 0
+            n = 0
+
+            def data(self, **req):
+                FakeApi.n += 1
+                return replies[FakeApi.n - 1]
+
+        st = ViewState()
+        st.update(FakeApi(), 1)
+        st.mark_rendered()
+        st.update(FakeApi(), 1)     # a resync: the agent has not seen this view
+        st.update(FakeApi(), 1)
+        self.assertIsNone(st.last_diff)   # so the text lists every event (EVENTS), not just the newest diff's
+
 
 class SubmitBatchTests(unittest.TestCase):
     class FakeApi:
@@ -362,6 +414,149 @@ class PromptTests(unittest.TestCase):
                   {"agent_only": True, "paused": False, "agent_pause": False}):
             self.assertFalse(resume_agent_pause(api, 1, v))
         self.assertEqual(len(api.calls), 1)
+
+    def test_losses_are_shown_when_a_loss_is_the_reason(self):
+        st = ViewState()
+        st.view = make_view()
+        st.view["seat"]["decision"] = {"seq": 3, "turn": 900, "reasons": ["room_captured", "ground_lost"], "pending": 0, "losses": [
+            {"what": "room_captured", "room": "TREASURE", "by": 1, "slabs": 4, "pos": [130, 121], "turn": 880},
+            {"what": "ground_captured", "by": 1, "slabs": 6, "pos": [100, 97], "turn": 870},
+            {"what": "ground_lost", "slabs": 2, "pos": [94, 97], "turn": 860},
+            {"what": "room_destroyed", "room": "LAIR", "slabs": 1, "pos": [70, 70], "turn": 890}]}
+        text = prompt.render_state(st, reasons=["room_captured", "ground_lost"])
+        line = text.split("\n")[1]
+        self.assertTrue(line.startswith("LOSSES since your last decision: TREASURE: 4 slab(s) captured by player 1, first at (130,121), turn 880"), line)
+        self.assertIn("6 slab(s) of your floor/walls claimed by player 1", line)
+        self.assertIn("2 slab(s) of your floor/walls neutralised or dug through", line)
+        self.assertIn("LAIR: 1 slab(s) destroyed", line)
+        # A decision for another reason does not repeat the last decision's losses.
+        self.assertNotIn("LOSSES", prompt.render_state(st, reasons=["quarter_2"]))
+        for r in prompt.LOSS_REASONS:
+            self.assertIn(r, prompt.SYSTEM_PROMPT)
+
+    def test_panel_problem_events_say_what_they_mean(self):
+        e = {"kind": "creature_hungry", "pos": [0, 0], "target": 0}
+        self.assertEqual(prompt._fmt_event(e), "creature_hungry: creatures are hungry and find no food: food is scarce, enlarge "
+                                               "the hatchery (or build one, or open a way to it)")
+        self.assertIn("creature_hungry", prompt.SYSTEM_PROMPT)
+        self.assertEqual(prompt._fmt_event({"kind": "new_trap", "pos": [3, 4], "target": 7}), "new_trap at (3,4) target 7")
+
+    def test_creatures_past_the_detailed_list_keep_their_names_and_ids(self):
+        lst = [{"id": 100 + i, "kind": "IMP" if i >= 40 else "ORC", "level": 1 + i % 3, "health": 50, "state": "CreatureDoingNothing",
+                "pos": [i, i], "digger": i >= 40} for i in range(45)]
+        out = prompt._fmt_creatures(lst, limit=40)
+        self.assertEqual(len(out), 41)
+        self.assertEqual(out[-1], "  and 5 more: IMP: Imp #140 (id 140, L2), Imp #141 (id 141, L3), Imp #142 (id 142, L1), "
+                                  "Imp #143 (id 143, L2), Imp #144 (id 144, L3)")
+
+    def test_sight_of_evil_reports_what_it_uncovered_and_the_report_outlasts_it(self):
+        st = ViewState()
+        st.view = make_view()
+        st.view["own"]["active_powers"] = {"POWER_SIGHT": {
+            "pos": [7, 7], "until_turn": 700, "open_subtiles": 40, "slab_rect": [1, 1, 2, 2],
+            "rooms": [{"id": 31, "kind": "TREASURE", "owner": 2, "slabs": 3}],
+            "creatures": [{"id": 500, "kind": "DRAGON", "level": 6, "owner": 2, "pos": [5, 4]}], "creatures_not_listed": 2,
+            "traps": [{"id": 600, "kind": "BOULDER", "owner": 2, "pos": [4, 5]}],
+            "doors": [{"id": 610, "kind": "STEEL", "owner": 2, "locked": True, "pos": [6, 4]}],
+            "hearts": [{"owner": 2, "health": 25000, "pos": [4, 4]}],
+            "loose_gold": 300, "stored_gold": 4500, "gold_slabs": 2}}
+        mem = memory_mod.Memory()
+        mem.game_id = "g1"
+        text = prompt.render_state(st, memory=mem)
+        self.assertIn("SIGHT OF EVIL at (7,7), open until about turn 700: it uncovered slabs x 1-2, y 1-2", text)
+        self.assertIn("   1  A1A1", text)                                             # the map of the area
+        self.assertIn("hearts: player 2's at (4,4), health 25000", text)
+        self.assertIn("rooms: #31 TREASURE of player 2 (3 slabs in sight)", text)
+        self.assertIn("creatures: #500 DRAGON L6 of player 2 at (5,4); and 2 more", text)
+        self.assertIn("traps: #600 BOULDER of player 2 at (4,5)", text)
+        self.assertIn("doors: #610 STEEL of player 2 at (6,4) LOCKED", text)
+        self.assertIn("gold: 300 loose, 4500 in other keepers' treasure rooms, 2 gold/gem slabs", text)
+        # closed: the ground is dark again, the report stays (with the game's memory) until the next cast
+        del st.view["own"]["active_powers"]
+        st.view["turn"] = 900
+        later = prompt.render_state(st, memory=mem)
+        self.assertIn("LAST SIGHT OF EVIL (as it was at turn 100; that ground is dark again):", later)
+        self.assertIn("creatures: #500 DRAGON L6 of player 2 at (5,4)", later)
+        self.assertEqual(Memory.from_blob(mem.to_blob()).last_sight["turn"], 100)    # saved with the game's memory
+        st.view["own"]["active_powers"] = {"POWER_SIGHT": {"pos": [7, 7], "until_turn": 1500, "open_subtiles": 9, "slab_rect": [0, 0, 0, 0]}}
+        self.assertIn("nothing of other keepers' in it", prompt.render_state(st, memory=mem))
+        self.assertIn("sight_open", prompt.SYSTEM_PROMPT)
+
+    def test_enemy_traps_doors_and_hero_gates_seen_are_listed(self):
+        st = ViewState()
+        st.view = make_view()
+        st.view["visible"].update(
+            traps=[{"id": 900, "kind": "BOULDER", "owner": 2, "ally": False, "pos": [40, 41], "charges": 1, "max_charges": 1},
+                   {"id": 901, "kind": "LIGHTNING", "owner": 3, "ally": True, "pos": [50, 51], "charges": 0, "max_charges": 12}],
+            doors=[{"id": 910, "kind": "IRON", "owner": 2, "ally": False, "locked": True, "pos": [60, 61]}],
+            hero_gates=[{"id": 920, "number": 1, "pos": [70, 71]}])
+        text = prompt.render_state(st)
+        self.assertIn("ENEMY TRAPS SEEN (2): #900 BOULDER of player 2 at (40,41), 1/1 charge; "
+                      "#901 LIGHTNING of player 3 (ally) at (50,51), EMPTY (needs re-arming)", text)
+        self.assertIn("ENEMY DOORS SEEN (1): #910 IRON LOCKED of player 2 at (60,61)", text)
+        self.assertIn("HERO GATES (heroes come into the level here): gate 1 at (70,71)", text)
+        st.view["visible"].update(traps=[], doors=[], hero_gates=[])
+        self.assertNotIn("ENEMY TRAPS", prompt.render_state(st))
+        self.assertIn("HERO GATES", prompt.SYSTEM_PROMPT)
+
+    def test_trap_charges_read_plainly(self):
+        self.assertEqual(prompt._charges({"charges": 7, "max_charges": 12}), ", 7/12 charges")
+        self.assertEqual(prompt._charges({"charges": 3, "max_charges": 12, "rearming": True}), ", 3/12 charges, re-arming")
+        self.assertEqual(prompt._charges({"charges": -1, "max_charges": -1}), ", unlimited")
+        self.assertEqual(prompt._charges({"charges": 0, "max_charges": 1}), ", EMPTY (needs re-arming)")
+        self.assertEqual(prompt._charges({}), "")
+        view = make_view()
+        view["own"]["traps"] = [{"id": 40, "kind": "LIGHTNING", "pos": [106, 232], "slappable": False, "charges": 5, "max_charges": 12}]
+        self.assertIn("TRAPS: #40 LIGHTNING at (106,232) [not armed / spent], 5/12 charges", "\n".join(prompt.render_placed_and_pickups(view)))
+
+    def test_loose_gold_out_of_reach_is_named_with_whose_land_it_is_on(self):
+        lg = {"total": 1500, "count": 3, "reachable_gold": 300, "reachable_count": 1, "ids": [5],
+              "piles": [{"id": 7, "gold": 900, "pos": [90, 91], "reachable": False, "land": 2},
+                        {"id": 5, "gold": 300, "pos": [10, 11], "reachable": True, "land": 0},
+                        {"id": 6, "gold": 300, "pos": [80, 81], "reachable": False, "land": -1}]}
+        line = prompt.render_loose_gold(lg, hand=8)
+        self.assertIn("out of your hand's reach: 2 pile(s), 1200 gold, largest #7 900 at (90,91) on player 2's land; #6 300 at (80,81)", line)
+        self.assertIn("[5]", line)
+        only_far = dict(lg, ids=[], reachable_count=0, reachable_gold=0)
+        self.assertIn("none your hand can reach | out of your hand's reach: 3 pile(s), 1500 gold", prompt.render_loose_gold(only_far))
+
+    def test_intruders_are_listed_whenever_there_are_any(self):
+        st = ViewState()
+        st.view = make_view()
+        self.assertNotIn("INTRUDERS", prompt.render_state(st))
+        st.view["own"]["intruders"] = {"count": 10, "creatures": [
+            {"id": 800 + i, "kind": "KNIGHT" if i == 0 else "THIEF", "level": 5 - i // 3, "owner": 4, "pos": [130 + i, 121]} for i in range(10)]}
+        text = prompt.render_state(st, reasons=["intruder"])
+        line = text.split("\n")[1]
+        self.assertTrue(line.startswith("INTRUDERS on your ground: 10 -- #800 KNIGHT L5 of player 4 at (130,121); #801 THIEF L5"), line)
+        self.assertTrue(line.endswith("; +2 more"), line)
+        self.assertIn("INTRUDERS on your ground: 10", prompt.render_state(st, reasons=["quarter_1"]))   # shown on any decision
+        self.assertIn("intruder", prompt.SYSTEM_PROMPT)
+
+    def test_payday_report_compares_with_the_last_pay_day_and_warns(self):
+        def cp(turn, **kw):
+            base = {"turn": turn, "gold": 5000, "fighters": 10, "score": 300, "enemy_score": 200, "area": 320,
+                    "room_slabs": {"LAIR": 12, "TREASURE": 9}, "lair": [8, 12], "limit": [14, 20]}
+            base.update(kw)
+            return base
+        cps = [cp(0, score=250), cp(1200), cp(2400), cp(3600, score=280, enemy_score=260, area=310, gold=4200,
+                                                         room_slabs={"LAIR": 12, "TREASURE": 6}, lair=[12, 12], limit=[20, 20])]
+        r = prompt.render_payday_report(cps, 3600)
+        self.assertIn("PAYDAY REPORT (vs the last pay day, turn 2400): fighters 10 (=), fighter score 280 (-20), 3 pay days ago 250, "
+                      "enemy fighter score in sight 260 (+60)", r)
+        self.assertIn("ground 310 slabs (-10) | room slabs 18 (-3): TREASURE 6 (-3) | lair 12/12 places (0 free) | "
+                      "creatures 20 of the portal's limit 20 | gold 4200 (-800)", r)
+        self.assertIn("you are LOSING GROUND", r)
+        self.assertIn("your fighters are weakening while the enemy you see grows", r)
+        self.assertIn("the LAIR is full", r)
+        self.assertIn("at the creature limit", r)
+        self.assertEqual(prompt.render_payday_report(cps, 3700), "")       # only on the decision the pay day was taken at
+        self.assertEqual(prompt.render_payday_report(cps[:1], 0), "")      # nothing to compare with yet
+        quiet = prompt.render_payday_report([cp(0), cp(1200, score=320)], 1200)
+        self.assertNotIn("WARNING", quiet)
+        self.assertNotIn("room slabs 21 (=):", quiet)                      # no changed kinds listed
+        # Checkpoints from before these fields (an older memory) still give the fighters line.
+        self.assertIn("fighter score 330 (+30)", prompt.render_payday_report([{"turn": 0, "score": 300}, {"turn": 1200, "score": 330}], 1200))
 
     def test_research_line(self):
         st = ViewState()

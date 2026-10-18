@@ -19,6 +19,7 @@ import urllib.error
 import urllib.request
 
 import prompt
+from gamelink import URGENT_SEVERITY
 
 
 class AnthropicPolicy:
@@ -62,8 +63,14 @@ class AnthropicPolicy:
         mem = ctx.get("memory")
         # After a reload the model gets the whole picture again, as on the first decision.
         first = self.first or ("reloaded" in (ctx.get("reasons") or []))
-        text = prompt.render_for_agent(state, mem, reasons=ctx.get("reasons"), first=first, note=ctx.pop("note", None),
-                                       experience=ctx.pop("experience", None))
+        if not first and ctx.get("severity", 3) <= URGENT_SEVERITY:
+            # An urgent decision: the short flash text, answered fast (docs/plans/llm-bridge-realtime.md, Phase 2).
+            text = prompt.render_flash(state, mem, ctx.get("reasons") or [], ctx["severity"], where=ctx.get("where"),
+                                       note=ctx.pop("note", None))
+            ctx.pop("experience", None)
+        else:
+            text = prompt.render_for_agent(state, mem, reasons=ctx.get("reasons"), first=first, note=ctx.pop("note", None),
+                                           experience=ctx.pop("experience", None))
         self.first = False
         if mem is not None:
             mem.flush()

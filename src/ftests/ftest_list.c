@@ -12,6 +12,7 @@
  */
 #include "tests/ftest_template.h"
 #include "tests/ftest_local_view_transitions.h"
+#include "tests/ftest_camera_keys_seat.h"
 #include "tests/ftest_bug_imp_tp_job_attack_door.h"
 #include "tests/ftest_bug_pathing_pillar_circling.h"
 #include "tests/ftest_bug_imp_goldseam_dig.h"
@@ -49,6 +50,8 @@
 #include "tests/ftest_ai_seat_order_creature.h"
 #include "tests/ftest_ai_seat_order_autorelease.h"
 #include "tests/ftest_ai_seat_dig_reach.h"
+#include "tests/ftest_ai_seat_own_start.h"
+#include "tests/ftest_api_idle.h"
 #include "tests/ftest_ai_seat_wall_cue.h"
 #include "tests/ftest_ai_seat_pick_up_and_drop.h"
 #include "tests/ftest_ai_seat_scenario_text.h"
@@ -56,6 +59,12 @@
 #include "tests/ftest_ai_seat_room_quality.h"
 #include "tests/ftest_ai_seat_custody.h"
 #include "tests/ftest_ai_seat_hand_guards.h"
+#include "tests/ftest_ai_seat_losses.h"
+#include "tests/ftest_ai_seat_long_builds.h"
+#include "tests/ftest_ai_seat_watcher_cheats.h"
+#include "tests/ftest_ai_seat_sight.h"
+#include "tests/ftest_ai_seat_door_sell.h"
+#include "tests/ftest_ai_seat_attack.h"
 #include "tests/ftest_ai_seat_custody_torture.h"
 #include "tests/ftest_ai_seat_temple_graveyard.h"
 #include "tests/ftest_ai_seat_build_checks.h"
@@ -72,6 +81,9 @@
 #include "tests/ftest_ai_seat_assist.h"
 #include "tests/ftest_assist_human.h"
 #include "tests/ftest_ai_seat_queue.h"
+#include "tests/ftest_ai_seat_lanes.h"
+#include "tests/ftest_ai_seat_urgent_hold.h"
+#include "tests/ftest_ai_seat_reflexes.h"
 #include "tests/ftest_ai_seat_release.h"
 #include "tests/ftest_skirmish_external_slot.h"
 #include "tests/ftest_ai_seat_decided.h"
@@ -81,6 +93,7 @@
 #include "tests/ftest_ai_bridge_smoke.h"
 #include "tests/ftest_ai_bridge_reference.h"
 #include "tests/ftest_ai_bridge_vs_agent.h"
+#include "tests/ftest_ai_bridge_raid.h"
 #include "tests/ftest_creature_temple_prayer.h"
 #include "tests/ftest_creature_lair_healing.h"
 #include "tests/ftest_creature_garden_eating.h"
@@ -142,6 +155,7 @@ struct ftest_onlyappendtests__config ftest_onlyappendtests__conf = {
          { .test_name="bug_pathing_stair_treasury",         .init_func=ftest_bug_pathing_stair_treasury_init,       .level_file="keeporig", .level=1,  .frame_skip=8 },
          { .test_name="bug_pathing_pillar_circling",        .init_func=ftest_bug_pathing_pillar_circling_init,      .level_file="keeporig", .level=1,  .frame_skip=8 },
          { .test_name="creature_combat_power_hand",         .init_func=ftest_creature_combat_power_hand_init,       .level_file="keeporig", .level=11, .frame_skip=8 },
+         { .test_name="camera_keys_seat",                   .init_func=ftest_camera_keys_seat_init,                 .level_file="keeporig", .level=1,  .frame_skip=0 },
          { .test_name="local_view_transitions",             .init_func=ftest_local_view_transitions_init,           .level_file="keeporig", .level=1,  .frame_skip=8 },
          { .test_name="ai_gesture_single_turn",            .init_func=ftest_ai_gesture_single_turn_init,           .level_file="keeporig", .level=11, .frame_skip=8 },
          { .test_name="ai_gesture_order_creature",         .init_func=ftest_ai_gesture_order_creature_init,        .pre_start_func=ftest_ai_gesture_order_creature_pre_start, .level_file="original", .level=50, .frame_skip=8 },
@@ -153,6 +167,9 @@ struct ftest_onlyappendtests__config ftest_onlyappendtests__conf = {
          { .test_name="skirmish_external_slot",            .init_func=ftest_skirmish_external_slot_init,           .pre_start_func=ftest_skirmish_external_slot_pre_start, .level_file="original", .level=60, .frame_skip=8 },
          { .test_name="ai_seat_release",                   .init_func=ftest_ai_seat_release_init,                  .pre_start_func=ftest_ai_seat_release_pre_start, .level_file="original", .level=60, .frame_skip=8 },
          { .test_name="ai_seat_queue",                     .init_func=ftest_ai_seat_queue_init,                    .pre_start_func=ftest_ai_seat_queue_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="ai_seat_lanes",                     .init_func=ftest_ai_seat_lanes_init,                    .pre_start_func=ftest_ai_seat_lanes_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="ai_seat_urgent_hold",               .init_func=ftest_ai_seat_urgent_hold_init,              .pre_start_func=ftest_ai_seat_urgent_hold_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="ai_seat_reflexes",                  .init_func=ftest_ai_seat_reflexes_init,                 .pre_start_func=ftest_ai_seat_reflexes_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_powers",                    .init_func=ftest_ai_seat_powers_init,                   .pre_start_func=ftest_ai_seat_powers_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="combat_stats",                      .init_func=ftest_combat_stats_init,                     .pre_start_func=ftest_combat_stats_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="keeper_assist_casts",               .init_func=ftest_keeper_assist_casts_init,              .pre_start_func=ftest_keeper_assist_casts_pre_start, .level_file="original", .level=50, .frame_skip=8 },
@@ -162,6 +179,8 @@ struct ftest_onlyappendtests__config ftest_onlyappendtests__conf = {
          { .test_name="ai_seat_diff",                      .init_func=ftest_ai_seat_diff_init,                     .pre_start_func=ftest_ai_seat_diff_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_order_creature",            .init_func=ftest_ai_seat_order_creature_init,           .pre_start_func=ftest_ai_seat_order_creature_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_order_autorelease",         .init_func=ftest_ai_seat_order_autorelease_init,        .pre_start_func=ftest_ai_seat_order_autorelease_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="ai_seat_own_start",                 .init_func=ftest_ai_seat_own_start_init,                .level_file="keeporig", .level=8,  .frame_skip=0 },
+         { .test_name="ai_seat_own_start_midzoom",                 .init_func=ftest_ai_seat_own_start_midzoom_init,                .level_file="keeporig", .level=8,  .frame_skip=0 },
          { .test_name="ai_seat_dig_reach",                 .init_func=ftest_ai_seat_dig_reach_init,                .pre_start_func=ftest_ai_seat_dig_reach_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_wall_cue",                  .init_func=ftest_ai_seat_wall_cue_init,                 .pre_start_func=ftest_ai_seat_wall_cue_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_pick_up_and_drop",          .init_func=ftest_ai_seat_pick_up_and_drop_init,         .pre_start_func=ftest_ai_seat_pick_up_and_drop_pre_start, .level_file="original", .level=50, .frame_skip=8 },
@@ -170,6 +189,12 @@ struct ftest_onlyappendtests__config ftest_onlyappendtests__conf = {
          { .test_name="ai_seat_room_quality",              .init_func=ftest_ai_seat_room_quality_init,              .pre_start_func=ftest_ai_seat_room_quality_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_custody",                   .init_func=ftest_ai_seat_custody_init,                   .pre_start_func=ftest_ai_seat_custody_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_hand_guards",               .init_func=ftest_ai_seat_hand_guards_init,               .pre_start_func=ftest_ai_seat_hand_guards_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="ai_seat_losses",                    .init_func=ftest_ai_seat_losses_init,                    .pre_start_func=ftest_ai_seat_losses_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="ai_seat_long_builds",               .init_func=ftest_ai_seat_long_builds_init,               .pre_start_func=ftest_ai_seat_long_builds_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="ai_seat_watcher_cheats",            .init_func=ftest_ai_seat_watcher_cheats_init,            .pre_start_func=ftest_ai_seat_watcher_cheats_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="ai_seat_sight",                     .init_func=ftest_ai_seat_sight_init,                     .pre_start_func=ftest_ai_seat_sight_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="ai_seat_door_sell",                 .init_func=ftest_ai_seat_door_sell_init,                 .pre_start_func=ftest_ai_seat_door_sell_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="ai_seat_attack",                    .init_func=ftest_ai_seat_attack_init,                    .pre_start_func=ftest_ai_seat_attack_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_custody_torture",           .init_func=ftest_ai_seat_custody_torture_init,           .pre_start_func=ftest_ai_seat_custody_torture_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_temple_graveyard",          .init_func=ftest_ai_seat_temple_graveyard_init,          .pre_start_func=ftest_ai_seat_temple_graveyard_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_build_checks",              .init_func=ftest_ai_seat_build_checks_init,              .pre_start_func=ftest_ai_seat_build_checks_pre_start, .level_file="original", .level=50, .frame_skip=8 },
@@ -302,12 +327,18 @@ struct ftest_onlyappendtests__config ftest_onlyappendtests__conf = {
         // A measurement too (docs/plans/sprite-atlas-thrash.md, Phase 0): -ftests render_bench -includelongtests, then read
         // its RBENCH and RPROF lines (ftest_render_bench.h has the environment).
         { .test_name="render_bench",                       .init_func=ftest_render_bench_init,                    .level_file="keeporig", .level=6,  .frame_skip=0 },
+        // A development aid: the human's keeper on keeporig:8 left running (heart zoom started) until KFX_API_IDLE_STOP names
+        // an existing file, for a client of the local API to play (cfg API_ENABLED=TRUE): -ftests api_idle -includelongtests.
+        { .test_name="api_idle",                           .init_func=ftest_api_idle_init,                        .level_file="keeporig", .level=8,  .frame_skip=0 },
         // Half of a two-process test: needs scripts/ai_bridge_smoke.py talking to the in-game API; run it through
         // scripts/run_ftest_ai_bridge_smoke.sh, not by hand (docs/refactor/AI/LLM/05-testing-and-rollout.md).
         // Half of a two-process test too: scripts/run_ftest_ai_bridge_reference.sh runs it with scripts/ai_bridge_reference_e2e.py.
         { .test_name="ai_bridge_reference",                .init_func=ftest_ai_bridge_reference_init,              .pre_start_func=ftest_ai_bridge_reference_pre_start, .level_file="original", .level=50, .frame_skip=8 },
         // Half of a two-process test too: scripts/run_ftest_ai_bridge_vs_agent.sh runs it with scripts/ai_bridge_vs_agent_e2e.py.
         { .test_name="ai_bridge_vs_agent",                 .init_func=ftest_ai_bridge_vs_agent_init,               .pre_start_func=ftest_ai_bridge_vs_agent_pre_start, .level_file="original", .level=60, .frame_skip=8 },
+        // Half of a two-process test too, and a measurement (docs/plans/llm-bridge-realtime.md, Phase 0):
+        // scripts/run_ftest_ai_bridge_raid.sh runs it with scripts/ai_bridge_raid_e2e.py.
+        { .test_name="ai_bridge_raid",                     .init_func=ftest_ai_bridge_raid_init,                   .pre_start_func=ftest_ai_bridge_raid_pre_start, .level_file="original", .level=50, .frame_skip=8 },
         { .test_name="ai_bridge_smoke",                    .init_func=ftest_ai_bridge_smoke_init,                  .pre_start_func=ftest_ai_bridge_smoke_pre_start, .level_file="original", .level=50, .frame_skip=8 },
         { .test_name="bug_ai_bridge",                      .init_func=ftest_bug_ai_bridge_init,                    .level_file="keeporig", .level=15, .frame_skip=128, .seed=1, .repeat_n_times=100 },
 

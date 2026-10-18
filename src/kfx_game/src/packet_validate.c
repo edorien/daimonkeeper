@@ -176,6 +176,9 @@ static const struct PacketActionSpec action_specs[256] = {
     ACT(PckA_AssistCommit, PAF_CHEAT),
     ACT(PckA_AssistEnable, PAF_CHEAT),
     ACT(PckA_SetTimestamp, PAF_HOST_ONLY),
+    ACT(PckA_AssistCommitBank, PAF_CHEAT),
+    ACT(PckA_AssistUseBank, PAF_CHEAT),
+    ACT(PckA_AssistStageRuleHand, PAF_CHEAT),
 };
 
 void packet_limits_current(struct PacketLimits *limits)

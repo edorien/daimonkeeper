@@ -86,6 +86,8 @@ TbResult magic_use_power_on_level(PlayerNumber plyr_idx, PowerKind spl_idx, Keep
 
 void slap_creature(struct PlayerInfo *player, struct Thing *thing);
 void update_power_sight_explored(struct PlayerInfo *player);
+/** Whether the player's Sight of Evil has opened over a subtile (its soe_explored_flags). */
+TbBool power_sight_explored(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx);
 TbBool update_creature_influenced_by_call_to_arms_at_pos(struct Thing *creatng, const struct Coord3d *cta_pos);
 
 // Live "grant/revoke a keeper power" runtime operations -- moved from

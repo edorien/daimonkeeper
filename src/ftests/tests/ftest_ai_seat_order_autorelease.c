@@ -185,7 +185,9 @@ FTestActionResult ar05_check_max_hold_order_more(struct FTestActionArgs* const a
 }
 FTestActionResult ar06_wait_arrive2(struct FTestActionArgs* const args)
 {
-    if (manual(1) && manual(2) && manual(3)) return FTRs_Go_To_Next_Action;
+    // All three held, and their orders done clicking: the safety net leaves a creature alone while its order is (a
+    // hand-back between its clicks would be undone by the next one).
+    if (manual(1) && manual(2) && manual(3) && extseat_idle(U)) return FTRs_Go_To_Next_Action;
     if (args->intended_start_at_game_turn > 0 && (int64_t)get_gameturn() > args->intended_start_at_game_turn + 300) {
         struct ExtSeatResult res[EXTSEAT_RESULT_RING];
         const int64_t n = extseat_results(U, res, EXTSEAT_RESULT_RING);

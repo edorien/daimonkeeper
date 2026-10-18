@@ -1,7 +1,10 @@
 // M6c: move_creature / release_creature through the seat driver (the LLM-friendly alternative to possession: no live view
 // needed). Two creatures are ordered to different subtiles as one batch (queue=true); both must arrive and hold there;
 // releasing them returns them to their own AI; the validation errors are pinned. Builds on the facts recorded by
-// ai_gesture_order_creature.
+// ai_gesture_order_creature. Then the live bug (Bile Demon 388 left in Manual Control): a release whose clicks do not
+// land -- here the selection is taken away between them, as a creature knocked onto the next subtile would make the
+// second click a move order -- is finished by the safety net (auto_released: released), and releasing a creature that
+// is not held is refused (NOT_HELD) rather than holding it.
 #include "ftest_ai_seat_order_creature.h"
 
 #ifdef FUNCTESTING
@@ -25,6 +28,7 @@
 #include "game_legacy.h"
 #include "net_game.h"
 #include "player_data.h"
+#include "player_instances.h"
 #include "slab_data.h"
 #include "thing_creature.h"
 #include "thing_list.h"
@@ -43,6 +47,8 @@ static PlayerNumber P = -1;
 static NetUserId U = -1;
 static ThingIndex a = 0, b = 0, foe = 0;
 static MapSubtlCoord ax, ay, bx, by, hx, hy;
+static TbBool s_interfered = false;
+static int64_t s_phase_start = 0;
 
 static const struct Thing* T(ThingIndex i) { return thing_get(i); }
 static struct ExtSeatVerb mv(ThingIndex t, int64_t x, int64_t y, enum ExtSeatVerbKind k)
@@ -66,6 +72,8 @@ FTestActionResult m03_walk(struct FTestActionArgs* const args);
 FTestActionResult m04_check_held_release(struct FTestActionArgs* const args);
 FTestActionResult m05_release_wait(struct FTestActionArgs* const args);
 FTestActionResult m06_check_released(struct FTestActionArgs* const args);
+FTestActionResult m07_held_again(struct FTestActionArgs* const args);
+FTestActionResult m08_release_missed(struct FTestActionArgs* const args);
 
 void ftest_ai_seat_order_creature_pre_start() { fe_computer_players = 1; }
 
@@ -78,6 +86,8 @@ TbBool ftest_ai_seat_order_creature_init()
     ftest_append_action(m04_check_held_release, 1, NULL);
     ftest_append_action(m05_release_wait, 1, NULL);
     ftest_append_action(m06_check_released, 1, NULL);
+    ftest_append_action(m07_held_again, 1, NULL);
+    ftest_append_action(m08_release_missed, 1, NULL);
     return true;
 }
 
@@ -112,6 +122,8 @@ FTestActionResult m02_validation_and_batch(struct FTestActionArgs* const args)
     v = mv(a, T(a)->mappos.x.stl.num, T(a)->mappos.y.stl.num, ESV_MoveCreature); expect_err("its own subtile is a release, not a move", v, "ALREADY_THERE");
     v = mv(a, hx - 30, hy - 30, ESV_MoveCreature);        expect_err("into solid rock", v, "CANNOT_REACH");
     v = mv(999999, 0, 0, ESV_ReleaseCreature);            expect_err("release of a thing that is not there", v, "NO_SUCH_THING");
+    v = mv(a, 0, 0, ESV_ReleaseCreature);                 expect_err("release of a creature that is not held", v, "NOT_HELD");
+    CHECK_TRUE("and that refusal did not hold it", !manual(a));
     if (!extseat_idle(U)) SOFT_FAIL("a refused verb left something queued");
 
     // The batch: two creatures, two destinations, one after the other.
@@ -151,8 +163,48 @@ FTestActionResult m06_check_released(struct FTestActionArgs* const args)
 {
     CHECK_TRUE("the first creature is back under its own AI", !manual(a));
     CHECK_TRUE("the second creature is back under its own AI", !manual(b));
+    CHECK_TRUE("released creatures are no longer counted as held", extseat_ordered_count(U) == 0);
+    // Hold the orc again, for the release whose clicks miss.
+    const MapSubtlCoord tx = (T(a)->mappos.x.stl.num == hx) ? hx + 1 : hx;
+    struct ExtSeatVerb m = mv(a, tx, hy + 11, ESV_MoveCreature);
+    const char* e = extseat_submit_verb_ex(U, P, &m, true, NULL);
+    if (e) SOFT_FAIL("the second move was refused: %s", e);
+    s_phase_start = (int64_t)get_gameturn();
+    return FTRs_Go_To_Next_Action;
+}
+
+FTestActionResult m07_held_again(struct FTestActionArgs* const args)
+{
+    if (!extseat_idle(U) || !manual(a)) {
+        if ((int64_t)get_gameturn() > s_phase_start + 400) { SOFT_FAIL("the orc was not held again"); return FTRs_Go_To_Next_Action; }
+        return FTRs_Repeat_Current_Action;
+    }
+    struct ExtSeatVerb r = mv(a, 0, 0, ESV_ReleaseCreature);
+    const char* e = extseat_submit_verb_ex(U, P, &r, true, NULL);
+    if (e) SOFT_FAIL("the release was refused: %s", e);
+    s_interfered = false;
+    s_phase_start = (int64_t)get_gameturn();
+    return FTRs_Go_To_Next_Action;
+}
+
+FTestActionResult m08_release_missed(struct FTestActionArgs* const args)
+{
+    struct PlayerInfo* player = get_player(P);
+    if (!s_interfered && (player->controlled_thing_idx == a)) {
+        clear_selected_thing(player); // the first click selected it; the second now lands with nothing selected
+        s_interfered = true;
+    }
+    if (!extseat_idle(U) || ((int64_t)get_gameturn() < s_phase_start + 40)) return FTRs_Repeat_Current_Action;
+    CHECK_TRUE("the release's selection was taken away between its clicks", s_interfered);
+    CHECK_TRUE("the safety net finished the release: the orc is back under its own AI", !manual(a));
+    struct ExtSeatAutoRelease ar[EXTSEAT_AUTO_RELEASE_RING];
+    const int64_t n = extseat_auto_releases(U, ar, EXTSEAT_AUTO_RELEASE_RING);
+    TbBool said = false;
+    for (int64_t i = 0; i < n; i++) if ((ar[i].thing_id == a) && (strcmp(ar[i].reason, "released") == 0)) said = true;
+    CHECK_TRUE("and says so (auto_released: released)", said);
+    CHECK_TRUE("nothing is left counted as held", extseat_ordered_count(U) == 0);
     if (s_failures > 0) { FTEST_FAIL_TEST("%" PRId64 " order-creature check(s) failed", s_failures); return FTRs_Go_To_Next_Action; }
-    FTESTLOG("Test passed: move_creature/release_creature as a batch, with validation");
+    FTESTLOG("Test passed: move_creature/release_creature as a batch, with validation; a release whose clicks miss still frees the creature");
     return FTRs_Go_To_Next_Action;
 }
 

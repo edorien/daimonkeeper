@@ -1047,6 +1047,9 @@ static const struct GlobalActionHandler global_actions[] = {
     {PckA_AssistStageGlobal, global_keeper_assist},
     {PckA_AssistCommit, global_keeper_assist},
     {PckA_AssistEnable, global_keeper_assist},
+    {PckA_AssistCommitBank, global_keeper_assist},
+    {PckA_AssistUseBank, global_keeper_assist},
+    {PckA_AssistStageRuleHand, global_keeper_assist},
 };
 
 /**
@@ -1057,6 +1060,10 @@ static const struct GlobalActionHandler global_actions[] = {
  * clicks are dispatched by) belongs to the seat alone, or a panel click lands between the seat's steps and its
  * order is silently lost.
  */
+/** A watcher (the local human whose own keeper an External seat plays) has put that keeper in a cheat placement mode
+ *  through the cheat menu. Packet-processing state, not saved: after a load the watcher picks the mode again. */
+static TbBool s_watcher_cheat_state[PLAYERS_COUNT];
+
 TbBool global_action_allowed_for_seat_watcher(int64_t action)
 {
     switch (action)
@@ -1094,6 +1101,46 @@ TbBool global_action_allowed_for_seat_watcher(int64_t action)
     }
 }
 
+/**
+ * A human watching an agent play their keeper may step in through the cheat menu when something goes wrong (cheat mode
+ * on, a local game): the one-shot cheats (all rooms, magic, traps and doors, reveal the map, everything free, win or
+ * lose the level, the menu's selections) -- not the ones acting on a possessed creature, which a watcher never has --
+ * and its placement modes: entering a cheat work state, and leaving it back to plain dungeon control. It is an
+ * emergency override, so it may cut across what the agent is doing: the agent's next order sets its own state again.
+ */
+TbBool cheat_action_allowed_for_seat_watcher(const struct PlayerInfo *player, const struct Packet *pckt)
+{
+    if (!player_cheats_allowed(player->id_number))
+        return false;
+    switch (pckt->action)
+    {
+    case PckA_CheatEnter:
+    case PckA_CheatAllFree:
+    case PckA_CheatRevealMap:
+    case PckA_CheatAllMagic:
+    case PckA_CheatAllRooms:
+    case PckA_CheatAllResrchbl:
+    case PckA_CheatAllDoors:
+    case PckA_CheatAllTraps:
+    case PckA_CheatGiveDoorTrap:
+    case PckA_CheatWinLevel:
+    case PckA_CheatLoseLevel:
+    case PckA_CheatSwitchTerrain:
+    case PckA_CheatSwitchPlayer:
+    case PckA_CheatSwitchCreature:
+    case PckA_CheatSwitchHero:
+    case PckA_CheatSwitchExperience:
+    case PckA_CheatSwitchTrap:
+    case PckA_CheatSwitchDoor:
+        return true;
+    case PckA_SetPlyrState:
+        return player_state_is_cheat(pckt->actn_par1)
+            || ((pckt->actn_par1 == PSt_CtrlDungeon) && s_watcher_cheat_state[player->id_number]);
+    default:
+        return false;
+    }
+}
+
 TbBool process_user_global_packet_action(NetUserId user)
 {
   //TODO PACKET add commands from beta
@@ -1107,6 +1154,13 @@ TbBool process_user_global_packet_action(NetUserId user)
   process_camera_action(player->cameras, pckt);
 
   if ((pckt->action != PckA_None) && player_exists(player) && flag_is_set(player->allocflags, PlaF_ExternalSeat)
+   && (player->user_id != user) && cheat_action_allowed_for_seat_watcher(player, pckt))
+  {
+      // The watcher's cheat placement mode: its map clicks act while it lasts (process_user_map_packet_control).
+      if (pckt->action == PckA_SetPlyrState)
+          s_watcher_cheat_state[plyr_idx] = player_state_is_cheat(pckt->actn_par1);
+  }
+  else if ((pckt->action != PckA_None) && player_exists(player) && flag_is_set(player->allocflags, PlaF_ExternalSeat)
    && (player->user_id != user) && !global_action_allowed_for_seat_watcher(pckt->action))
   {
       SYNCDBG(6,"User %" PRId64 " action %" PRId64 " ignored: player %" PRId64 " is an External seat",
@@ -1195,8 +1249,14 @@ void process_user_packet(NetUserId user)
             // external_seat.c exactly like a human's) both resolve to the SAME player here. Only the packet
             // from the seat's own current user_id may act -- the stale user-0 one must not, or the human's own
             // leftover clicks and the agent's submitted verbs would both mutate the same dungeon.
+            // The one exception: a watcher who put the keeper in a cheat placement mode through the cheat menu
+            // (cheat_action_allowed_for_seat_watcher) -- its clicks place what the menu chose, for as long as the
+            // keeper stays in that mode (the agent's next order ends it).
+            if (s_watcher_cheat_state[player->id_number] && !player_state_is_cheat(player->work_state))
+                s_watcher_cheat_state[player->id_number] = false;
             if (((player->allocflags & PlaF_CompCtrl) == 0)
-             && (((player->allocflags & PlaF_ExternalSeat) == 0) || (user == player->user_id))) {
+             && (((player->allocflags & PlaF_ExternalSeat) == 0) || (user == player->user_id)
+              || ((user != player->user_id) && s_watcher_cheat_state[player->id_number] && player_cheats_allowed(player->id_number)))) {
                 process_user_dungeon_control_packet_control(user);
                 process_user_dungeon_control_packet_action(user);
             }

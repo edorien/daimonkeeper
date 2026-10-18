@@ -143,3 +143,14 @@ TEST_CASE_METHOD(Fixture, "selecting a preset sets the sliders to its own values
     CHECK(reserve == 1000);
     CHECK_FALSE(keeper_assist_tuning_from_preset(&presets, "berserker", &t, &reserve));
 }
+
+TEST_CASE_METHOD(Fixture, "a human player's profile cannot hold a hand rule: those are an agent's only", "[kfx_config][assist_profile]") {
+    write("h.toml", "enabled = true\n"
+                    "[[rules]]\nhand = \"reinforce\"\n"
+                    "[[rules]]\npower = \"POWER_SPEED\"\n"
+                    "[[rules]]\nhand = \"evacuate_diggers\"\nto = [30, 30]\n");
+    KeeperAssistProfile p;
+    REQUIRE(keeper_assist_profile_load_from(path("h.toml").c_str(), &p));
+    REQUIRE(p.custom_count == 1);
+    CHECK(p.custom[0].power == PwrK_SPEEDCRTR);
+}

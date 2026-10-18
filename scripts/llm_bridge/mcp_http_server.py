@@ -23,10 +23,11 @@ carries one JSON-RPC message (or a batch) and gets its answer as one application
 held only notifications. The server never pushes anything on its own, so there is no SSE stream: GET and DELETE answer
 405, as the transport allows. No Mcp-Session-Id: the process holds one game connection (the game's own "one API client at
 a time" rule), so every client of this server shares that one seat, and it outlives the client -- a client that restarts
-and initializes again finds the game still connected and carries on. Tool calls are run one at a time, all on one thread
-(a Session is not thread-safe, and its experience store is sqlite); a long wait_for_decision holds the next call back until it returns, but ping and the lists are answered
-meanwhile. Keep wait_for_decision's timeout_seconds under the client's own request timeout (60 s in the reference MCP
-SDKs; the default 50 fits).
+and initializes again finds the game still connected and carries on. Each request runs on its own thread: the Session
+holds its own lock for every tool call, and a wait_for_decision releases it while it waits (the session's pump reads the
+game meanwhile, gamelink.py), so status, look and the rest answer during a long wait -- each reply then also carries any
+urgent decision that came in (ALERT). Keep wait_for_decision's timeout_seconds under the client's own request timeout (60 s
+in the reference MCP SDKs; the default 50 fits).
 
 **Security.** Binds 127.0.0.1 by default. The Host and Origin headers are checked against loopback names, which stops a
 web page in a browser on this machine from reaching the server by DNS rebinding. Binding to a non-loopback address needs
@@ -39,7 +40,6 @@ import json
 import os
 import socket
 import sys
-from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
 
@@ -70,17 +70,12 @@ class McpHttpServer(ThreadingHTTPServer):
         self.token = token
         self.allowed_hosts = tuple(allowed_hosts)
         self.quiet = quiet
-        # Every tool call runs on this one thread, in arrival order: a Session is not thread-safe, and its experience
-        # store is an sqlite connection, usable only from the thread that opened it.
-        self.tool_thread = ThreadPoolExecutor(max_workers=1, thread_name_prefix="mcp-tools")
         if ":" in address[0]:
             self.address_family = socket.AF_INET6
         super().__init__(address, Handler)
 
     def handle_message(self, msg):
-        """One JSON-RPC message -> its response dict, or None. Tool calls run on the tool thread, one at a time."""
-        if isinstance(msg, dict) and msg.get("method") == "tools/call":
-            return self.tool_thread.submit(self.mcp.handle, msg).result()
+        """One JSON-RPC message -> its response dict, or None. Runs on the request's own thread; the Session locks."""
         if not isinstance(msg, dict):
             return {"jsonrpc": "2.0", "id": None, "error": {"code": -32600, "message": "invalid request"}}
         if "method" not in msg and ("result" in msg or "error" in msg):
@@ -92,13 +87,10 @@ class McpHttpServer(ThreadingHTTPServer):
         session = self.mcp.session
         if getattr(session, "connected", False):
             try:
-                self.tool_thread.submit(session.disconnect).result(timeout=30)
+                session.disconnect()
             except Exception as e:  # noqa: BLE001 - best effort on the way out
                 print("daimonkeeper-bridge: disconnect on shutdown failed: %s" % (e,), file=sys.stderr)
 
-    def server_close(self):
-        super().server_close()
-        self.tool_thread.shutdown(wait=False)
 
 
 class Handler(BaseHTTPRequestHandler):

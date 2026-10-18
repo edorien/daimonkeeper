@@ -102,7 +102,8 @@ class ProtocolTests(unittest.TestCase):
         self.assertEqual(names, {"connect", "get_instructions", "wait_for_decision", "status", "look", "submit_orders",
                                   "check_orders", "set_game_speed", "set_pause", "get_log_tail", "get_combat_stats", "get_recipes",
                                   "get_experience", "record_debrief", "disconnect", "set_combat_rules", "check_combat_rules",
-                                  "get_combat_rules", "apply_combat_preset"})
+                                  "get_combat_rules", "apply_combat_preset", "use_combat_bank", "set_triggers", "check_triggers",
+                                  "get_triggers", "apply_trigger_preset", "set_rally_points"})
         for t in resp["result"]["tools"]:
             self.assertIn("inputSchema", t)
 
@@ -189,6 +190,13 @@ class ToolDispatchTests(unittest.TestCase):
         self.assertTrue(r.get("isError"))
         self.assertIn("boom", r["content"][0]["text"])
 
+    def test_a_missing_argument_is_named_not_an_unknown_tool(self):
+        r = self.server.handle({"jsonrpc": "2.0", "id": 9, "method": "tools/call", "params": {"name": "look", "arguments": {}}})
+        text = r["result"]["content"][0]["text"]
+        self.assertTrue(r["result"].get("isError"))
+        self.assertIn("look: missing argument slab_rect", text)
+        self.assertNotIn("unknown tool", text)
+
     def test_unknown_tool(self):
         r = self.call("not_a_real_tool", {})
         self.assertTrue(r.get("isError"))
@@ -242,15 +250,27 @@ class FakeGame:
         self.assist = {"enabled": False, "interval": 2, "charge_time": True, "min_gap": 4, "reserve": 0, "max_spend": 0,
                        "spent_this_payday": 0, "rules": [], "casts": []}
         self.assist_requests = []   # set_assist requests, real ones only
+        self.assist_deferred = False  # set_assist queued but not live until apply_deferred_assist (a paused game)
+        self._deferred_rules = None
+        self.results = []           # seat.results the view reports (a refused order)
         self.map_rows = None     # replaces make_view's map rows when set (a slab changed in the game)
         self.agent_only = False  # no human plays a keeper: the agent may pause
         self.paused = False
         self.agent_pause = False
         self.pause_requests = []  # set_pause / advance_turns requests
+        self.drop_queries = []    # find_drop_spot positions asked
+        self.bank_uses = []       # use_assist_bank banks
+        self.acks = []            # ack_decision seqs
+        self.policies = []        # set_decision_policy requests
         self._write_lock = threading.Lock()
         self._buf = b""
         self._thread = threading.Thread(target=self._accept, daemon=True)
         self._thread.start()
+
+    def apply_deferred_assist(self):
+        rules, self._deferred_rules, self.assist_deferred = self._deferred_rules, None, False
+        if rules is not None:
+            self._handle({"action": "set_assist", "rules": rules, "ack": 0})
 
     def _accept(self):
         self.conn, _ = self.sock.accept()
@@ -288,7 +308,12 @@ class FakeGame:
         action, ack = req.get("action"), req.get("ack")
         if action in ("claim_seat", "get_seats"):
             return {"ack": ack, "success": True, "data": {"seats": [{"player": 1, "user": 1}], "player": 1, "user": 1}}
-        if action in ("subscribe_event", "set_decision_policy", "set_takeover"):
+        if action == "set_decision_policy":
+            self.policies.append(req)
+            if req.get("on_urgent") in ("pause", "slow") and not self.agent_only:
+                return {"ack": ack, "success": False, "error": "HUMAN_PLAYING"}
+            return {"ack": ack, "success": True}
+        if action in ("subscribe_event", "set_takeover"):
             return {"ack": ack, "success": True}
         if action == "get_player_view":
             self.turn += 1
@@ -302,10 +327,22 @@ class FakeGame:
                             {"id": 1, "player": 1, "kind": "external", "name": self.names.get(1, "External 1"), "alive": True},
                             {"id": 2, "player": 2, "kind": "computer", "ai_type": "Build and defend Computer.", "alive": True}]
             v["view_id"] = self.view_id
+            v["seat"]["results"] = list(self.results)
             v["paused"], v["agent_pause"], v["agent_only"] = self.paused, self.agent_pause, self.agent_only
             v["mode"] = "full"
             v["own"]["assist"] = json.loads(json.dumps(self.assist))
+            v["own"]["creatures"].append({"id": 8, "kind": "IMP", "level": 1, "health": 60, "health_pct": 100, "digger": True,
+                                          "pos": [5, 5], "state": "Dig"})
             return {"ack": ack, "success": True, "data": v}
+        if action == "find_drop_spot":
+            self.drop_queries.append(req["pos"])
+            return {"ack": ack, "success": True, "data": {"pos": [req["pos"][0] + 1, req["pos"][1]], "distance": 1}}
+        if action == "ack_decision":
+            self.acks.append(req.get("seq"))
+            return {"ack": ack, "success": True}
+        if action == "use_assist_bank":
+            self.bank_uses.append(req["bank"])
+            return {"ack": ack, "success": True, "data": {"id": 50, "steps": 1, "queued_behind": 0}}
         if action == "submit_action":
             if req.get("dry_run"):
                 return {"ack": ack, "success": True, "data": {"would_succeed": True, "steps": 1}}
@@ -341,7 +378,9 @@ class FakeGame:
             for k in ("enabled", "interval", "reserve", "min_gap", "max_spend", "charge_time"):
                 if k in req:
                     self.assist[k] = req[k]
-            if rules is not None:
+            if rules is not None and self.assist_deferred:
+                self._deferred_rules = rules
+            elif rules is not None:
                 self.assist["rules"] = [dict({k: v for k, v in r.items() if k != "name"}, slot=i, fired=0, spent=0, state="ok",
                                              level=r.get("level", 0), target=r.get("target", "ally_in_fight"))
                                         if "power" in r else dict({k: v for k, v in r.items() if k != "name"}, slot=i, fired=0, spent=0, state="ok")
@@ -362,8 +401,13 @@ class FakeGame:
             return {"ack": ack, "success": True, "data": {"lines": ["fake log line %d" % i for i in range(want)]}}
         return {"ack": ack, "success": False, "error": "UNKNOWN_ACTION"}
 
-    def push_event(self, reasons):
-        self._send({"event": "DECISION_DUE", "data": {"reasons": ",".join(reasons), "seq": 1, "turn": self.turn, "quarter": 1}})
+    def push_event(self, reasons, severity=None, where=None):
+        data = {"reasons": ",".join(reasons), "seq": 1, "turn": self.turn, "quarter": 1}
+        if severity is not None:
+            data["severity"] = severity
+        if where is not None:
+            data["where_x"], data["where_y"] = where
+        self._send({"event": "DECISION_DUE", "data": data})
 
     def save(self):
         self.saved = (self.turn, dict(self.memory))
@@ -399,6 +443,142 @@ class SessionIntegrationTests(unittest.TestCase):
     def _connect_and_start(self):
         self.assertFalse(self.call("connect", {"host": "127.0.0.1", "port": self.game.port}).get("isError"))
         self.call("wait_for_decision", {"timeout_seconds": 0.2})   # the "start" decision
+
+    def _text(self, name, args=None):
+        return self.call(name, args)["content"][0]["text"]
+
+    def test_the_pump_reads_the_game_between_tool_calls(self):
+        self._connect_and_start()
+        session = self.server.session
+        self.game.push_event(["quarter_2"])
+        deadline = time.time() + 3
+        while not session.link.events and time.time() < deadline:
+            time.sleep(0.02)     # no tool call in flight: only the pump can have read it
+        self.assertEqual([e["event"] for e in session.link.events], ["DECISION_DUE"])
+        started = time.time()
+        d = json.loads(self._text("wait_for_decision", {"timeout_seconds": 3}))
+        self.assertLess(time.time() - started, 0.5, "the decision was already in")
+        self.assertEqual((d["reasons"], d["severity"], d["flash"]), (["quarter_2"], 3, False))
+
+    def test_an_urgent_decision_is_a_flash_and_the_engine_severity_and_place_are_used(self):
+        self._connect_and_start()
+        self.game.push_event(["information"], severity=0, where=[13, 7])     # the engine's word goes
+        d = json.loads(self._text("wait_for_decision", {"timeout_seconds": 3}))
+        self.assertEqual((d["severity"], d["flash"], d["where"]), (0, True, [13, 7]))
+        self.assertIn("FLASH DECISION (severity 0, critical)", d["state"])
+        self.assertIn("WHERE: subtile (13,7) = slab (4,2)", d["state"])
+        self.assertNotIn("YOUR NOTES", d["state"])
+        self.assertLess(len(d["state"]), 2500)
+        full = self._text("status", {"full": True})
+        self.assertIn("CREATURES (", full)   # the fake game's view is tiny: no size comparison with the flash
+
+    def test_submit_hands_back_an_urgent_decision_that_came_meanwhile(self):
+        self._connect_and_start()
+        session = self.server.session
+        self.game.push_event(["quarter_1"])
+        d = json.loads(self._text("wait_for_decision", {"timeout_seconds": 3}))
+        decided_turn = d["turn"]
+        self.game.push_event(["enemy_fight"])          # while the model thinks about the quarter
+        deadline = time.time() + 3
+        while not session.link.urgent_pending() and time.time() < deadline:
+            time.sleep(0.02)
+        r = json.loads(self._text("submit_orders", {"orders": [{"verb": "mark_dig", "slab_rect": [1, 1, 2, 2]}]}))
+        self.assertEqual(self.game.submitted[-1]["view_turn"], decided_turn, "orders count from the view the decision showed")
+        self.assertIn("since your view:", r["since_your_view"])
+        nxt = r["next_decision"]
+        self.assertEqual((nxt["reasons"], nxt["flash"]), (["enemy_fight"], True))
+        # Not answered, the next wait hands it out again rather than letting it go.
+        again = json.loads(self._text("wait_for_decision", {"timeout_seconds": 0.5}))
+        self.assertEqual((again["reasons"], again.get("repeated")), (["enemy_fight"], True))
+        self.assertIn("next_decision", again["note"])
+        r2 = json.loads(self._text("submit_orders", {"orders": []}))
+        self.assertNotIn("next_decision", r2)
+        self.assertFalse(json.loads(self._text("wait_for_decision", {"timeout_seconds": 0.3}))["due"])
+
+    def test_a_trigger_fires_from_the_pump_with_no_tool_call_in_flight(self):
+        self._connect_and_start()
+        session = self.server.session
+        self.assertEqual(json.loads(self._text("apply_trigger_preset", {"name": "evacuate_imps"}))["error"], "NEEDS_RALLY")
+        self.assertEqual(json.loads(self._text("set_rally_points", {"points": {"safe": [2, 2]}}))["rally"], {"safe": [2, 2]})
+        r = json.loads(self._text("apply_trigger_preset", {"name": "evacuate_imps"}))
+        self.assertEqual(r["triggers"], ["evacuate_imps"])
+        before = len(self.game.submitted)
+        self.game.push_event(["intruder"], severity=1, where=[6, 6])
+        deadline = time.time() + 3
+        while len(self.game.submitted) == before and time.time() < deadline:
+            time.sleep(0.02)
+        lift = self.game.submitted[-1]
+        self.assertEqual((lift["verb"], lift["thing_ids"], lift["priority"], lift["max_age_turns"]),
+                         ("pick_up_and_drop", [8], "now", 200))
+        self.assertEqual((lift["pos"], self.game.drop_queries[-1]), ([3, 2], [2, 2]))   # the drop spot the game gave
+        d = json.loads(self._text("wait_for_decision", {"timeout_seconds": 2}))
+        self.assertIn("FIRED turn", d["state"])
+        self.assertIn("evacuate_imps", d["state"])
+        # Kept with the agent's memory, which the game holds.
+        blob = json.loads(self.game.memory[1])
+        self.assertEqual((blob["triggers"][0]["name"], blob["triggers"][0]["fired"], blob["rally"]), ("evacuate_imps", 1, {"safe": [2, 2]}))
+        got = json.loads(self._text("get_triggers"))
+        self.assertEqual(got["triggers"][0]["fired"], 1)
+        self.assertIn("evacuate_imps", got["presets"])
+        self.assertEqual(json.loads(self._text("set_triggers", {"triggers": [{"name": "x", "do": [{"verb": "dance"}]}]}))["error"], "BAD_ORDER")
+        self.assertEqual(session.memory.triggers[0]["name"], "evacuate_imps", "a refused list changes nothing")
+
+    def test_a_bank_is_stored_named_and_switched_to(self):
+        self._connect_and_start()
+        rule = {"name": "panic_heal", "power": "POWER_HEAL_CREATURE", "level": 2, "when": [["health_pct", "<", 50]]}
+        r = json.loads(self._text("set_combat_rules", {"rules": [rule], "bank": 2, "label": "war", "max_spend": 3000}))
+        self.assertNotIn("error", r)
+        self.assertEqual(self.game.assist_requests[-1]["bank"], 2)
+        self.assertEqual(self.server.session.memory.bank_names["2"], {"label": "war", "names": ["panic_heal"]})
+        r = json.loads(self._text("use_combat_bank", {"bank": 2}))
+        self.assertEqual((r["bank"], r["label"], self.game.bank_uses), (2, "war", [2]))
+        self.assertEqual(self.server.session.memory.pending_rules["names"], ["panic_heal"])
+
+    def test_an_answer_to_a_flash_is_urgent_by_default(self):
+        self._connect_and_start()
+        self.game.push_event(["enemy_fight"])
+        d = json.loads(self._text("wait_for_decision", {"timeout_seconds": 3}))
+        self.assertTrue(d["flash"])
+        self._text("submit_orders", {"orders": [{"verb": "slap", "thing_id": 7}, {"verb": "mark_dig", "slab_rect": [1, 1, 1, 1], "priority": "routine"}]})
+        self.assertEqual([r.get("priority") for r in self.game.submitted[-2:]], ["now", "routine"])
+        self.assertEqual(self.game.submitted[-2]["max_age_turns"], 200)
+
+    def test_on_urgent_auto_pauses_only_where_the_agent_may_and_answers_ack_the_decision(self):
+        # A human plays: auto holds nothing, and an explicit pause is refused.
+        self._connect_and_start()
+        self.assertEqual(self.server.session.on_urgent, "none")
+        self.assertFalse(any(p.get("on_urgent") for p in self.game.policies))
+        self._text("disconnect")
+        self.game.close()
+        self.game = FakeGame()
+        self.game.agent_only = True
+        r = self.call("connect", {"host": "127.0.0.1", "port": self.game.port})
+        self.assertIn("pauses the game until you answer it", r["content"][0]["text"])
+        self.assertEqual(self.game.policies[-1]["on_urgent"], "pause")
+        session = self.server.session
+        self.assertEqual(session.on_urgent, "pause")
+        self._text("wait_for_decision", {"timeout_seconds": 0.2})
+        self._text("set_pause", {"paused": False})
+        self.game.push_event(["enemy_fight"])
+        d = json.loads(self._text("wait_for_decision", {"timeout_seconds": 3}))
+        self.assertTrue(d["flash"])
+        self._text("submit_orders", {"orders": [{"verb": "slap", "thing_id": 7}]})
+        self.assertEqual(self.game.submitted[-1]["decision_seq"], 1)        # the order says which decision it answers
+        self.assertEqual(self.game.acks[-1], 1)                             # and the decision is acked, orders or not
+        self._text("submit_orders", {"orders": []})
+        self.assertEqual(len(self.game.acks), 2)
+
+    def test_the_text_says_when_the_game_is_held(self):
+        import prompt
+        from test_bridge import make_view
+        from viewstate import ViewState
+        st = ViewState()
+        st.view = make_view()
+        st.view["seat"]["decision"] = {"hold": {"mode": "pause", "ms_left": 41500}}
+        self.assertIn("THE GAME IS PAUSED FOR YOUR ANSWER (at most 41 s more)", prompt.render_flash(st, None, ["intruder"], 1))
+        st.view["seat"]["decision"] = {"hold": {"mode": "slow", "ms_left": 9000}}
+        st.view["turns_per_second"] = 4
+        self.assertIn("SLOWED FOR YOUR ANSWER (4 turns a second", prompt.render_state(st, reasons=["intruder"]))
 
     def test_get_recipes(self):
         self._connect_and_start()
@@ -549,8 +729,9 @@ class SessionIntegrationTests(unittest.TestCase):
         sent = self.game.assist_requests[-1]
         self.assertEqual((sent["enabled"], sent["reserve"], len(sent["rules"])), (True, 1500, 2))
         held = json.loads(self.game.memory[1])                            # the names live with the game's memory
-        self.assertEqual(held["rule_names"], ["save-the-dying", "cta-floor"])
+        self.assertEqual(held["pending_rules"]["names"], ["save-the-dying", "cta-floor"])   # until the rules are live
         back = self._tool("get_combat_rules")
+        self.assertEqual(json.loads(self.game.memory[1])["rule_names"], ["save-the-dying", "cta-floor"])
         self.assertEqual([r["name"] for r in back["rules"]], ["save-the-dying", "cta-floor"])
         self.assertEqual(back["rules"][0]["when"], [["health_pct", "<", 35]])
         self.assertIn("save-the-dying: POWER_HEAL_CREATURE L2 on ally_in_fight when health_pct < 35", back["summary"])
@@ -558,6 +739,27 @@ class SessionIntegrationTests(unittest.TestCase):
         self._tool("set_combat_rules", {"enabled": False})
         self.assertNotIn("rules", self.game.assist_requests[-1])
         self.assertEqual(json.loads(self.game.memory[1])["rule_names"], ["save-the-dying", "cta-floor"])
+        self.call("disconnect")
+
+    def test_casting_rules_get_a_spending_cap_unless_one_is_set(self):
+        # The live bug: a set with no cap spent 14,300 gold in one pay day.
+        self._connect_and_start()
+        heal = [{"name": "heal", "power": "POWER_HEAL_CREATURE", "level": 2, "when": [["health_pct", "<", 35]]}]
+        done = self._tool("set_combat_rules", {"rules": heal, "enabled": True})
+        self.assertEqual((done["max_spend"], self.game.assist_requests[-1]["max_spend"]), (5000, 5000))
+        self.assertIn("at most 5000 gold a pay day", done["note"])
+        self.assertIn("spent this pay day 0 of its cap 5000", self._tool("get_combat_rules")["summary"])
+        # a cap already live is kept: nothing is added
+        again = self._tool("set_combat_rules", {"rules": heal})
+        self.assertNotIn("max_spend", self.game.assist_requests[-1])
+        self.assertNotIn("note", again)
+        # the agent's own choice stands, "none" included
+        self._tool("set_combat_rules", {"rules": heal, "max_spend": 0})
+        self.assertEqual(self.game.assist_requests[-1]["max_spend"], 0)
+        self.assertIn("spent this pay day 0 (no cap)", self._tool("get_combat_rules")["summary"])
+        # rules that only switch powers off spend nothing, so they get no cap
+        self._tool("set_combat_rules", {"rules": [{"name": "cta_floor", "power_off": "POWER_CALL_TO_ARMS", "when": [["gold", "<", 900]]}]})
+        self.assertNotIn("max_spend", self.game.assist_requests[-1])
         self.call("disconnect")
 
     def test_combat_rule_errors_name_the_rule(self):
@@ -582,7 +784,38 @@ class SessionIntegrationTests(unittest.TestCase):
         self.assertEqual([r.get("name") for r in sent["rules"]], ["heal", "chicken"])
         self.assertEqual(sent["rules"][0]["level"], 4)
         self.assertNotIn("description", sent)
+        self._tool("get_combat_rules")
         self.assertEqual(json.loads(self.game.memory[1])["rule_names"], ["heal", "chicken"])
+        self.call("disconnect")
+
+    def test_a_preset_switch_names_the_new_rules_only_once_they_are_live(self):
+        # The live bug: striker -> miser renamed striker's casting rules (still live, the change queued) to miser's names.
+        self._connect_and_start()
+        self._tool("apply_combat_preset", {"name": "guardian"})
+        self.assertEqual([r["name"] for r in self._tool("get_combat_rules")["rules"]], ["heal", "cta_floor"])
+        self.game.assist_deferred = True          # the next change is queued, not live (a paused game, or a busy seat)
+        self._tool("apply_combat_preset", {"name": "miser"})
+        back = self._tool("get_combat_rules")
+        self.assertEqual([(r["name"], r.get("power") or r.get("power_off")) for r in back["rules"]],
+                         [("heal", "POWER_HEAL_CREATURE"), ("cta_floor", "POWER_CALL_TO_ARMS")])   # the live rules keep their own names
+        self.assertIn("a change to obey_floor is queued and not live yet", back["pending"])
+        self.assertIn("is queued and not live yet", back["summary"])
+        self.game.apply_deferred_assist()          # the queued change goes live
+        back = self._tool("get_combat_rules")
+        self.assertEqual([(r["name"], r.get("power_off")) for r in back["rules"]], [("obey_floor", "POWER_OBEY")])
+        self.assertNotIn("pending", back)
+        # A change refused when its turn came: its names are dropped, the live rules keep theirs.
+        self.game.assist_deferred = True
+        self._tool("apply_combat_preset", {"name": "guardian"})
+        self.game.results.append({"id": 1, "status": "rejected", "error": "EXPIRED", "turn": self.game.turn})
+        back = self._tool("get_combat_rules")
+        self.assertEqual([r["name"] for r in back["rules"]], ["obey_floor"])
+        self.assertNotIn("pending", back)
+        self.assertIn("your last change of standing orders was refused (EXPIRED)", back["summary"])
+        # A rule changed some other way (a player's sliders) loses the name it no longer deserves.
+        self.game.assist_deferred = False
+        self.game.assist["rules"][0]["when"] = [["gold", "<", 5]]
+        self.assertEqual([r["name"] for r in self._tool("get_combat_rules")["rules"]], ["rule 0"])
         self.call("disconnect")
 
     def test_standing_orders_in_the_decision_say_what_each_rule_did(self):
@@ -758,6 +991,40 @@ class SessionIntegrationTests(unittest.TestCase):
         self.call("connect", {"host": "127.0.0.1", "port": self.game.port, "start_paused": False})
         self.assertFalse(self.game.paused)
         self.call("disconnect")
+
+    def test_a_long_wait_is_capped_and_a_decision_it_produced_comes_again_until_answered(self):
+        import mcp_session
+        old = (mcp_session.MAX_WAIT_SECONDS, mcp_session.RISKY_WAIT_SECONDS)
+        mcp_session.MAX_WAIT_SECONDS, mcp_session.RISKY_WAIT_SECONDS = 0.6, 0.3
+        try:
+            self._connect_and_start()
+            self.call("submit_orders", {"orders": []})
+            # Asked for longer than a client waits: capped, and told to call again.
+            t0 = time.time()
+            r = json.loads(self.call("wait_for_decision", {"timeout_seconds": 30})["content"][0]["text"])
+            self.assertLess(time.time() - t0, 5)
+            self.assertEqual(r["due"], False)
+            self.assertIn("call wait_for_decision again", r["note"])
+            # A decision at the end of a long wait (its reply may not have reached the client) comes again, at once.
+            threading.Timer(0.4, self.game.push_event, args=(["quarter_2"],)).start()
+            first = json.loads(self.call("wait_for_decision", {"timeout_seconds": 5})["content"][0]["text"])
+            self.assertEqual((first["due"], first["reasons"]), (True, ["quarter_2"]))
+            t0 = time.time()
+            again = json.loads(self.call("wait_for_decision", {"timeout_seconds": 5})["content"][0]["text"])
+            self.assertLess(time.time() - t0, 2)
+            self.assertEqual((again["due"], again["reasons"], again.get("repeated")), (True, ["quarter_2"], True))
+            self.assertIn("here it is again", again["note"])
+            # Once answered, it is not handed out again.
+            self.call("submit_orders", {"orders": []})
+            r = json.loads(self.call("wait_for_decision", {"timeout_seconds": 0.2})["content"][0]["text"])
+            self.assertEqual(r["due"], False)
+            # A decision after a short wait went out safely: the next wait waits.
+            threading.Timer(0.05, self.game.push_event, args=(["quarter_3"],)).start()
+            self.assertEqual(json.loads(self.call("wait_for_decision", {"timeout_seconds": 5})["content"][0]["text"])["reasons"], ["quarter_3"])
+            self.assertEqual(json.loads(self.call("wait_for_decision", {"timeout_seconds": 0.2})["content"][0]["text"])["due"], False)
+            self.call("disconnect")
+        finally:
+            mcp_session.MAX_WAIT_SECONDS, mcp_session.RISKY_WAIT_SECONDS = old
 
     def test_look_shows_the_map_as_it_is_now_not_as_at_the_last_decision(self):
         self._connect_and_start()

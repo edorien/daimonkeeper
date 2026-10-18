@@ -10,6 +10,12 @@ Two sources, the same numbers:
 
     python3 scripts/llm_bridge/combat_report.py --store /path/to/experience.sqlite
     python3 scripts/llm_bridge/combat_report.py --log daimonkeeper.log [--log other.log] [--player 0]
+    python3 scripts/llm_bridge/combat_report.py --decisions run.jsonl    # bridge.py / agent_vs_agent.py --log files
+
+A second table, the latency chain (latency.py), splits each decision's delay into links: hold (the reason raised -> the
+game sends DECISION_DUE), delivery (-> the agent has it), think (-> the game accepts its first order), queue (-> that
+order starts), gesture (-> its last step), total (raised -> started). From the record's final.latency (the store) or
+from the decision logs' "latency" entries.
 
 Times are game turns; seconds assume the default 20 turns per second (command_line.cpp). The headline numbers:
   window_low / window_critical  turns a creature that died in a fight had between first dropping under 35% / 20%
@@ -203,20 +209,91 @@ def markdown(rows):
     return "\n".join(out)
 
 
+LATENCY_LINKS = ("hold", "delivery", "think", "queue", "gesture", "total")
+
+
+def latency_rows_from_store(path):
+    """(label, final.latency) per game in an experience store whose record has the latency chain."""
+    con = sqlite3.connect("file:%s?mode=ro" % path, uri=True)
+    con.row_factory = sqlite3.Row
+    rows = []
+    for r in con.execute("SELECT level_key, level_name, result, end_turn, final FROM games ORDER BY started_at"):
+        final = json.loads(r["final"] or "{}")
+        if final.get("latency"):
+            rows.append(("%s %s (%s, turn %s)" % (r["level_key"], r["level_name"] or "", r["result"], r["end_turn"]), final["latency"]))
+    con.close()
+    return rows
+
+
+def latency_rows_from_decision_logs(paths):
+    """(label, summary) per decision log (bridge.py --log, agent_vs_agent.py --log-dir files): their "latency" entries."""
+    from latency import LINKS, _median
+    rows = []
+    for path in paths:
+        recs = []
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    recs += json.loads(line).get("latency") or []
+        if not recs:
+            continue
+        links = {}
+        for name, _, _ in LINKS:
+            vals = [r[name] for r in recs if name in r]
+            if vals:
+                links[name] = {"median": _median(vals), "max": max(vals), "n": len(vals)}
+        think = [r["think_seconds"] for r in recs if "think_seconds" in r]
+        rows.append((os.path.basename(path), {"decisions": len(recs), "links": links, "median_think_seconds": _median(think)}))
+    return rows
+
+
+def latency_markdown(rows):
+    """The latency chain: one column per game, one row per link, as median (max) turns."""
+    if not rows:
+        return ""
+    out = ["| latency chain | " + " | ".join(label for label, _ in rows) + " |", "|---|" + "---|" * len(rows),
+           "| decisions | %s |" % " | ".join(str(lat.get("decisions", 0)) for _, lat in rows)]
+    for name in LATENCY_LINKS:
+        cells = []
+        for _, lat in rows:
+            link = (lat.get("links") or {}).get(name)
+            cells.append("-" if not link else "%s (max %d)" % (_turns(link["median"]), link["max"]))
+        out.append("| %s | %s |" % (name, " | ".join(cells)))
+    out.append("| think, wall clock | %s |" % " | ".join(
+        "-" if lat.get("median_think_seconds") is None else "%.1fs" % lat["median_think_seconds"] for _, lat in rows))
+    return "\n".join(out)
+
+
+def render_latency_text(lat):
+    """One line on the latency chain so far (LatencyChain.summary()), for the get_combat_stats tool."""
+    if not lat:
+        return ""
+    parts = ["%s %s" % (name, _turns((lat["links"].get(name) or {}).get("median"))) for name in LATENCY_LINKS if name in lat["links"]]
+    return "  decisions so far (median turns): " + "; ".join(parts) + (
+        "; think %.1fs of wall clock" % lat["median_think_seconds"] if lat.get("median_think_seconds") is not None else "")
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--store", help="experience.sqlite: one column per game that recorded combat statistics")
     p.add_argument("--log", action="append", default=[], help="daimonkeeper.log (repeatable): one column per keeper in it")
     p.add_argument("--player", type=int, default=None, help="with --log: only this player")
+    p.add_argument("--decisions", action="append", default=[], help="bridge.py / agent_vs_agent.py decision log (repeatable): its latency chain")
     args = p.parse_args(argv)
-    if not args.store and not args.log:
-        p.error("give --store and/or --log")
-    rows = []
+    if not args.store and not args.log and not args.decisions:
+        p.error("give --store, --log and/or --decisions")
+    rows, lat_rows = [], []
     if args.store:
         rows += rows_from_store(args.store)
+        lat_rows += latency_rows_from_store(args.store)
     if args.log:
         rows += rows_from_logs(args.log, args.player)
-    print(markdown(rows))
+    lat_rows += latency_rows_from_decision_logs(args.decisions)
+    if rows or not lat_rows:
+        print(markdown(rows))
+    if lat_rows:
+        print(("\n" if rows else "") + latency_markdown(lat_rows))
     return 0
 
 

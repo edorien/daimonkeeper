@@ -61,6 +61,19 @@ _ASSIST_RULE_SCHEMA = {
                   "description": "cast this (the first four on your creatures, the rest on enemies)"},
         "power_off": {"type": "string", "enum": ["POWER_CALL_TO_ARMS", "POWER_OBEY"],
                       "description": "instead of a cast: switch this power off (a gold guard)"},
+        "hand": {"type": "string", "enum": ["evacuate_diggers", "lift_wounded", "reinforce"],
+                 "description": ("instead of a power: a hand rule, carried out with your hand as an urgent order. evacuate_diggers: lift "
+                                 "your imps within radius slabs of an enemy fighter to `to` (required: a safe spot -- imps run back "
+                                 "to an attacked heart, so best a pocket they cannot walk out of). lift_wounded: lift your fighters "
+                                 "in a fight under 35% health (or your health_pct condition) to `to`, else a lair -- only when no "
+                                 "heal rule of yours can heal them now (none, unavailable, or its budget/cap/reserve spent). "
+                                 "reinforce: drop healthy fighters from elsewhere beside a fight you are losing or matching "
+                                 "(force_ratio >= 80, or your condition), each at least min_match % of the strongest enemy's force, "
+                                 "and only if they would turn it")},
+        "to": {"type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2, "description": "hand rules: the subtile to drop on"},
+        "count": {"type": "integer", "minimum": 1, "maximum": 8, "description": "hand rules: most creatures one trip moves"},
+        "radius": {"type": "integer", "minimum": 1, "maximum": 15, "description": "hand rules: slabs from an enemy (evacuate) or the fight (reinforce, from where it takes them) (default 6)"},
+        "min_match": {"type": "integer", "minimum": 0, "maximum": 200, "description": "reinforce: % of the strongest enemy's force each fighter sent must have (default 50)"},
         "level": {"type": "integer", "minimum": 0, "maximum": 8},
         "target": {"type": "string", "enum": ["ally_in_fight", "ally_any", "enemy_in_fight"],
                    "description": "default: ally_in_fight for your powers, enemy_in_fight for the others"},
@@ -103,6 +116,10 @@ TOOLS = [
                 "experience_path": {"type": "string", "description": "sqlite file of game records and lessons across games (default: experience.sqlite in the bridge's own folder; \"\" to play without one)"},
                 "agent": {"type": "string", "description": "a name for you in the game records (default: the MCP client's name)"},
                 "start_paused": {"type": "boolean", "description": "in a game no human plays a keeper in: pause it on connect, for you to resume (default true)"},
+                "on_urgent": {"type": "string", "enum": ["auto", "pause", "slow", "none"],
+                              "description": "hold the game for your answer to each urgent decision: pause it, or slow it (slow_turns_per_second), for at most hold_seconds. Only where you may pause anyway (no human keeper, or LLM Pause). auto (default): pause where allowed, else none"},
+                "hold_seconds": {"type": "integer", "minimum": 1, "maximum": 600, "description": "the longest a hold lasts without your answer (default 60)"},
+                "slow_turns_per_second": {"type": "integer", "minimum": 1, "maximum": 100, "description": "on_urgent slow: the speed while held (default 4)"},
             },
         },
     },
@@ -122,15 +139,18 @@ TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "timeout_seconds": {"type": "number", "description": "how long to wait this call (default 50)"},
+                "timeout_seconds": {"type": "number", "description": "how long to wait this call (default 50, at most 50: a "
+                                    "client gives up on a reply after about a minute; a decision that came at the end of a "
+                                    "long wait is handed out again by the next call until submit_orders answers it)"},
                 "treat_timeout_as_decision": {"type": "boolean", "description": "if true, a timeout still returns due=true with reasons [\"timer\"] instead of due=false"},
             },
         },
     },
     {
         "name": "status",
-        "description": "A quick look at the game (turn, gold, victory state, queued orders) without it counting as a decision.",
-        "inputSchema": {"type": "object", "properties": {}},
+        "description": ("A quick look at the game (turn, gold, victory state, queued orders) without it counting as a decision. "
+                        "full: true gives the whole state as a full decision shows it (for a flash decision that needs more)."),
+        "inputSchema": {"type": "object", "properties": {"full": {"type": "boolean"}}},
     },
     {
         "name": "look",
@@ -176,11 +196,62 @@ TOOLS = [
                          "Settings: enabled, reserve (gold no cast may go below), interval (turns between looks, 1-20), "
                          "min_gap (turns between any two casts), max_spend (gold per pay day, 0 = no cap), charge_time "
                          "(wait 4 turns per level as a human charging must; default on). Leave rules out to change only "
-                         "settings. An error names the rule at fault."),
+                         "settings. A rule may be a hand rule instead (\"hand\": evacuate_diggers, lift_wounded, reinforce -- see the field): "
+                         "the game moves your creatures with your hand, as an urgent order, one trip at a time. An error names the rule at fault."),
         "inputSchema": {
             "type": "object",
-            "properties": dict({"rules": {"type": "array", "items": _ASSIST_RULE_SCHEMA, "maxItems": 16}}, **_ASSIST_SETTINGS),
+            "properties": dict({"rules": {"type": "array", "items": _ASSIST_RULE_SCHEMA, "maxItems": 16},
+                                "bank": {"type": "integer", "minimum": 1, "maximum": 3,
+                                         "description": "store the set in this bank instead of making it live (use_combat_bank switches to it in one packet)"},
+                                "label": {"type": "string", "description": "your name for the bank's set (e.g. war, calm)"}}, **_ASSIST_SETTINGS),
         },
+    },
+    {
+        "name": "use_combat_bank",
+        "description": ("Make one of your combat assistant banks (stored with set_combat_rules bank=N) the live rule set: one packet, "
+                        "ahead of every routine order, so a calm set becomes a war set the moment a fight starts. Rules that "
+                        "are the same in both keep their cooldowns and budgets."),
+        "inputSchema": {"type": "object", "properties": {"bank": {"type": "integer", "minimum": 1, "maximum": 3}}, "required": ["bank"]},
+    },
+    {
+        "name": "set_triggers",
+        "description": ("Contingency orders you write ahead, sent by the bridge the moment the game pushes the urgent decision "
+                        "they are for -- no reply of yours in between, so they act in a couple of turns. The whole list (at "
+                        "most 12; [] clears it). Each: name; when {reasons (default: any urgent one), region [x0,y0,x1,y1] "
+                        "slabs or near_rally NAME, facts [[fact, op, value]] with facts enemies_near, imps_near, "
+                        "fighters_near, intruders, gold}; do: up to 4 ordinary orders with placeholders -- pos \"$where\", "
+                        "\"$rally:NAME\", \"$drop_near:where\", \"$drop_near:rally:NAME\"; thing_ids \"$imps[:N]\", "
+                        "\"$fighters[:N]\", \"$wounded[:N]\" (under 35% health), \"$reserve[:N]\" (healthy fighters away from "
+                        "it); thing_id \"$enemy\" / \"$wounded\"; to_room \"$heart\" -- sent urgent (priority now); "
+                        "cooldown (turns, default 300), once, expires_turn. They are kept with your memory (saved with the "
+                        "game); TRIGGERS in the state says what they did. Two refusals in a row disarm one."),
+        "inputSchema": {"type": "object", "properties": {"triggers": {"type": "array", "items": {"type": "object"}, "maxItems": 12}}},
+    },
+    {
+        "name": "check_triggers",
+        "description": "set_triggers without changing anything: the same checks.",
+        "inputSchema": {"type": "object", "properties": {"triggers": {"type": "array", "items": {"type": "object"}, "maxItems": 12}}},
+    },
+    {
+        "name": "get_triggers",
+        "description": "Your triggers as written (ready to edit and send back), their counters, your rally points, the latest firings and the stock presets.",
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "apply_trigger_preset",
+        "description": ("Add a stock trigger to your list (or replace the one of its name): evacuate_imps (lift imps near an "
+                        "enemy to rally point safe), lift_wounded (lift fighters under 35% out of a fight to safe), "
+                        "reinforce_heart (drop healthy fighters beside your heart when it is attacked). overrides: name, "
+                        "cooldown, once, expires_turn, when, do. Without a name: the presets."),
+        "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}, "overrides": {"type": "object"},
+                                                         "dry_run": {"type": "boolean"}}},
+    },
+    {
+        "name": "set_rally_points",
+        "description": ("Name spots (subtiles [x, y]) your triggers and flash decisions refer to, e.g. {\"safe\": [40, 61]} -- "
+                        "pick safe spots away from where enemies go (heroes head for your heart; imps run back to defend an "
+                        "attacked heart, so a safe spot for imps is a pocket of floor they cannot walk out of); null removes one."),
+        "inputSchema": {"type": "object", "properties": {"points": {"type": "object"}}, "required": ["points"]},
     },
     {
         "name": "check_combat_rules",
@@ -285,7 +356,27 @@ def _text_result(text, is_error=False):
     return result
 
 
+# Tools whose reply carries the urgent decisions that came in meanwhile (Session.alerts_text): everything but the ones that
+# are themselves the decision loop's start, its wait, or its end.
+_NO_ALERTS = ("connect", "get_instructions", "wait_for_decision", "submit_orders", "record_debrief", "disconnect")
+
+
 def _dispatch_tool(session, name, args):
+    out = _run_tool(session, name, args)
+    alerts = session.alerts_text() if (name not in _NO_ALERTS and hasattr(session, "alerts_text")) else ""
+    if not alerts:
+        return out
+    if out.startswith("{") and out.endswith("}"):
+        try:
+            data = json.loads(out)
+            data["alerts"] = alerts
+            return json.dumps(data)
+        except ValueError:
+            pass
+    return out + "\n\n" + alerts
+
+
+def _run_tool(session, name, args):
     args = args or {}
     if name == "connect":
         return session.connect(**args)
@@ -294,7 +385,7 @@ def _dispatch_tool(session, name, args):
     if name == "wait_for_decision":
         return json.dumps(session.wait_for_decision(**args))
     if name == "status":
-        return session.status()
+        return session.status(full=bool(args.get("full"))) if args.get("full") else session.status()
     if name == "look":
         return session.look(args["slab_rect"])
     if name == "submit_orders":
@@ -308,9 +399,23 @@ def _dispatch_tool(session, name, args):
         return session.set_pause(bool(args["paused"]), args.get("turns"))
     if name == "get_log_tail":
         return session.log_tail(args.get("lines", 100))
-    if name in ("set_combat_rules", "check_combat_rules"):
-        fn = session.set_combat_rules if name == "set_combat_rules" else session.check_combat_rules
-        return json.dumps(fn(args.get("rules"), **{k: args[k] for k in _ASSIST_SETTINGS if k in args}))
+    if name == "set_combat_rules":
+        return json.dumps(session.set_combat_rules(args.get("rules"), bank=args.get("bank"), label=args.get("label"),
+                                                   **{k: args[k] for k in _ASSIST_SETTINGS if k in args}))
+    if name == "check_combat_rules":
+        return json.dumps(session.check_combat_rules(args.get("rules"), **{k: args[k] for k in _ASSIST_SETTINGS if k in args}))
+    if name == "use_combat_bank":
+        return json.dumps(session.use_combat_bank(args["bank"]))
+    if name == "set_triggers":
+        return json.dumps(session.set_triggers(args.get("triggers")))
+    if name == "check_triggers":
+        return json.dumps(session.check_triggers(args.get("triggers")))
+    if name == "get_triggers":
+        return json.dumps(session.get_triggers())
+    if name == "apply_trigger_preset":
+        return json.dumps(session.apply_trigger_preset(args.get("name"), args.get("overrides"), bool(args.get("dry_run"))))
+    if name == "set_rally_points":
+        return json.dumps(session.set_rally_points(args.get("points")))
     if name == "get_combat_rules":
         return json.dumps(session.get_combat_rules())
     if name == "apply_combat_preset":
@@ -329,6 +434,14 @@ def _dispatch_tool(session, name, args):
     if name == "disconnect":
         return session.disconnect()
     raise KeyError(name)
+
+
+_TOOL_SCHEMAS = {t["name"]: t["inputSchema"] for t in TOOLS}
+
+
+def _missing_arguments(name, args):
+    """The tool's required arguments (its inputSchema) that the call left out."""
+    return [a for a in _TOOL_SCHEMAS[name].get("required", []) if a not in (args or {})]
 
 
 class Server:
@@ -366,11 +479,18 @@ class Server:
             elif method == "tools/call":
                 params = req.get("params") or {}
                 tool_name = params.get("name")
+                missing = _missing_arguments(tool_name, params.get("arguments")) if tool_name in _TOOL_SCHEMAS else None
                 try:
-                    text = _dispatch_tool(self.session, tool_name, params.get("arguments"))
-                    result = _text_result(text)
-                except KeyError:
-                    result = _text_result("unknown tool: %r" % (tool_name,), is_error=True)
+                    if tool_name not in _TOOL_SCHEMAS:
+                        result = _text_result("unknown tool: %r" % (tool_name,), is_error=True)
+                    elif missing:
+                        result = _text_result("%s: missing argument%s %s (its inputSchema: %s)" % (
+                            tool_name, "s" if len(missing) > 1 else "", ", ".join(missing),
+                            json.dumps(_TOOL_SCHEMAS[tool_name].get("properties", {}))), is_error=True)
+                    else:
+                        result = _text_result(_dispatch_tool(self.session, tool_name, params.get("arguments")))
+                except KeyError as e:
+                    result = _text_result("%s: missing argument %s" % (tool_name, e), is_error=True)
                 except SessionError as e:
                     result = _text_result(str(e), is_error=True)
                 except Exception as e:  # noqa: BLE001 - a tool failure is reported to the model, not a protocol error

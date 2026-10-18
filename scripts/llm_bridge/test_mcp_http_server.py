@@ -10,6 +10,7 @@ import re
 import subprocess
 import sys
 import threading
+import time
 import unittest
 
 import tempfile as _tempfile
@@ -177,16 +178,14 @@ class ProtocolOverHttpTests(HttpTransportBase):
         status, _, _ = self.rpc("ping", headers={"Host": "localhost:%d" % self.port})
         self.assertEqual(status, 200)
 
-    def test_tool_calls_run_one_at_a_time_but_ping_is_not_held_back(self):
+    def test_a_blocked_tool_call_holds_back_neither_ping_nor_another_tool(self):
+        """Each request runs on its own thread (the Session locks itself, and a wait lets go of the lock while it waits:
+        see GameOverHttpTests for the real one), so a long wait holds nothing else back."""
         started, release = threading.Event(), threading.Event()
-        in_call = []
 
         def slow_wait(**kw):
-            in_call.append(1)
-            self.assertEqual(len(in_call), 1, "two tool calls ran at once")
             started.set()
             release.wait(5)
-            in_call.pop()
             return {"due": False}
 
         self.session.wait_for_decision = slow_wait
@@ -194,14 +193,14 @@ class ProtocolOverHttpTests(HttpTransportBase):
         t1 = threading.Thread(target=lambda: results.append(self.rpc("tools/call", {"name": "wait_for_decision"})))
         t1.start()
         self.assertTrue(started.wait(5))
-        t2 = threading.Thread(target=lambda: results.append(self.rpc("tools/call", {"name": "wait_for_decision"}, req_id=2)))
-        t2.start()
         status, _, body = self.rpc("ping", req_id=3)   # answered while the tool call is blocked
         self.assertEqual((status, body["result"]), (200, {}))
+        status, _, body = self.rpc("tools/call", {"name": "status"}, req_id=2)   # and so is another tool
+        self.assertEqual((status, body["result"]["content"][0]["text"]), (200, "not connected; call connect first"))  # the stub ran
+        self.assertTrue(t1.is_alive())
         release.set()
         t1.join(5)
-        t2.join(5)
-        self.assertEqual(sorted(r[2]["id"] for r in results), [1, 2])
+        self.assertEqual([r[2]["id"] for r in results], [1])
 
     def test_shutdown_disconnects_a_connected_session_only(self):
         disconnects = []
@@ -272,6 +271,39 @@ class GameOverHttpTests(unittest.TestCase):
         # Stopping the server leaves the seat cleanly.
         self.httpd.shutdown_session()
         self.assertFalse(self.httpd.mcp.session.connected)
+
+    def test_status_answers_during_a_wait_and_an_urgent_push_is_announced_then_flashed(self):
+        self.assertFalse(self.call("connect", {"host": "127.0.0.1", "port": self.game.port}).get("isError"))
+        self.call("wait_for_decision", {"timeout_seconds": 0.2})   # start
+        # A real Session: a wait holds its lock only while it is not waiting.
+        out = {}
+        t = threading.Thread(target=lambda: out.setdefault("r", self.call("wait_for_decision", {"timeout_seconds": 3.0})))
+        t.start()
+        time.sleep(0.3)
+        started = time.time()
+        status = self.call("status")["content"][0]["text"]
+        self.assertLess(time.time() - started, 1.0, "status waited for the wait")
+        self.assertIn("turn", status)
+        self.assertTrue(t.is_alive(), "the wait is still open")
+        self.game.push_event(["quarter_2"])
+        t.join(5)
+        self.assertEqual(json.loads(out["r"]["content"][0]["text"])["reasons"], ["quarter_2"])
+        # An urgent push while the agent is thinking: the next reply of another tool announces it ...
+        self.game.push_event(["intruder"])
+        deadline = time.time() + 3
+        text = ""
+        while "ALERT" not in text and time.time() < deadline:
+            text = self.call("status")["content"][0]["text"]
+            time.sleep(0.05)
+        self.assertIn("ALERT", text)
+        self.assertIn("severity 1 (combat): intruder", text)
+        self.assertNotIn("ALERT", self.call("status")["content"][0]["text"], "each alert is announced once")
+        # ... and the wait hands it out at once, as a flash decision.
+        started = time.time()
+        d = json.loads(self.call("wait_for_decision", {"timeout_seconds": 3.0})["content"][0]["text"])
+        self.assertLess(time.time() - started, 1.0)
+        self.assertEqual((d["reasons"], d["severity"], d["flash"]), (["intruder"], 1, True))
+        self.assertIn("FLASH DECISION", d["state"])
 
 
 class CommandLineTests(unittest.TestCase):

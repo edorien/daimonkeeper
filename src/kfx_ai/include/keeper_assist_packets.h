@@ -42,13 +42,20 @@ struct KeeperAssistPacket {
     int32_t par2;
 };
 
-/** Most packets one rule set needs: two per rule and one per condition, every global, and the commit. */
-#define KEEPER_ASSIST_MAX_PACKETS (KEEPER_ASSIST_RULES * (2 + KEEPER_ASSIST_CONDS) + (KAG_Count - 1) + 1)
+/** Most packets one rule set needs: two per rule (three for a hand rule) and one per condition, every global, and the
+ *  commit. */
+#define KEEPER_ASSIST_MAX_PACKETS (KEEPER_ASSIST_RULES * (3 + KEEPER_ASSIST_CONDS) + (KAG_Count - 1) + 1)
 
 /** The packets that make `rules` (slot = index; `used` 0 = empty) and `globals` the keeper's live set, given its
  *  state `st`. Only changed slots are staged; the globals are sent whole if any of them changed. Returns the count, 0
  *  when nothing would change. `out` holds KEEPER_ASSIST_MAX_PACKETS. */
 int keeper_assist_plan_packets(const struct KeeperAssistState *st, const struct KeeperAssistRule *rules,
+    const struct KeeperAssistGlobals *globals, struct KeeperAssistPacket *out);
+
+/** The packets that store `rules` and `globals` in bank `bank` (1..KEEPER_ASSIST_BANKS) instead of making them live:
+ *  the slots and globals that differ from the staging copy are staged, then the bank commit. 0 when the bank holds
+ *  exactly that set already, -1 for a bank out of range. */
+int keeper_assist_plan_bank_packets(const struct KeeperAssistState *st, int bank, const struct KeeperAssistRule *rules,
     const struct KeeperAssistGlobals *globals, struct KeeperAssistPacket *out);
 
 /** Applies one PckA_Assist* packet to a keeper's state (the caller has refused it in a multiplayer game). A rule that

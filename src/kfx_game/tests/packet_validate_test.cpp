@@ -57,7 +57,7 @@ PacketVerdict check(const Packet &p, bool cheats_refused = false, bool from_host
 TEST_CASE("an empty action is fine, an unknown one is not", "[kfx_game][packet_validate]") {
     CHECK(check(make(PckA_None, 99999, -5)) == PKT_OK);
     // every number above the last action, and every number that is unused or a network message type
-    for (int a = PckA_SetTimestamp + 1; a < 256; a++) {
+    for (int a = PckA_AssistStageRuleHand + 1; a < 256; a++) {
         INFO(a);
         CHECK(check(make((enum TbPacketAction)a)) == PKT_UNKNOWN_ACTION);
     }
@@ -74,8 +74,8 @@ TEST_CASE("every action number is either an action of the game or refused, and t
     for (int a = 1; a < 256; a++)
         if (check(make((enum TbPacketAction)a)) != PKT_UNKNOWN_ACTION)
             known++;
-    // 135 actions as of this table; an action added to the enum has to be added to the table, and this count with it
-    CHECK(known == 135);
+    // 138 actions as of this table; an action added to the enum has to be added to the table, and this count with it
+    CHECK(known == 138);
 }
 
 TEST_CASE("a thing, event, room, battle or player index must be one the game has", "[kfx_game][packet_validate]") {

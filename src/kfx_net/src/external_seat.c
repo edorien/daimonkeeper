@@ -18,6 +18,7 @@
 #include "dungeon_data.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "magic_powers.h"
 #include "net_game.h"
 #include "packet_data.h"
 #include "player_data.h"
@@ -25,6 +26,7 @@
 #include "power_hand.h"
 #include "map_columns.h"
 #include "room_data.h"
+#include "roomspace.h"
 #include "thing_objects.h"
 #include "slab_data.h"
 #include "thing_data.h"
@@ -34,6 +36,8 @@
 #include "power_specials.h"
 #include "power_process.h"
 #include "thing_traps.h"
+#include "thing_creature.h"
+#include "map_data.h"
 #include "thing_doors.h"
 #include "thing_navigate.h"
 #include "thing_physics.h"
@@ -42,6 +46,7 @@
 #include "cheat_mode.h"
 #include "keeper_assist_packets.h"
 #include "keeper_assist_state.h"
+#include "seat_reflexes.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -56,6 +61,26 @@ struct OrderedCreature {
     GameTurn creation_turn;
     GameTurn ordered_turn;
     GameTurn hold_until;
+    TbBool releasing; /**< release_creature is running: hold_until is when the safety net frees it if the clicks did not */
+    TbBool attack;    /**< an attack order: on arrival at the goal it is set fighting there instead of held */
+    int64_t verb_id;  /**< the order that holds it, while its steps are being written (ExtSeatQueue.cur_id) */
+    MapSubtlCoord goal_x, goal_y;
+};
+
+/** release_creature's clicks take about ten turns; a creature still held this long after they started is freed directly. */
+#define EXTSEAT_RELEASE_GRACE_TURNS 20
+/** attack: how near an enemy heart (from its centre, subtiles; the heart's room reaches 7) and enemy creatures must be to
+ *  the spot for the order to have something to fight there. */
+#define EXTSEAT_ATTACK_HEART_REACH 10
+#define EXTSEAT_ATTACK_CREATURE_REACH 6
+
+/** A verb waiting in a lane: as submitted, or cut part-way for an urgent verb (suspended), to be planned again. */
+struct QueuedVerb {
+    struct ExtSeatVerb verb;
+    int64_t id;
+    int64_t submitted;
+    int64_t started;    /**< -1 until it first ran */
+    int64_t suspended;  /**< times it was cut */
 };
 
 struct ExtSeatQueue {
@@ -65,14 +90,16 @@ struct ExtSeatQueue {
     TbBool button_down; /**< a written step pressed the button and none has released it yet */
     int64_t cur_id;     /**< id of the verb whose steps are in `steps` (0 = none, e.g. raw steps) */
     struct ExtSeatVerb cur_verb; /**< that verb, while cur_id != 0 */
+    int64_t cur_submitted, cur_started; /**< when that verb was accepted, and when it started */
+    int64_t cur_lane;       /**< the lane it came from */
+    int64_t cur_suspended;  /**< times it was cut before (it resumed from its lane) */
     const char *cur_error; /**< why that verb failed part-way (a step's precondition), recorded as its result; NULL = none */
     int64_t step_wait;     /**< turns the next step has been held back waiting for its precondition */
     int64_t last_chat_turn; /**< send_message: when the seat last spoke (0 = never) */
     uint64_t hand_dropped; /**< pick_up_and_drop: which of the running verb's things (by index in its list) were dropped */
     char cur_error_buf[28];
-    struct ExtSeatVerb fifo[EXTSEAT_MAX_QUEUED_VERBS];
-    int64_t fifo_id[EXTSEAT_MAX_QUEUED_VERBS];
-    int64_t fifo_head, fifo_count;
+    struct QueuedVerb lane[EXTSEAT_LANES][EXTSEAT_MAX_QUEUED_VERBS]; /**< oldest first */
+    int64_t lane_count[EXTSEAT_LANES];
     int64_t next_id;
     struct ExtSeatResult results[EXTSEAT_RESULT_RING];
     int64_t results_total;
@@ -103,17 +130,23 @@ static TbBool steps_done(NetUserId user)
     return user_ok(user) && (s_queue[user].next >= s_queue[user].count);
 }
 
+static int64_t queued_total(const struct ExtSeatQueue *q)
+{
+    return q->lane_count[EXTSEAT_LANE_NOW] + q->lane_count[EXTSEAT_LANE_ROUTINE];
+}
+
 TbBool extseat_idle(NetUserId user)
 {
-    return steps_done(user) && (s_queue[user].fifo_count == 0);
+    return steps_done(user) && (queued_total(&s_queue[user]) == 0);
 }
 
 int64_t extseat_queued_verbs(NetUserId user)
 {
-    return user_ok(user) ? s_queue[user].fifo_count : 0;
+    return user_ok(user) ? queued_total(&s_queue[user]) : 0;
 }
 
-static void record_result(NetUserId user, int64_t id, const char *error)
+static void record_result_ex(NetUserId user, int64_t id, const char *error, int64_t submitted, int64_t started,
+    int64_t lane, int64_t suspended)
 {
     struct ExtSeatQueue *q = &s_queue[user];
     struct ExtSeatResult *r = &q->results[q->results_total % EXTSEAT_RESULT_RING];
@@ -124,7 +157,157 @@ static void record_result(NetUserId user, int64_t id, const char *error)
         snprintf(r->error, sizeof(r->error), "%s", error);
     }
     r->turn = (int64_t)get_gameturn();
+    r->submitted = submitted;
+    r->started = started;
+    r->lane = lane;
+    r->suspended = suspended;
     q->results_total++;
+}
+
+static void record_queued(NetUserId user, int64_t lane, const struct QueuedVerb *e, const char *error)
+{
+    record_result_ex(user, e->id, error, e->submitted, e->started, lane, e->suspended);
+}
+
+static void record_running(NetUserId user, const char *error)
+{
+    const struct ExtSeatQueue *q = &s_queue[user];
+    record_result_ex(user, q->cur_id, error, q->cur_submitted, q->cur_started, q->cur_lane, q->cur_suspended);
+}
+
+static TbBool lane_push(struct ExtSeatQueue *q, int64_t lane, const struct QueuedVerb *e, TbBool front)
+{
+    if (q->lane_count[lane] >= EXTSEAT_MAX_QUEUED_VERBS) return false;
+    struct QueuedVerb *l = q->lane[lane];
+    if (front) {
+        memmove(&l[1], &l[0], sizeof(l[0]) * (size_t)q->lane_count[lane]);
+        l[0] = *e;
+    } else {
+        l[q->lane_count[lane]] = *e;
+    }
+    q->lane_count[lane]++;
+    return true;
+}
+
+static void lane_remove(struct ExtSeatQueue *q, int64_t lane, int64_t i)
+{
+    struct QueuedVerb *l = q->lane[lane];
+    memmove(&l[i], &l[i + 1], sizeof(l[0]) * (size_t)(q->lane_count[lane] - i - 1));
+    q->lane_count[lane]--;
+}
+
+TbBool extseat_verb_cuttable(enum ExtSeatVerbKind kind)
+{
+    // Verbs whose plan, made again from the live state, does exactly what is left: a room build skips the slabs already
+    // built, a dig starts on an unmarked corner (or taps the unmarked slabs), an unmark or a sell takes what is still
+    // there, and a rule change stages against the rules live now (a half-staged set is never live). The hand verbs, a
+    // cast, an order to a creature and the short one-click verbs run to their end.
+    switch (kind) {
+    case ESV_BuildRoom: case ESV_MarkDig: case ESV_UnmarkDig: case ESV_Sell: case ESV_SetAssist:
+        return true;
+    default:
+        return false;
+    }
+}
+
+/** A cut verb that resumes and finds nothing left to do has done its job. */
+static TbBool resume_nothing_left(const char *err)
+{
+    return (strcmp(err, "CANNOT_BUILD_HERE") == 0) || (strcmp(err, "NOTHING_MARKED") == 0)
+        || (strcmp(err, "NOTHING_TO_SELL") == 0) || (strcmp(err, "UNCHANGED") == 0);
+}
+
+/** The steps that end a gesture cleanly where it stands: leave the tool (a state switch also drops a room drag still
+ *  being laid), and release the button if it is down. */
+static void end_gesture_here(struct ExtSeatQueue *q)
+{
+    q->count = q->next = 0;
+    q->step_wait = 0;
+    if (q->button_down) {
+        struct ExtSeatStep end[2];
+        memset(end, 0, sizeof(end));
+        end[0].action = PckA_SetPlyrState;
+        end[0].par1 = PSt_CtrlDungeon;
+        end[1].has_pos = true;
+        end[1].control_flags = PCtr_LBtnRelease;
+        memcpy(q->steps, end, sizeof(end));
+        q->count = 2;
+    }
+}
+
+/** An urgent verb waits and a routine one that can be cut is running: cut it where it stands, and put it back at the
+ *  front of its lane to be planned again once the urgent ones are done. */
+static void preempt_for_urgent(NetUserId user)
+{
+    struct ExtSeatQueue *q = &s_queue[user];
+    if ((q->lane_count[EXTSEAT_LANE_NOW] == 0) || (q->cur_id == 0) || (q->next >= q->count)) return;
+    if ((q->cur_lane != EXTSEAT_LANE_ROUTINE) || !extseat_verb_cuttable(q->cur_verb.kind)) return;
+    struct QueuedVerb e;
+    memset(&e, 0, sizeof(e));
+    e.verb = q->cur_verb;
+    e.id = q->cur_id;
+    e.submitted = q->cur_submitted;
+    e.started = q->cur_started;
+    e.suspended = q->cur_suspended + 1;
+    if (!lane_push(q, EXTSEAT_LANE_ROUTINE, &e, true)) return; // no room to put it back: let it finish
+    JUSTMSG("External seat: user %d's verb #%" PRId64 " cut at step %" PRId64 " of %" PRId64 " for an urgent one",
+            (int)user, q->cur_id, q->next, q->count);
+    q->cur_id = 0;
+    q->cur_error = NULL;
+    q->hand_dropped = 0;
+    end_gesture_here(q);
+}
+
+void extseat_queue_info(NetUserId user, struct ExtSeatQueueInfo *out)
+{
+    memset(out, 0, sizeof(*out));
+    if (!user_ok(user)) return;
+    const struct ExtSeatQueue *q = &s_queue[user];
+    if ((q->cur_id != 0) && (q->next < q->count)) {
+        out->running_id = q->cur_id;
+        out->running_lane = q->cur_lane;
+        out->running_steps_left = q->count - q->next;
+    }
+    for (int64_t l = 0; l < EXTSEAT_LANES; l++) {
+        out->lane_count[l] = q->lane_count[l];
+        for (int64_t i = 0; i < q->lane_count[l]; i++) {
+            out->lane_ids[l][i] = q->lane[l][i].id;
+            out->lane_suspended[l][i] = (q->lane[l][i].suspended > 0);
+        }
+    }
+}
+
+int64_t extseat_cancel_lane(NetUserId user, int64_t lane)
+{
+    if (!user_ok(user) || (lane < 0) || (lane >= EXTSEAT_LANES)) return 0;
+    struct ExtSeatQueue *q = &s_queue[user];
+    const int64_t n = q->lane_count[lane];
+    for (int64_t i = 0; i < n; i++) record_queued(user, lane, &q->lane[lane][i], "CANCELLED");
+    q->lane_count[lane] = 0;
+    return n;
+}
+
+TbBool extseat_cancel_id(NetUserId user, int64_t id)
+{
+    if (!user_ok(user) || (id <= 0)) return false;
+    struct ExtSeatQueue *q = &s_queue[user];
+    for (int64_t l = 0; l < EXTSEAT_LANES; l++) {
+        for (int64_t i = 0; i < q->lane_count[l]; i++) {
+            if (q->lane[l][i].id != id) continue;
+            record_queued(user, l, &q->lane[l][i], "CANCELLED");
+            lane_remove(q, l, i);
+            return true;
+        }
+    }
+    if ((q->cur_id == id) && (q->next < q->count)) {
+        record_running(user, "CANCELLED");
+        q->cur_id = 0;
+        q->cur_error = NULL;
+        q->hand_dropped = 0;
+        end_gesture_here(q);
+        return true;
+    }
+    return false;
 }
 
 // ---- ordered creatures: the safety net ---------------------------------------------------------------------------------
@@ -257,11 +440,13 @@ int64_t extseat_pending_dig_rects(NetUserId user, int64_t *out4, int64_t max)
         out4[4 * n] = v->slab_x0; out4[4 * n + 1] = v->slab_y0; out4[4 * n + 2] = v->slab_x1; out4[4 * n + 3] = v->slab_y1;
         n++;
     }
-    for (int64_t i = 0; (i < q->fifo_count) && (n < max); i++) {
-        const struct ExtSeatVerb *v = &q->fifo[(q->fifo_head + i) % EXTSEAT_MAX_QUEUED_VERBS];
-        if ((v->kind != ESV_MarkDig) || !v->has_rect) continue;
-        out4[4 * n] = v->slab_x0; out4[4 * n + 1] = v->slab_y0; out4[4 * n + 2] = v->slab_x1; out4[4 * n + 3] = v->slab_y1;
-        n++;
+    for (int64_t l = 0; l < EXTSEAT_LANES; l++) {
+        for (int64_t i = 0; (i < q->lane_count[l]) && (n < max); i++) {
+            const struct ExtSeatVerb *v = &q->lane[l][i].verb;
+            if ((v->kind != ESV_MarkDig) || !v->has_rect) continue;
+            out4[4 * n] = v->slab_x0; out4[4 * n + 1] = v->slab_y0; out4[4 * n + 2] = v->slab_x1; out4[4 * n + 3] = v->slab_y1;
+            n++;
+        }
     }
     return n;
 }
@@ -283,6 +468,26 @@ void extseat_release_ordered_now(NetUserId user, const char *reason)
     q->ordered_count = 0;
 }
 
+/** An attack order's creature has arrived: out of manual control and fighting what is there, in the order a creature at
+ *  a Call to Arms banner looks (arrive_at_call_to_arms): an enemy door beside it, the enemy heart in sight, an enemy trap
+ *  beside it, the enemy room at the goal or under it; with none of those, its own behaviour takes on the enemies about. */
+static void start_attack(NetUserId user, struct OrderedCreature *o, struct Thing *thing)
+{
+    set_start_state(thing);
+    struct Thing *target = check_for_door_to_fight(thing);
+    if (thing_exists(target)) {
+        set_creature_door_combat(thing, target);
+    } else if (!creature_look_for_enemy_heart_combat(thing)) {
+        target = check_for_object_to_fight(thing);
+        if (thing_exists(target)) {
+            set_creature_object_combat(thing, target);
+        } else if (!attempt_to_destroy_enemy_room(thing, o->goal_x, o->goal_y)) {
+            attempt_to_destroy_enemy_room(thing, thing->mappos.x.stl.num, thing->mappos.y.stl.num);
+        }
+    }
+    record_auto_release(user, o->idx, "attacking");
+}
+
 /** One turn of the safety net for one seat. */
 static void sweep_ordered(NetUserId user)
 {
@@ -297,18 +502,35 @@ static void sweep_ordered(NetUserId user)
         }
         if (!in_manual_control(thing)) {
             // The order's clicks take a few turns to land; after that, not being in manual control means someone (the
-            // agent, or the engine) already handed the creature back.
-            if ((now > o->ordered_turn + 30)) {
+            // agent, or the engine) already handed the creature back. A release was held when it started, so free now
+            // means it worked.
+            if (o->releasing || (now > o->ordered_turn + 30)) {
                 drop_ordered(q, i);
                 continue;
             }
             i++;
             continue;
         }
+        if (((q->cur_id == o->verb_id) && (q->next < q->count)) || (get_player(thing->owner)->controlled_thing_idx == thing->index)) {
+            // The order that holds it is still clicking (Order creature mode): its selection click holds the creature where
+            // it stands and the next click sends it off, so nothing here may act on it yet -- a creature that started
+            // beside its goal would otherwise count as arrived, be set fighting, and then be held again by that click.
+            i++;
+            continue;
+        }
+        if (o->attack && (thing->active_state == CrSt_ManualControl)
+            && (llabs((int64_t)thing->mappos.x.stl.num - o->goal_x) <= 1) && (llabs((int64_t)thing->mappos.y.stl.num - o->goal_y) <= 1)) {
+            start_attack(user, o, thing); // arrived (walking, it is in a move state that continues into manual control)
+            drop_ordered(q, i);
+            continue;
+        }
         const char *why = NULL;
+        // The release's second click missed (the creature was knocked onto the next subtile between the clicks, so the
+        // click became a move order): free it here, as the agent asked.
+        if (o->releasing) why = (now >= o->hold_until) ? "released" : NULL;
         // A held creature does not fight back on its own (CrSt_ManualControl), so an enemy engaging it would otherwise
         // kill it where it stands; the attacker is already in its opponent lists, so handing it back lets it fight.
-        if (creature_is_being_attacked_by_enemy_player(thing)) why = "attacked";
+        else if (creature_is_being_attacked_by_enemy_player(thing)) why = "attacked";
         else if (creature_near_hunger_limit(thing)) why = "hungry";
         else if (creature_owed_pay(thing)) why = "owed_pay";
         else if (turns_to_payday(thing->owner) <= EXTSEAT_ORDER_PAYDAY_MARGIN_TURNS) why = "payday";
@@ -338,16 +560,30 @@ static void note_order_started(NetUserId user, PlayerNumber plyr_idx, const stru
             break;
         }
     }
-    if (verb->kind != ESV_MoveCreature) {
-        return; // a release: no longer tracked
+    if ((verb->kind != ESV_MoveCreature) && (verb->kind != ESV_ReleaseCreature) && (verb->kind != ESV_Attack)) {
+        return;
     }
     if (q->ordered_count >= EXTSEAT_MAX_ORDERED) {
         drop_ordered(q, 0);
     }
     struct OrderedCreature *o = &q->ordered[q->ordered_count++];
+    memset(o, 0, sizeof(*o));
     o->idx = thing->index;
     o->creation_turn = thing->creation_turn;
     o->ordered_turn = get_gameturn();
+    o->verb_id = q->cur_id;
+    if (verb->kind == ESV_ReleaseCreature) {
+        // Tracked until it is free, not dropped as the release starts: a release whose clicks miss would otherwise leave
+        // the creature held with nothing left to hand it back (the live bug: Bile Demon 388 stayed in Manual Control).
+        o->releasing = true;
+        o->hold_until = get_gameturn() + EXTSEAT_RELEASE_GRACE_TURNS;
+        return;
+    }
+    if (verb->kind == ESV_Attack) {
+        o->attack = true;
+        o->goal_x = (MapSubtlCoord)verb->stl_x;
+        o->goal_y = (MapSubtlCoord)verb->stl_y;
+    }
     const int64_t hold = (verb->hold_turns > 0) ? verb->hold_turns : default_hold_turns(plyr_idx);
     o->hold_until = get_gameturn() + hold;
 }
@@ -381,6 +617,7 @@ void extseat_forget_user(NetUserId user)
 {
     if (user_ok(user)) {
         memset(&s_queue[user], 0, sizeof(s_queue[user]));
+        seat_reflexes_forget(user);
     }
 }
 
@@ -400,6 +637,7 @@ void extseat_reset(void)
     s_chat_total = 0;
     s_takeover = false;
     memset(s_queue, 0, sizeof(s_queue));
+    seat_reflexes_reset();
     s_agent_owns_pause = false;
     s_advancing = false;
     s_advance_target = 0;
@@ -423,14 +661,10 @@ int64_t extseat_cancel(NetUserId user)
     }
     struct ExtSeatQueue *q = &s_queue[user];
     int64_t dropped = (q->next < q->count) ? (q->count - q->next) : 0;
-    while (q->fifo_count > 0) {
-        record_result(user, q->fifo_id[q->fifo_head], "CANCELLED");
-        q->fifo_head = (q->fifo_head + 1) % EXTSEAT_MAX_QUEUED_VERBS;
-        q->fifo_count--;
-        dropped++;
-    }
+    dropped += extseat_cancel_lane(user, EXTSEAT_LANE_NOW);
+    dropped += extseat_cancel_lane(user, EXTSEAT_LANE_ROUTINE);
     if ((q->cur_id != 0) && (q->next < q->count)) {
-        record_result(user, q->cur_id, "CANCELLED");
+        record_running(user, "CANCELLED");
     }
     q->cur_id = 0;
     q->cur_error = NULL;
@@ -463,6 +697,20 @@ static TbBool advance_is_finished(void)
     return s_advancing && (s_pending_advance == 0) && (get_gameturn() >= s_advance_target);
 }
 
+static TbBool seat_input_locked(NetUserId user)
+{
+    const PlayerNumber plyr_idx = get_net_user_player_number(user);
+    if (plyr_idx < 0) {
+        return false;
+    }
+    const struct PlayerInfo *player = get_player(plyr_idx);
+    if ((player->instance_num == PI_HeartZoom) || (player->instance_num == PI_HeartZoomOut)) {
+        return true;
+    }
+    const struct UserState *ustate = get_user_state(user);
+    return !user_state_invalid(ustate) && ((ustate->init_flags & UsrIF_MouseInputDisabled) != 0);
+}
+
 void extseat_tick(void)
 {
     // An advance starts here, before this tick's step is written, not from the API poll: the poll runs inside
@@ -481,7 +729,15 @@ void extseat_tick(void)
             memset(q, 0, sizeof(*q)); // the seat is gone (a load without it)
             continue;
         }
+        // The seat's input is locked while a player instance holds it (the level-start heart zoom and zoom out, about
+        // 32 turns; possession fades): a human's clicks are dropped then, and the player is not even in the dungeon
+        // view for the first half, so a step written now would be consumed and lost. The queue waits.
+        if (seat_input_locked(user)) {
+            continue;
+        }
         sweep_ordered(user);
+        seat_reflexes_tick(user, get_net_user_player_number(user)); // the combat assistant's hand rules: urgent verbs
+        preempt_for_urgent(user);
         promote_verbs(user);
         if (q->next >= q->count) {
             continue;
@@ -626,9 +882,29 @@ TbBool extseat_advancing(void)
     return s_advancing;
 }
 
+int64_t extseat_advance_left(void)
+{
+    if (!s_advancing) return 0;
+    if (s_pending_advance > 0) return s_pending_advance;
+    const int64_t left = (int64_t)s_advance_target - (int64_t)get_gameturn();
+    return (left > 0) ? left : 0;
+}
+
 void extseat_set_watchdog_ms(int64_t ms)
 {
     s_watchdog_ms = ms;
+}
+
+static TbBool s_pause_with_human = false;
+
+void extseat_allow_pause_with_human(TbBool allowed)
+{
+    s_pause_with_human = allowed;
+}
+
+TbBool extseat_may_pause(void)
+{
+    return s_pause_with_human || !extseat_human_playing();
 }
 
 TbBool extseat_human_playing(void)
@@ -966,6 +1242,43 @@ static const char *check_drop_intent(PlayerNumber plyr_idx, struct Thing *thing,
     return NULL;
 }
 
+const char *extseat_find_drop_spot(PlayerNumber plyr_idx, int64_t thing_id, int64_t x, int64_t y, int64_t radius,
+    int64_t *out_x, int64_t *out_y)
+{
+    if ((plyr_idx < 0) || (plyr_idx >= PLAYERS_COUNT)) return "NOT_A_VALID_SEAT";
+    struct Thing *thing = NULL;
+    if (thing_id > 0) {
+        thing = thing_get((ThingIndex)thing_id);
+        if (thing_is_invalid(thing) || !thing_is_creature(thing) || (thing->owner != plyr_idx)) return "NO_CREATURE";
+    } else {
+        // Any of the seat's creatures stands in for "a creature of mine": the drop rules depend on the spot, not on it.
+        const struct Dungeon *dungeon = get_players_num_dungeon(plyr_idx);
+        const int64_t idx = (dungeon->creatr_list_start > 0) ? dungeon->creatr_list_start : dungeon->digger_list_start;
+        thing = (idx > 0) ? thing_get((ThingIndex)idx) : NULL;
+        if (thing_is_invalid(thing) || !thing_is_creature(thing)) return "NO_CREATURE";
+    }
+    if (radius < 0) radius = 0;
+    if (radius > 45) radius = 45;
+    struct ExtSeatVerb plain;
+    memset(&plain, 0, sizeof(plain));
+    // Ring by ring, nearest first; within a ring, the first in scan order.
+    for (int64_t r = 0; r <= radius; r++) {
+        for (int64_t dy = -r; dy <= r; dy++) {
+            for (int64_t dx = -r; dx <= r; dx++) {
+                if ((dx > -r) && (dx < r) && (dy > -r) && (dy < r)) continue;
+                const int64_t cx = x + dx, cy = y + dy;
+                if (!stl_on_map(cx, cy)) continue;
+                if (!can_place_thing_here(thing, cx, cy, plyr_idx)) continue;
+                if (check_drop_intent(plyr_idx, thing, (MapSubtlCoord)cx, (MapSubtlCoord)cy, &plain) != NULL) continue;
+                *out_x = cx;
+                *out_y = cy;
+                return NULL;
+            }
+        }
+    }
+    return "NO_DROP_SPOT";
+}
+
 /** can_place_thing_here refused: say which of its tests failed, in the log (CANNOT_DROP_HERE is all the agent gets). */
 static void log_drop_refusal(PlayerNumber plyr_idx, const struct Thing *thing, MapSubtlCoord x, MapSubtlCoord y)
 {
@@ -1084,6 +1397,51 @@ static const char *check_chat_rate(NetUserId user, const struct ExtSeatVerb *ver
     const struct ExtSeatQueue *q = &s_queue[user];
     if ((verb->kind == ESV_SendMessage) && (q->last_chat_turn > 0)
      && ((int64_t)get_gameturn() - q->last_chat_turn < EXTSEAT_CHAT_MIN_TURNS)) return "TOO_SOON";
+    return NULL;
+}
+
+/** What an attack order sent to (x, y) would fight there, as the seat sees it: "door", "heart", "trap", "room" or
+ *  "creatures" (start_attack's order, enemy creatures last), or NULL when nothing there is the seat's enemy. */
+static const char *attack_target_at(PlayerNumber plyr_idx, MapSubtlCoord x, MapSubtlCoord y)
+{
+    const MapSlabCoord sx = subtile_slab(x), sy = subtile_slab(y);
+    for (int64_t dy = -1; dy <= 1; dy++) {
+        for (int64_t dx = -1; dx <= 1; dx++) {
+            if ((dx != 0) && (dy != 0)) continue; // the slab and the four beside it, as check_for_door_to_fight
+            if (!slab_on_map(sx + dx, sy + dy)) continue;
+            const MapSubtlCoord cx = slab_subtile_center(sx + dx), cy = slab_subtile_center(sy + dy);
+            const struct Thing *door = get_door_for_position(cx, cy);
+            if (!thing_is_invalid(door) && players_are_enemies(plyr_idx, door->owner) && thing_revealed(door, plyr_idx)
+                && !door_is_hidden_to_player((struct Thing *)door, plyr_idx)) return "door";
+        }
+    }
+    for (PlayerNumber p = 0; p < PLAYERS_COUNT; p++) {
+        if ((p == plyr_idx) || !players_are_enemies(plyr_idx, p)) continue;
+        const struct Thing *heart = find_players_dungeon_heart(p);
+        if (!thing_is_invalid(heart) && (llabs((int64_t)heart->mappos.x.stl.num - x) <= EXTSEAT_ATTACK_HEART_REACH)
+            && (llabs((int64_t)heart->mappos.y.stl.num - y) <= EXTSEAT_ATTACK_HEART_REACH)) return "heart";
+    }
+    for (int64_t dy = -1; dy <= 1; dy++) {
+        for (int64_t dx = -1; dx <= 1; dx++) {
+            if ((dx != 0) && (dy != 0)) continue;
+            if (!slab_on_map(sx + dx, sy + dy)) continue;
+            const struct Thing *trap = get_trap_for_position(slab_subtile_center(sx + dx), slab_subtile_center(sy + dy));
+            if (!thing_is_invalid(trap) && players_are_enemies(plyr_idx, trap->owner) && thing_revealed(trap, plyr_idx)
+                && (!get_trap_model_stats(trap->model)->hidden || trap->trap.revealed)) return "trap";
+        }
+    }
+    const struct Room *room = subtile_room_get(x, y);
+    if (!room_is_invalid(room) && !players_creatures_tolerate_each_other(plyr_idx, room->owner) && !room_cannot_vandalise(room->kind)) {
+        return "room";
+    }
+    int64_t idx = kfx_sim_state.thing_lists[TngList_Creatures].index;
+    for (int64_t guard = 0; (idx > 0) && (guard < THINGS_COUNT); guard++) {
+        const struct Thing *t = thing_get(idx);
+        idx = t->next_of_class;
+        if (!players_are_enemies(plyr_idx, t->owner) || !thing_revealed(t, plyr_idx) || creature_is_invisible(t)) continue;
+        if ((llabs((int64_t)t->mappos.x.stl.num - x) <= EXTSEAT_ATTACK_CREATURE_REACH)
+            && (llabs((int64_t)t->mappos.y.stl.num - y) <= EXTSEAT_ATTACK_CREATURE_REACH)) return "creatures";
+    }
     return NULL;
 }
 
@@ -1264,6 +1622,10 @@ static const char *plan_verb(PlayerNumber plyr_idx, const struct ExtSeatVerb *ve
                 return "UNSUPPORTED_POWER";
             }
             if (verb->overcharge_turns < 0 || verb->overcharge_turns > EXTSEAT_MAX_OVERCHARGE_TURNS) return "BAD_OVERCHARGE";
+            // The engine's own rule for where this power may be cast (revealed ground, whose land, walls...): a click
+            // elsewhere does nothing and costs nothing, so the order would read as done. The usual cause is a slab
+            // coordinate given for the subtile position.
+            if (!can_cast_power_at_xy(plyr_idx, (PowerKind)pwkind, (MapSubtlCoord)verb->stl_x, (MapSubtlCoord)verb->stl_y, 0)) return "CANNOT_CAST_HERE";
             step_action(&steps[n++], PckA_SetPlyrState, ws, pwkind);
             if (verb->overcharge_turns == 0) {
                 step_click(&steps[n++], verb->stl_x, verb->stl_y, PCtr_LBtnRelease);
@@ -1282,6 +1644,7 @@ static const char *plan_verb(PlayerNumber plyr_idx, const struct ExtSeatVerb *ve
         break;
     }
     case ESV_MoveCreature:
+    case ESV_Attack:
     case ESV_ReleaseCreature: {
         // Order creature mode (PSt_OrderCreatr): one click selects a creature, the next sends it to a subtile, a click on its
         // own subtile hands it back to its normal AI; leaving the mode clears the selection but not the order. Possession
@@ -1291,9 +1654,12 @@ static const char *plan_verb(PlayerNumber plyr_idx, const struct ExtSeatVerb *ve
         if (thing == NULL) return "NO_SUCH_THING";
         if (thing->owner != plyr_idx) return "NOT_YOURS";
         if (thing_is_picked_up(thing)) return "NOT_ORDERABLE";
+        // Releasing a creature that is not held would hold it: the first click of Order creature mode selects the
+        // creature and puts it in manual control (the safety net may already have handed it back: SEAT auto_released).
+        if ((verb->kind == ESV_ReleaseCreature) && !in_manual_control(thing)) return "NOT_HELD";
         const MapSubtlCoord cx = thing->mappos.x.stl.num, cy = thing->mappos.y.stl.num;
         int64_t goal_x = cx, goal_y = cy;
-        if (verb->kind == ESV_MoveCreature) {
+        if (verb->kind != ESV_ReleaseCreature) {
             // A creature held in manual control does not work, eat or collect its pay. Refuse orders that would cost it
             // that, and bound how long an order may hold it (the safety net releases it when the time is up).
             if ((verb->hold_turns < 0) || (verb->hold_turns > max_hold_turns(plyr_idx))) return "BAD_HOLD";
@@ -1303,6 +1669,9 @@ static const char *plan_verb(PlayerNumber plyr_idx, const struct ExtSeatVerb *ve
             if (!verb->has_pos) return "MISSING_POSITION";
             if (!stl_on_map(verb->stl_x, verb->stl_y)) return "POSITION_OFF_MAP";
             if ((verb->stl_x == cx) && (verb->stl_y == cy)) return "ALREADY_THERE";
+            if ((verb->kind == ESV_Attack) && (attack_target_at(plyr_idx, (MapSubtlCoord)verb->stl_x, (MapSubtlCoord)verb->stl_y) == NULL)) {
+                return "NOTHING_TO_ATTACK";
+            }
             struct Coord3d dest;
             memset(&dest, 0, sizeof(dest));
             dest.x.stl.num = (MapSubtlCoord)verb->stl_x;
@@ -1379,17 +1748,32 @@ static const char *plan_verb(PlayerNumber plyr_idx, const struct ExtSeatVerb *ve
             px = rev_x ? hx : lx; qx = rev_x ? lx : hx;
             py = rev_y ? by : ty; qy = rev_y ? ty : by;
         }
-        // Select the room, switch to drag mode (a rectangle from the press to the release), let a turn pass, then
-        // press at one corner, hold at the other, and release there. The slabs are then built by the engine, one
+        // The engine's drag is at most MAX_USER_ROOMSPACE_WIDTH slabs a side (create_box_roomspace_from_drag clips the
+        // far corner, silently), so a larger rectangle is several drags of at most that, made one after another from
+        // the start corner -- each waits for the engine to finish building the last (wait_build_free), so a bridge's
+        // next piece starts from the end of the one before. Per drag: select the room, switch to drag mode, let a turn
+        // pass, then press at one corner, hold at the other, and release there; the engine then builds the slabs, one
         // per turn, with no further packets.
-        step_action(&steps[n], PckA_SetPlyrState, PSt_BuildRoom, rkind);
-        steps[n++].wait_build_free = true;
-        step_action(&steps[n++], PckA_SetRoomspaceDrag, 0, 0);
-        step_idle(&steps[n++]);
-        step_click_ctx(&steps[n++], slab_subtile_center(px), slab_subtile_center(py), PRESS_FLAGS, 0);
-        step_click_ctx(&steps[n++], slab_subtile_center(qx), slab_subtile_center(qy), PCtr_LBtnHeld, 0);
-        step_click_ctx(&steps[n++], slab_subtile_center(qx), slab_subtile_center(qy), PCtr_LBtnHeld, 0);
-        step_click_ctx(&steps[n++], slab_subtile_center(qx), slab_subtile_center(qy), PCtr_LBtnRelease, 0);
+        const int64_t side = MAX_USER_ROOMSPACE_WIDTH;
+        const int64_t sx = (qx >= px) ? 1 : -1, sy = (qy >= py) ? 1 : -1;
+        const int64_t wx = ((qx - px) * sx) + 1, wy = ((qy - py) * sy) + 1;
+        const int64_t drags = ((wx + side - 1) / side) * ((wy + side - 1) / side);
+        if (drags * 7 > EXTSEAT_MAX_STEPS) return "AREA_TOO_LARGE";
+        for (int64_t ty0 = 0; ty0 < wy; ty0 += side) {
+            for (int64_t tx0 = 0; tx0 < wx; tx0 += side) {
+                const int64_t ax = px + sx * tx0, ay = py + sy * ty0;
+                const int64_t bx = px + sx * (((tx0 + side < wx) ? tx0 + side : wx) - 1);
+                const int64_t by = py + sy * (((ty0 + side < wy) ? ty0 + side : wy) - 1);
+                step_action(&steps[n], PckA_SetPlyrState, PSt_BuildRoom, rkind);
+                steps[n++].wait_build_free = true;
+                step_action(&steps[n++], PckA_SetRoomspaceDrag, 0, 0);
+                step_idle(&steps[n++]);
+                step_click_ctx(&steps[n++], slab_subtile_center(ax), slab_subtile_center(ay), PRESS_FLAGS, 0);
+                step_click_ctx(&steps[n++], slab_subtile_center(bx), slab_subtile_center(by), PCtr_LBtnHeld, 0);
+                step_click_ctx(&steps[n++], slab_subtile_center(bx), slab_subtile_center(by), PCtr_LBtnHeld, 0);
+                step_click_ctx(&steps[n++], slab_subtile_center(bx), slab_subtile_center(by), PCtr_LBtnRelease, 0);
+            }
+        }
         break;
     }
     case ESV_MarkDig: {
@@ -1555,14 +1939,24 @@ static const char *plan_verb(PlayerNumber plyr_idx, const struct ExtSeatVerb *ve
         }
         const char *gerr = keeper_assist_globals_validate(&verb->assist_globals);
         if (gerr != NULL) return gerr;
-        // Planned when the verb starts, against the rules live then: only what changed is sent.
+        // Planned when the verb starts, against the rules live then (or the bank's): only what changed is sent.
         struct KeeperAssistPacket pk[KEEPER_ASSIST_MAX_PACKETS];
-        const int np = keeper_assist_plan_packets(&kfx_sim_state.keeper_assist[plyr_idx], verb->assist_rules, &verb->assist_globals, pk);
+        const int np = (verb->assist_bank > 0)
+            ? keeper_assist_plan_bank_packets(&kfx_sim_state.keeper_assist[plyr_idx], (int)verb->assist_bank, verb->assist_rules, &verb->assist_globals, pk)
+            : keeper_assist_plan_packets(&kfx_sim_state.keeper_assist[plyr_idx], verb->assist_rules, &verb->assist_globals, pk);
+        if (np < 0) return "BAD_BANK";
         if (np == 0) return "UNCHANGED";
         if (np > EXTSEAT_MAX_STEPS) return "TOO_MANY_STEPS";
         for (int i = 0; i < np; i++) {
             step_action(&steps[n++], pk[i].action, pk[i].par1, pk[i].par2);
         }
+        break;
+    }
+    case ESV_AssistUseBank: {
+        if (game_refuses_cheats()) return "NOT_IN_MULTIPLAYER";
+        if ((verb->assist_bank < 1) || (verb->assist_bank > KEEPER_ASSIST_BANKS)) return "BAD_BANK";
+        if (!kfx_sim_state.keeper_assist[plyr_idx].bank[verb->assist_bank - 1].used) return "EMPTY_BANK";
+        step_action(&steps[n++], PckA_AssistUseBank, (int64_t)verb->assist_bank, 0);
         break;
     }
     case ESV_AssistEnable:
@@ -1582,26 +1976,29 @@ static void promote_verbs(NetUserId user)
 {
     struct ExtSeatQueue *q = &s_queue[user];
     if ((q->next >= q->count) && (q->cur_id != 0)) {
-        record_result(user, q->cur_id, q->cur_error);
+        record_running(user, q->cur_error);
         q->cur_id = 0;
         q->cur_error = NULL;
         q->step_wait = 0;
         q->hand_dropped = 0;
     }
-    while ((q->next >= q->count) && (q->fifo_count > 0)) {
-        const struct ExtSeatVerb verb = q->fifo[q->fifo_head];
-        const int64_t id = q->fifo_id[q->fifo_head];
-        q->fifo_head = (q->fifo_head + 1) % EXTSEAT_MAX_QUEUED_VERBS;
-        q->fifo_count--;
-        if ((verb.expires_turn > 0) && ((int64_t)get_gameturn() > verb.expires_turn)) {
-            record_result(user, id, "EXPIRED");
+    while ((q->next >= q->count) && (queued_total(q) > 0)) {
+        // The urgent lane first.
+        const int64_t lane = (q->lane_count[EXTSEAT_LANE_NOW] > 0) ? EXTSEAT_LANE_NOW : EXTSEAT_LANE_ROUTINE;
+        const struct QueuedVerb e = q->lane[lane][0];
+        lane_remove(q, lane, 0);
+        const struct ExtSeatVerb verb = e.verb;
+        const int64_t id = e.id;
+        // A verb cut part-way has started: it never expires.
+        if ((e.suspended == 0) && (verb.expires_turn > 0) && ((int64_t)get_gameturn() > verb.expires_turn)) {
+            record_queued(user, lane, &e, "EXPIRED");
             continue;
         }
         struct ExtSeatStep steps[EXTSEAT_MAX_STEPS];
         int64_t n = 0;
         const char *err = plan_verb(get_net_user_player_number(user), &verb, steps, &n);
         if (err != NULL) {
-            record_result(user, id, err);
+            record_queued(user, lane, &e, ((e.suspended > 0) && resume_nothing_left(err)) ? NULL : err);
             continue;
         }
         memcpy(q->steps, steps, sizeof(struct ExtSeatStep) * n);
@@ -1609,6 +2006,10 @@ static void promote_verbs(NetUserId user)
         q->next = 0;
         q->cur_id = id;
         q->cur_verb = verb;
+        q->cur_submitted = e.submitted;
+        q->cur_started = (e.started >= 0) ? e.started : (int64_t)get_gameturn();
+        q->cur_lane = lane;
+        q->cur_suspended = e.suspended;
         q->cur_error = NULL;
         q->step_wait = 0;
         q->hand_dropped = 0;
@@ -1623,7 +2024,16 @@ const char *extseat_submit_verb_ex(NetUserId user, PlayerNumber plyr_idx, const 
     }
     struct ExtSeatQueue *q = &s_queue[user];
     if (verb->kind == ESV_Cancel) {
-        const int64_t dropped = extseat_cancel(user);
+        // One verb (cancel_id), one lane's waiting verbs (cancel_lane), or everything.
+        int64_t dropped = 0;
+        if (verb->cancel_id > 0) {
+            if (!extseat_cancel_id(user, verb->cancel_id)) return "NO_SUCH_ORDER";
+            dropped = 1;
+        } else if ((verb->cancel_lane > 0) && (verb->cancel_lane <= EXTSEAT_LANES)) {
+            dropped = extseat_cancel_lane(user, verb->cancel_lane - 1);
+        } else {
+            dropped = extseat_cancel(user);
+        }
         if (info != NULL) {
             info->steps = dropped;
             info->id = 0;
@@ -1634,11 +2044,13 @@ const char *extseat_submit_verb_ex(NetUserId user, PlayerNumber plyr_idx, const 
     if ((verb->expires_turn > 0) && ((int64_t)get_gameturn() > verb->expires_turn)) {
         return "STALE_VIEW";
     }
+    const int64_t lane = verb->priority ? EXTSEAT_LANE_NOW : EXTSEAT_LANE_ROUTINE;
     const TbBool busy = !extseat_idle(user);
-    if (busy && !queue) {
+    // An urgent verb always queues: it is meant to go ahead of whatever runs.
+    if (busy && !queue && !verb->priority) {
         return "ACTION_ALREADY_QUEUED";
     }
-    if (busy && (q->fifo_count >= EXTSEAT_MAX_QUEUED_VERBS)) {
+    if (busy && (q->lane_count[lane] >= EXTSEAT_MAX_QUEUED_VERBS)) {
         return "QUEUE_FULL";
     }
     struct ExtSeatStep steps[EXTSEAT_MAX_STEPS];
@@ -1652,17 +2064,29 @@ const char *extseat_submit_verb_ex(NetUserId user, PlayerNumber plyr_idx, const 
     if (verb->kind == ESV_SendMessage) q->last_chat_turn = (int64_t)get_gameturn(); // counts from acceptance: a batch cannot spam
     int64_t behind = 0;
     if (busy) {
-        const int64_t slot = (q->fifo_head + q->fifo_count) % EXTSEAT_MAX_QUEUED_VERBS;
-        q->fifo[slot] = *verb;
-        q->fifo_id[slot] = id;
-        q->fifo_count++;
-        behind = q->fifo_count + ((q->next < q->count) ? 1 : 0) - 1;
+        struct QueuedVerb e;
+        memset(&e, 0, sizeof(e));
+        e.verb = *verb;
+        e.id = id;
+        e.submitted = (int64_t)get_gameturn();
+        e.started = -1;
+        // Ahead of it: the urgent verbs already waiting, and the running verb unless it will be cut for this one (or
+        // has only clean-up steps left); a routine verb also waits for every routine verb before it.
+        const TbBool running = (q->next < q->count);
+        const TbBool cut = running && (q->cur_id != 0) && (lane == EXTSEAT_LANE_NOW) && (q->cur_lane == EXTSEAT_LANE_ROUTINE)
+            && extseat_verb_cuttable(q->cur_verb.kind);
+        behind = q->lane_count[EXTSEAT_LANE_NOW] + ((running && !cut) ? 1 : 0)
+            + ((lane == EXTSEAT_LANE_ROUTINE) ? q->lane_count[EXTSEAT_LANE_ROUTINE] : 0);
+        lane_push(q, lane, &e, false);
     } else {
         if (!extseat_enqueue(user, steps, n)) {
             return "ACTION_ALREADY_QUEUED";
         }
         q->cur_id = id;
         q->cur_verb = *verb;
+        q->cur_submitted = q->cur_started = (int64_t)get_gameturn();
+        q->cur_lane = lane;
+        q->cur_suspended = 0;
         q->cur_error = NULL;
         q->step_wait = 0;
         q->hand_dropped = 0;

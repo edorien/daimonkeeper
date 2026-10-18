@@ -10,45 +10,68 @@
 #include "pre_inc.h"
 #include "level_start_options.h"
 
+#include <string.h>
+
+#include "kfx_config_state.h"
+#include "kfx_sim_state.h"
 #include "player_data.h"
 #include "slab_data.h"
+#include "ports/ui_port.h"
 #include "post_inc.h"
 
 /******************************************************************************/
-static TbBool reveal_requested = false;
-static LevelNumber reveal_lvnum = 0;
+static struct LevelStartOptions requested;
+static LevelNumber requested_lvnum = 0;
 
-void level_start_reveal_map_request(LevelNumber lvnum)
+void level_start_options_request(LevelNumber lvnum, const struct LevelStartOptions *opts)
 {
-    reveal_requested = true;
-    reveal_lvnum = lvnum;
+    requested = *opts;
+    requested_lvnum = lvnum;
 }
 
 void level_start_options_clear(void)
 {
-    reveal_requested = false;
-    reveal_lvnum = 0;
+    memset(&requested, 0, sizeof(requested));
+    requested_lvnum = 0;
 }
 
-TbBool level_start_reveal_map_requested(LevelNumber lvnum)
+struct LevelStartOptions level_start_options_requested(LevelNumber lvnum)
 {
-    return reveal_requested && (reveal_lvnum == lvnum);
+    struct LevelStartOptions none;
+    memset(&none, 0, sizeof(none));
+    return ((requested_lvnum != 0) && (requested_lvnum == lvnum)) ? requested : none;
 }
 
-int64_t level_start_options_apply(LevelNumber lvnum)
+struct LevelStartOptions level_start_options_take(LevelNumber lvnum)
 {
-    const TbBool reveal = level_start_reveal_map_requested(lvnum);
+    const struct LevelStartOptions opts = level_start_options_requested(lvnum);
     level_start_options_clear();
+    return opts;
+}
+
+int64_t level_start_options_apply_world(const struct LevelStartOptions *opts)
+{
     int64_t revealed = 0;
-    if (!reveal)
-        return 0;
-    for (PlayerNumber plyr_idx = 0; plyr_idx < PLAYERS_COUNT; plyr_idx++)
+    if (opts->sharing != LevelStartSharing_None)
     {
-        struct PlayerInfo *player = get_player(plyr_idx);
-        if (!player_exists(player) || !player_is_keeper(plyr_idx))
-            continue;
-        reveal_whole_map(player);
-        revealed++;
+        const size_t rules_count = sizeof(kfx_config_state.conf.rules) / sizeof(kfx_config_state.conf.rules[0]);
+        for (size_t i = 0; i < rules_count; i++)
+        {
+            kfx_config_state.conf.rules[i].gameplay.allies_share_vision = true;
+            kfx_config_state.conf.rules[i].gameplay.allies_share_drop = (opts->sharing == LevelStartSharing_VisionAndDrop);
+        }
+        ui_panel_map_update(0, 0, kfx_sim_state.map_subtiles_x + 1, kfx_sim_state.map_subtiles_y + 1);
+    }
+    if (opts->reveal_map)
+    {
+        for (PlayerNumber plyr_idx = 0; plyr_idx < PLAYERS_COUNT; plyr_idx++)
+        {
+            struct PlayerInfo *player = get_player(plyr_idx);
+            if (!player_exists(player) || !player_is_keeper(plyr_idx))
+                continue;
+            reveal_whole_map(player);
+            revealed++;
+        }
     }
     return revealed;
 }

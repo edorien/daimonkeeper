@@ -2,7 +2,9 @@
 // pay day and when something important happens -- not on a timer. Drives the engine: a quarter boundary, a pay day wrap,
 // a fight event, a new creature kind, an alarm trap going off; checks the counter and reasons in the view (seat.decision),
 // that reasons inside the minimum interval are held and delivered together after it, that an alarm does not wait (a human
-// hears it at once), and that nothing fires spuriously or for a non-seat player.
+// hears it at once), and that nothing fires spuriously or for a non-seat player. Then the panel's problem events: hungry
+// creatures (raised as the engine does, at (0,0): "food is scarce, enlarge the hatchery"), a full treasure room and a
+// finished research each make a decision due, after the minimum interval like any non-urgent reason.
 #include "ftest_ai_seat_decision.h"
 
 #ifdef FUNCTESTING
@@ -79,6 +81,7 @@ FTestActionResult dc06_check_held_then_kind(struct FTestActionArgs* const args);
 FTestActionResult dc07_check_kind(struct FTestActionArgs* const args);
 FTestActionResult dc08_alarm(struct FTestActionArgs* const args);
 FTestActionResult dc09_check_alarm(struct FTestActionArgs* const args);
+FTestActionResult dc10_check_panel_problems(struct FTestActionArgs* const args);
 
 void ftest_ai_seat_decision_pre_start() { fe_computer_players = 1; }
 
@@ -94,6 +97,7 @@ TbBool ftest_ai_seat_decision_init()
     ftest_append_action(dc07_check_kind, 3, NULL);
     ftest_append_action(dc08_alarm, 1, NULL);
     ftest_append_action(dc09_check_alarm, 1, NULL);
+    ftest_append_action(dc10_check_panel_problems, 1, NULL);
     return true;
 }
 
@@ -216,9 +220,26 @@ FTestActionResult dc09_check_alarm(struct FTestActionArgs* const args)
     }
     value_fini(&v);
     CHECK_TRUE("the view has the alarm_triggered event at the trap", found);
+    // The panel's problems: raised the way the engine raises them (hunger at (0,0), as creature_states.c does).
+    api_seat_decision_set_min_interval(10);
+    event_create_event_or_update_nearby_existing_event(0, 0, EvKind_CreatrHungry, P, 0);
+    raise_event(EvKind_TreasureRoomFull);
+    raise_event(EvKind_NewRoomResrch);
+    s_mark = (int64_t)get_gameturn();
+    return FTRs_Go_To_Next_Action;
+}
+
+FTestActionResult dc10_check_panel_problems(struct FTestActionArgs* const args)
+{
+    char r[200]; int64_t pend;
+    if ((int64_t)get_gameturn() < s_mark + 12) return FTRs_Repeat_Current_Action;
+    const int64_t seq = decision(r, sizeof(r), &pend);
+    FTESTLOG("after the panel's problems: seq %" PRId64 " reasons '%s' pending %" PRId64, seq, r, pend);
+    CHECK_TRUE("hungry creatures make a decision due", seq == 6 && has(r, "creature_hungry"));
+    CHECK_TRUE("and so do a full treasure room and finished research", has(r, "treasure_room_full") && has(r, "new_room_research"));
     api_seat_decision_set_min_interval(100);
     if (s_failures > 0) { FTEST_FAIL_TEST("%" PRId64 " decision check(s) failed", s_failures); return FTRs_Go_To_Next_Action; }
-    FTESTLOG("Test passed: decisions are raised at quarters and major events, held inside the interval, and coalesced; an alarm does not wait");
+    FTESTLOG("Test passed: decisions are raised at quarters and major events, held inside the interval, and coalesced; an alarm does not wait; the panel's problems are decisions too");
     return FTRs_Go_To_Next_Action;
 }
 

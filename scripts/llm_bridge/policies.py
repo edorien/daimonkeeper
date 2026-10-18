@@ -75,3 +75,34 @@ class ScriptedPolicy:
         """A scripted player learns nothing; it only says how the game went (no lessons, so none are touched)."""
         first = text.splitlines()[0] if text else ""
         return {"summary": "scripted policy: " + first[len("DEBRIEF: "):] if first.startswith("DEBRIEF: ") else first}
+
+
+class EvacuatePolicy:
+    """A reflex stand-in, no model: while enemies stand on the seat's ground (own.intruders), lift its imps near them to
+    the heart in one hand trip. The raid scenario (scripts/ai_bridge_raid_e2e.py, docs/plans/llm-bridge-realtime.md
+    Phase 0) times how fast this reaches the hand, so the number moves only with the bridge and the engine, never with a
+    model's thinking."""
+    name = "evacuate"
+
+    def __init__(self, radius=15, max_lift=8):
+        self.radius = radius        # subtiles from the nearest intruder
+        self.max_lift = max_lift    # one hand trip (MaxThingsInHand in rules.cfg)
+
+    def decide(self, state, ctx):
+        own = state.view["own"]
+        intruders = (own.get("intruders") or {}).get("creatures") or []
+        heart = next((r for r in own["rooms"] if r["kind"] == "DUNGEON_HEART"), None)
+        plan = "evacuate: lift imps away from enemies on my ground"
+        if not intruders or heart is None:
+            return {"reasoning": "no enemy on my ground", "orders": [], "plan": plan}
+
+        def dist(c):
+            return min(max(abs(c["pos"][0] - i["pos"][0]), abs(c["pos"][1] - i["pos"][1])) for i in intruders)
+        near = sorted((c for c in own["creatures"] if c.get("digger") and c.get("pos") and dist(c) <= self.radius), key=dist)
+        ids = [c["id"] for c in near[:self.max_lift]]
+        if not ids:
+            return {"reasoning": "%d intruder(s), no imp near them" % len(intruders), "orders": [], "plan": plan}
+        return {"reasoning": "%d intruder(s): lift %d imp(s) to the heart" % (len(intruders), len(ids)),
+                "orders": [{"verb": "pick_up_and_drop", "thing_ids": ids, "to_room": heart["id"]}], "plan": plan}
+
+    debrief = ScriptedPolicy.debrief

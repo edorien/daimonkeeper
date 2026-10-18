@@ -118,6 +118,16 @@ class ViewNumbersTests(unittest.TestCase):
         fin = experience.final_from_view(view(100, events=[{"kind": "heart_attacked", "text": "Your heart is under attack"}]))
         self.assertEqual((fin["objective"], fin["events"]), ("Destroy the Avatar", ["Your heart is under attack"]))
 
+    def test_checkpoint_keeps_the_pay_day_report_numbers(self):
+        v = view(100)
+        v["own"].update(territory=312, creatures_active=14, creature_limit=20,
+                        rooms=[{"kind": "LAIR", "slabs": 9, "capacity": {"used": 7, "total": 9}},
+                               {"kind": "LAIR", "slabs": 4, "capacity": {"used": 4, "total": 4}},
+                               {"kind": "TREASURE", "slabs": 9}])
+        cp = experience.checkpoint_from_view(v)
+        self.assertEqual((cp["area"], cp["room_slabs"], cp["lair"], cp["limit"]),
+                         (312, {"LAIR": 13, "TREASURE": 9}, [11, 13], [14, 20]))
+
     def test_one_checkpoint_per_pay_day(self):
         m = Memory.new_game(view(0))
         experience.observe(m, view(0, ttp=600))

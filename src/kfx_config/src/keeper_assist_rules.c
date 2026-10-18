@@ -112,8 +112,51 @@ void keeper_assist_default_rule(struct KeeperAssistRule *r, enum KeeperAssistAct
     r->target_cooldown = ((target == KAT_AllyInFight) || (target == KAT_AllyAny)) ? KEEPER_ASSIST_DEFAULT_ALLY_TARGET_COOLDOWN : 0;
 }
 
+static const char *const hand_names[] = { "evacuate_diggers", "lift_wounded", "reinforce" };
+
+TbBool keeper_assist_action_is_hand(uint8_t action)
+{
+    return (action >= KAA_EvacuateDiggers) && (action < KAA_Count);
+}
+
+const char *keeper_assist_hand_name(uint8_t action)
+{
+    return keeper_assist_action_is_hand(action) ? hand_names[action - KAA_EvacuateDiggers] : "";
+}
+
+/** The target set a hand rule's candidates come from (its conditions' target facts are theirs). */
+static enum KeeperAssistTarget hand_target(uint8_t action)
+{
+    return (action == KAA_EvacuateDiggers) ? KAT_AllyAny : KAT_AllyInFight;
+}
+
+static const char *validate_conds(const struct KeeperAssistRule *r)
+{
+    if (r->cond_count > KEEPER_ASSIST_CONDS) return "TOO_MANY_CONDITIONS";
+    for (int i = 0; i < r->cond_count; i++) {
+        const struct KeeperAssistCond *c = &r->cond[i];
+        if ((c->fact <= KAF_None) || (c->fact >= KAF_Count)) return "UNKNOWN_FACT";
+        if ((c->op <= KAO_None) || (c->op >= KAO_Count)) return "BAD_OP";
+        if (keeper_assist_fact_needs_target((enum KeeperAssistFact)c->fact) && (r->target == KAT_None)) return "FACT_NEEDS_TARGET";
+        if ((c->fact == KAF_Kind) && (c->op != KAO_Eq) && (c->op != KAO_Ne)) return "BAD_OP";
+    }
+    return NULL;
+}
+
+static const char *validate_hand(const struct KeeperAssistRule *r)
+{
+    if (r->power != 0) return "BAD_RULE";
+    if (r->target != hand_target(r->action)) return "UNKNOWN_TARGET";
+    if ((r->count < 1) || (r->count > KEEPER_ASSIST_HAND_MAX)) return "VALUE_OUT_OF_RANGE";
+    if ((r->radius < 1) || (r->radius > 15) || (r->min_match > 200) || (r->cooldown > 10000)) return "VALUE_OUT_OF_RANGE";
+    if ((r->action == KAA_EvacuateDiggers) && (r->dest_x == 0) && (r->dest_y == 0)) return "MISSING_DESTINATION";
+    if ((r->dest_x >= 3 * MAX_TILES_X) || (r->dest_y >= 3 * MAX_TILES_Y)) return "POSITION_OFF_MAP";
+    return validate_conds(r);
+}
+
 const char *keeper_assist_rule_validate(const struct KeeperAssistRule *r)
 {
+    if (keeper_assist_action_is_hand(r->action)) return validate_hand(r);
     if ((r->power < 1) || ((int64_t)r->power >= kfx_config_state.conf.magic_conf.power_types_count)) return "UNKNOWN_POWER";
     TbBool power_off = false;
     const enum KeeperAssistTarget cls = keeper_assist_power_target_class(r->power, &power_off);
@@ -130,16 +173,8 @@ const char *keeper_assist_rule_validate(const struct KeeperAssistRule *r)
         return "UNKNOWN_ACTION";
     }
     if (r->pick >= KAP_Count) return "UNKNOWN_PICK";
-    if (r->cond_count > KEEPER_ASSIST_CONDS) return "TOO_MANY_CONDITIONS";
     if ((r->budget < 0) || (r->max_allies_hit > 15) || (r->cooldown > 10000) || (r->target_cooldown > 10000)) return "VALUE_OUT_OF_RANGE";
-    for (int i = 0; i < r->cond_count; i++) {
-        const struct KeeperAssistCond *c = &r->cond[i];
-        if ((c->fact <= KAF_None) || (c->fact >= KAF_Count)) return "UNKNOWN_FACT";
-        if ((c->op <= KAO_None) || (c->op >= KAO_Count)) return "BAD_OP";
-        if (keeper_assist_fact_needs_target((enum KeeperAssistFact)c->fact) && (r->target == KAT_None)) return "FACT_NEEDS_TARGET";
-        if ((c->fact == KAF_Kind) && (c->op != KAO_Eq) && (c->op != KAO_Ne)) return "BAD_OP";
-    }
-    return NULL;
+    return validate_conds(r);
 }
 
 const char *keeper_assist_globals_validate(const struct KeeperAssistGlobals *g)
@@ -191,9 +226,48 @@ const char *keeper_assist_parse_globals(VALUE *root, struct KeeperAssistGlobals 
     return NULL;
 }
 
+static const char *parse_conds(VALUE *rv, struct KeeperAssistRule *r);
+
+/** A hand rule: {"hand": "evacuate_diggers" | "lift_wounded" | "reinforce", "to": [x, y] (subtiles), "count", "radius"
+ *  (slabs), "min_match" (reinforce, %), "cooldown", "when"}. */
+static const char *parse_hand_rule(VALUE *rv, const char *hand, struct KeeperAssistRule *r)
+{
+    int64_t action = -1;
+    for (int64_t i = 0; i < (int64_t)(sizeof(hand_names) / sizeof(hand_names[0])); i++) {
+        if (strcmp(hand, hand_names[i]) == 0) action = KAA_EvacuateDiggers + i;
+    }
+    if (action < 0) return "UNKNOWN_HAND";
+    if ((value_dict_get(rv, "power") != NULL) || (value_dict_get(rv, "power_off") != NULL) || (value_dict_get(rv, "target") != NULL)) return "BAD_RULE";
+    memset(r, 0, sizeof(*r));
+    r->used = 1;
+    r->action = (uint8_t)action;
+    r->target = (uint8_t)hand_target(r->action);
+    r->count = (action == KAA_Reinforce) ? 4 : KEEPER_ASSIST_HAND_MAX;
+    r->radius = KEEPER_ASSIST_DEFAULT_HAND_RADIUS;
+    r->min_match = KEEPER_ASSIST_DEFAULT_MIN_MATCH;
+    r->cooldown = KEEPER_ASSIST_DEFAULT_HAND_COOLDOWN;
+    const char *e;
+    int64_t v;
+    v = r->count;     if ((e = opt_int(rv, "count", 1, KEEPER_ASSIST_HAND_MAX, &v)) != NULL) return e;  r->count = (uint8_t)v;
+    v = r->radius;    if ((e = opt_int(rv, "radius", 1, 15, &v)) != NULL) return e;                      r->radius = (uint8_t)v;
+    v = r->min_match; if ((e = opt_int(rv, "min_match", 0, 200, &v)) != NULL) return e;                  r->min_match = (uint8_t)v;
+    v = r->cooldown;  if ((e = opt_int(rv, "cooldown", 0, 10000, &v)) != NULL) return e;                 r->cooldown = (uint16_t)v;
+    VALUE *to = value_dict_get(rv, "to");
+    if (to != NULL) {
+        int64_t x = 0, y = 0;
+        if ((value_type(to) != VALUE_ARRAY) || (value_array_size(to) != 2) || !get_int(value_array_get(to, 0), &x) || !get_int(value_array_get(to, 1), &y)) return "BAD_POSITION";
+        if ((x < 0) || (y < 0) || (x >= 3 * MAX_TILES_X) || (y >= 3 * MAX_TILES_Y) || ((x == 0) && (y == 0))) return "POSITION_OFF_MAP";
+        r->dest_x = (uint16_t)x; r->dest_y = (uint16_t)y;
+    }
+    if ((e = parse_conds(rv, r)) != NULL) return e;
+    return keeper_assist_rule_validate(r);
+}
+
 const char *keeper_assist_parse_rule(VALUE *rv, struct KeeperAssistRule *r)
 {
     if (value_type(rv) != VALUE_DICT) return "BAD_RULE";
+    const char *hand = value_string(value_dict_get(rv, "hand"));
+    if (hand != NULL) return parse_hand_rule(rv, hand, r);
     const char *cast = value_string(value_dict_get(rv, "power"));
     const char *off = value_string(value_dict_get(rv, "power_off"));
     if ((cast == NULL) == (off == NULL)) return "MISSING_POWER"; // exactly one of them
@@ -225,6 +299,12 @@ const char *keeper_assist_parse_rule(VALUE *rv, struct KeeperAssistRule *r)
         r->pick = (uint8_t)keeper_assist_pick_by_name(pname);
         if (r->pick == KAP_Default) return "UNKNOWN_PICK";
     }
+    if ((e = parse_conds(rv, r)) != NULL) return e;
+    return keeper_assist_rule_validate(r);
+}
+
+static const char *parse_conds(VALUE *rv, struct KeeperAssistRule *r)
+{
     VALUE *when = value_dict_get(rv, "when");
     if (when != NULL) {
         if (value_type(when) != VALUE_ARRAY) return "BAD_CONDITION";
@@ -250,7 +330,7 @@ const char *keeper_assist_parse_rule(VALUE *rv, struct KeeperAssistRule *r)
             r->cond_count++;
         }
     }
-    return keeper_assist_rule_validate(r);
+    return NULL;
 }
 
 const char *keeper_assist_parse_set(VALUE *root, const struct KeeperAssistRule *current_rules, const struct KeeperAssistGlobals *current,
@@ -284,7 +364,21 @@ const char *keeper_assist_parse_set(VALUE *root, const struct KeeperAssistRule *
 
 void keeper_assist_rule_to_value(VALUE *e, const struct KeeperAssistRule *r)
 {
-    value_init_string(value_dict_add(e, (r->action == KAA_PowerOff) ? "power_off" : "power"), power_code_name(r->power));
+    if (keeper_assist_action_is_hand(r->action)) {
+        value_init_string(value_dict_add(e, "hand"), keeper_assist_hand_name(r->action));
+        if ((r->dest_x != 0) || (r->dest_y != 0)) {
+            VALUE *to = value_dict_add(e, "to");
+            value_init_array(to);
+            value_init_int64(value_array_append(to), r->dest_x);
+            value_init_int64(value_array_append(to), r->dest_y);
+        }
+        value_init_int32(value_dict_add(e, "count"), r->count);
+        value_init_int32(value_dict_add(e, "radius"), r->radius);
+        if (r->action == KAA_Reinforce) value_init_int32(value_dict_add(e, "min_match"), r->min_match);
+        value_init_int32(value_dict_add(e, "cooldown"), r->cooldown);
+    } else {
+        value_init_string(value_dict_add(e, (r->action == KAA_PowerOff) ? "power_off" : "power"), power_code_name(r->power));
+    }
     if (r->action == KAA_Cast) {
         value_init_int32(value_dict_add(e, "level"), r->level);
         value_init_string(value_dict_add(e, "target"), keeper_assist_target_name((enum KeeperAssistTarget)r->target));

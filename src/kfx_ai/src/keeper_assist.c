@@ -497,6 +497,41 @@ static void evaluate_keeper(PlayerNumber plyr_idx, struct KeeperAssistState *st,
     cast_now(plyr_idx, st, dec.slot, thing, now);
 }
 
+void keeper_assist_dungeon_facts(PlayerNumber plyr_idx, int64_t *facts)
+{
+    fill_dungeon_facts(plyr_idx, facts);
+}
+
+void keeper_assist_fill_candidate(PlayerNumber plyr_idx, const struct Thing *thing, struct KeeperAssistCandidate *cand)
+{
+    memset(cand, 0, sizeof(*cand));
+    fill_target_facts(plyr_idx, thing, cand);
+}
+
+TbBool keeper_assist_conds_hold(const struct KeeperAssistRule *rule, const int64_t *dungeon_facts, const struct KeeperAssistCandidate *cand)
+{
+    return conds_hold(rule, dungeon_facts, cand, 0);
+}
+
+TbBool keeper_assist_heal_ready(PlayerNumber plyr_idx, const struct KeeperAssistState *st)
+{
+    if (!st->globals.enabled) return false;
+    const struct Dungeon *dungeon = get_players_num_dungeon(plyr_idx);
+    const int64_t gold = dungeon->total_money_owned;
+    for (int s = 0; s < KEEPER_ASSIST_RULES; s++) {
+        const struct KeeperAssistRule *r = &st->live[s];
+        if (!r->used || (r->action != KAA_Cast) || (r->power != PwrK_HEALCRTR)) continue;
+        if ((r->target != KAT_AllyInFight) && (r->target != KAT_AllyAny)) continue;
+        if (!is_power_available(plyr_idx, r->power)) continue;
+        const int64_t price = compute_power_price(plyr_idx, r->power, r->level);
+        if ((price > gold) || (gold - price < st->globals.reserve)) continue;
+        if ((r->budget > 0) && (st->run[s].spent_this_payday + price > r->budget)) continue;
+        if ((st->globals.max_spend > 0) && (st->spent_this_payday + price > st->globals.max_spend)) continue;
+        return true;
+    }
+    return false;
+}
+
 void process_keeper_assists(void)
 {
     if (game_refuses_cheats()) {

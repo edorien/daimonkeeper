@@ -713,6 +713,63 @@ the design intent (no "make my enemies build my traps" mechanic exists).
 No dedicated test was written for workshop as a result; its coverage
 rose only incidentally from the tests above.
 
+## 7a. External seats: in-game and two-process tests
+
+The agent API and the External seat (`architecture.md` §5a) are tested at three levels:
+
+- **Catch2**, in the libraries' own binaries: the seat driver and its lanes (`kfx_net_utest`:
+  `net_external_seat_driver_test.cpp`), the assistant's rules, packets and banks (`kfx_config_utest`, `kfx_ai_utest`), the
+  JSON a client sends (`kfx_script_utest`: `api_seat_assist_test.cpp`, `api_urgent_hold_test.cpp`, `api_security_test.cpp`
+  -- a client that stops reading is dropped). `packet_validate_test` knows every packet action.
+- **In-process ftests**, `ai_seat_*` in `ftest_list.c` (44 of them: verbs, the view and its fog, decisions and losses,
+  the queue and its lanes, the assistant, the hand rules, the urgent hold...). They make a seat with
+  `net_add_external_seat()` and call the seat and the API directly, so they need no client. Run each in its own process
+  and check its "passed" line, since the log is rewritten per run:
+
+  ```bash
+  for t in $(grep -o 'test_name="ai_seat_[a-z_]*"' src/ftests/ftest_list.c | sed 's/test_name="//;s/"//'); do
+      (cd out/ft-llm-data && ./daimonkeeper -headless -ftests $t -includelongtests -exitonfailedtest >/dev/null 2>&1 \
+       && grep -aq "Test $t passed!" daimonkeeper.log) || echo "FAILED $t"
+  done
+  ```
+
+  `ai_seat_urgent_hold` calls the API through a socketpair and only runs on Linux (it passes, skipped, on Windows).
+- **Two-process runners**, `scripts/run_ftest_ai_bridge_*.sh BUILD DATA`: a headless game running a long-list ftest
+  (the game side, which sets the scene and checks what the agent achieved) and a Python client (the bridge in-process)
+  talking over the real TCP API; neither half passes alone. Give both directories as absolute paths (the run directory
+  links to them).
+
+  | Runner | Client | What it checks |
+  |---|---|---|
+  | `run_ftest_ai_bridge_smoke.sh` | `ai_bridge_smoke.py` | a raw client: claim a seat, read its view, send verbs, advance turns, survive a stuck pause and a disconnect |
+  | `run_ftest_ai_bridge_reference.sh` | `ai_bridge_reference_e2e.py` | `bridge.py --policy scripted` plays in real time (never paused); a diff-patched view equals a full one |
+  | `run_ftest_ai_bridge_mcp.sh` | `ai_bridge_mcp_e2e.py` | `mcp_server.py` driven over stdio as an MCP client would; its orders take effect in the game |
+  | `run_ftest_ai_bridge_vs_agent.sh` | `ai_bridge_vs_agent_e2e.py` | two seats over one connection, each served on its own thread |
+  | `run_ftest_ai_bridge_raid.sh` | `ai_bridge_raid_e2e.py` | the raid scenario: knights raid a seat's imps; prints the latency chain (`RAID_CHAIN`), imps lost and what a view costs |
+
+  The raid's `RAID_MODE` picks who answers: `policy` (default; `bridge.py`'s EvacuatePolicy), `triggers` (the
+  `evacuate_imps` bridge trigger, an agent doing nothing), `reflex` (an `evacuate_diggers` hand rule), `slowthink` and
+  `hold` (a simulated 3 s think, without and with the urgent hold; LLM Pause is asked for through FLAG3). `RAID_RESULT=FILE`
+  keeps the chain as JSON. Its turn counts are deterministic run to run; they are the yardstick for the real-time work
+  (`docs/plans/llm-bridge-realtime.md`, local).
+
+A tree for all of these: an ftest build, and data staged from `core_files`:
+
+```bash
+cmake -S . -B out/ft-llm -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DKFX_FUNCTESTING=ON -DKFX_BUILD_TESTS=OFF
+cmake --build out/ft-llm --target keeperfx
+cmake -DSOURCE_DIR=$PWD/core_files -DDEST_DIR=$PWD/out/ft-llm-data -DKEEPERFX_CFG=$PWD/config/daimonkeeper.cfg \
+      -DREPO_DIR=$PWD -P build/cmake/modules/StageFtestData.cmake
+cp out/ft-llm/daimonkeeper out/ft-llm-data/
+scripts/run_ftest_ai_bridge_raid.sh $PWD/out/ft-llm $PWD/out/ft-llm-data
+```
+
+Building another tree on the same dependency cache relinks the shared `libSDL3.so` the ftest binary loads: finish such a
+build before starting ftests.
+
+The bridge's own tests are offline (`scripts/llm_bridge/test_*.py`, a fake game over a real socket where needed):
+`for t in scripts/llm_bridge/test_*.py; do python3 $t; done`.
+
 ## 8. CI integration
 
 `.github/workflows/build-prototype.yml`, three relevant jobs (all
@@ -1500,3 +1557,4 @@ across 15 accepted call sites:
 | Library dependency ladder, callback-struct pattern, layering enforcement | [`architecture.md`](architecture.md) |
 | How to write a functional (`src/ftests/`) test | [`src/ftests/README.md`](../../src/ftests/README.md) |
 | How ftest-driven coverage is produced, headless mode, staging real game data, merging with the unit-test report | §7 above |
+| How the External seat and the LLM bridge are tested | §7a above |

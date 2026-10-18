@@ -15,6 +15,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <cerrno>
+#include <ctime>
 #include <cstdlib>
 #include <cstring>
 #include <string>
@@ -176,6 +177,53 @@ TEST_CASE("api server: a token-less setup behaves as before", "[kfx_script][api]
     CHECK_FALSE(c.peer_closed);
 }
 
+// A client that stops reading used to freeze the game loop: api_send waited for the socket with no timeout. Now a
+// send that makes no progress for API_SEND_STALL_MS (2 s) drops the client, and the game goes on.
+TEST_CASE("api server: a client that stops reading is dropped, not waited for", "[kfx_script][api][security]") {
+    RunningApi api;
+    int fd = socket(AF_INET, SOCK_STREAM, 0);
+    const int small = 4096;
+    setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &small, sizeof(small)); // before connect: the window stays small
+    sockaddr_in a{};
+    a.sin_family = AF_INET;
+    a.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    a.sin_port = htons((uint16_t)api.port);
+    REQUIRE(connect(fd, (sockaddr *)&a, sizeof(a)) == 0);
+    fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
+    std::string batch;
+    for (int i = 0; i < 200; i++) batch += "{\"action\":\"get_kfx_info\",\"ack\":" + std::to_string(i + 1) + "}\n";
+    double longest = 0.0, total = 0.0;
+    bool stalled = false;
+    for (int round = 0; (round < 4000) && (total < 20.0); round++) {
+        // Keep asking and never read a reply.
+        (void)send(fd, batch.data(), batch.size(), MSG_NOSIGNAL);
+        timespec t0{}, t1{};
+        clock_gettime(CLOCK_MONOTONIC, &t0);
+        api_update_server();
+        clock_gettime(CLOCK_MONOTONIC, &t1);
+        const double took = (double)(t1.tv_sec - t0.tv_sec) + (double)(t1.tv_nsec - t0.tv_nsec) / 1e9;
+        longest = (took > longest) ? took : longest;
+        total += took;
+        if (took >= 1.5) { stalled = true; break; }
+    }
+    CHECK(stalled);           // the buffers did fill up: the case under test happened
+    CHECK(longest < 4.0);     // and the game loop waited about API_SEND_STALL_MS, not for ever
+    // The connection is closed: whatever was sent can be read, then the end of the stream.
+    bool closed = false;
+    for (int i = 0; (i < 2000) && !closed; i++) {
+        char buf[65536];
+        const ssize_t n = recv(fd, buf, sizeof(buf), 0);
+        if (n == 0) closed = true;
+        else if (n < 0) { api_update_server(); usleep(1000); }
+    }
+    CHECK(closed);
+    close(fd);
+    // The slot is free again for a client that reads.
+    Client real(api.port);
+    real.send_text("{\"action\":\"hello\",\"ack\":1}\n");
+    real.pump();
+    CHECK(real.received.find("\"success\":true") != std::string::npos);
+}
 
 // Security pass S08: an empty message used to read the byte before its buffer (found by the API fuzzer).
 TEST_CASE("an empty API message is answered with NO_JSON", "[kfx_script][api][security]") {

@@ -291,28 +291,41 @@ TEST_CASE_METHOD(Fixture, "an External slot is remembered, exclusive with the ot
     CHECK(net_pending_external_seats_count() == 0);
 }
 
-TEST_CASE_METHOD(Fixture, "Reveal map: asked for this level at Play only, not part of the script override, cleared by a reset", "[kfx_frontend][skirmish_setup]") {
+TEST_CASE_METHOD(Fixture, "Start options (reveal map, sharing, LLM pause): asked for this level at Play only, not part of the script override, cleared by a reset", "[kfx_frontend][skirmish_setup]") {
     level_start_options_clear();
     skirmish_setup_install_for_play(kLevel);
-    CHECK_FALSE(level_start_reveal_map_requested(kLevel)); // off by default
+    CHECK_FALSE(level_start_options_requested(kLevel).reveal_map); // all off by default
+    CHECK_FALSE(skirmish_setup_is_changed());
 
     skirmish_setup().reveal_map = true;
+    skirmish_setup().sharing = SkirmishSharing_VisionAndLand;
+    skirmish_setup().llm_pause = true;
     CHECK(skirmish_setup_is_changed()); // the Reset button / "applies at Play" caption show
     skirmish_setup_install_for_play(kLevel + 1); // not the level the tab holds
-    CHECK_FALSE(level_start_reveal_map_requested(kLevel));
-    CHECK_FALSE(level_start_reveal_map_requested(kLevel + 1));
+    CHECK_FALSE(level_start_options_requested(kLevel).reveal_map);
+    CHECK_FALSE(level_start_options_requested(kLevel + 1).reveal_map);
 
     skirmish_setup_install_for_play(kLevel);
-    CHECK(level_start_reveal_map_requested(kLevel));
+    const struct LevelStartOptions o = level_start_options_requested(kLevel);
+    CHECK(o.reveal_map);
+    CHECK(o.sharing == LevelStartSharing_VisionAndDrop);
+    CHECK(o.llm_pause);
     CHECK_FALSE(level_script_override_is_set()); // the script itself is untouched
     CHECK_FALSE(skirmish_setup_build().active);
 
+    skirmish_setup().sharing = SkirmishSharing_Vision;
+    skirmish_setup().reveal_map = false;
+    skirmish_setup_install_for_play(kLevel);
+    CHECK(level_start_options_requested(kLevel).sharing == LevelStartSharing_Vision);
+    CHECK_FALSE(level_start_options_requested(kLevel).reveal_map);
+
     skirmish_setup_install_for_play(kLevel + 1); // installing for another level clears the old request
-    CHECK_FALSE(level_start_reveal_map_requested(kLevel));
+    CHECK_FALSE(level_start_options_requested(kLevel).llm_pause);
 
     skirmish_setup_reset_choices();
-    CHECK_FALSE(skirmish_setup().reveal_map);
+    CHECK(skirmish_setup().sharing == SkirmishSharing_None);
+    CHECK_FALSE(skirmish_setup().llm_pause);
     skirmish_setup_install_for_play(kLevel);
-    CHECK_FALSE(level_start_reveal_map_requested(kLevel));
+    CHECK(level_start_options_requested(kLevel).sharing == LevelStartSharing_None);
     level_start_options_clear();
 }

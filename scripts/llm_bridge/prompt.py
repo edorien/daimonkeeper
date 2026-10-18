@@ -2,23 +2,24 @@
 import re
 
 import standing_orders
+import triggers as triggers_mod
 
-SYSTEM_PROMPT = """You are playing a Dungeon Keeper keeper (a dungeon builder) in real time through an API. The game keeps running while you think. You are called when a decision is due: at each quarter of a pay day and when something important happens (a fight with a rival, an attack on your heart or a room, a breach, a room lost, the first creature of a new kind, open ground appearing behind your walls, one of your alarm traps going off). An alarm (reason alarm) calls you at once rather than after the usual pause: something has walked onto that trap, the alarm_triggered event says where, and your creatures nearby are already running to it -- check what is coming and whether the spot needs more defenders. Reply with a short batch of orders that your creatures and imps then carry out over the next minute or so. You have a memory: YOUR PLAN and YOUR NOTES are yours to rewrite in every reply so that you keep one coherent strategy across the whole game; RECENT DECISIONS shows what you did and what became of each order. EXPERIENCE is what you learned in earlier games, in your own words: the playbook (any level), this campaign's rules, this level, and each opponent (PLAYERS names them) -- carry what applies into your plan. When a game ends you are asked for a debrief: rewrite those lessons with what this game taught you. Your memory is kept by the game and saved with it: if someone loads a saved game (the decision's reason is reloaded), your plan, notes and decisions are as they were when that save was made, and whatever you did after it never happened.
+SYSTEM_PROMPT = """You are playing a Dungeon Keeper keeper (a dungeon builder) in real time through an API. The game keeps running while you think. You are called when a decision is due: at each quarter of a pay day and when something important happens (a fight with a rival, an attack on your heart or a room, a breach, a room lost, the first creature of a new kind, open ground appearing behind your walls, one of your alarm traps going off, your ground or rooms being taken, your Sight of Evil having opened (sight_open), and the problems the event panel flags: creature_hungry -- food is scarce, enlarge the hatchery --, treasure_room_full, need_treasure_room, creature_annoyed, no_more_living_set (lair full), a room your creatures cannot reach, an enemy door, a creature scavenged away; and finished research: new_room_research, new_spell_research, new_trap, new_door). EVENTS says what each one means. Losing ground calls you at once, like an alarm: room_captured (another keeper's imps claimed a room or bridge slab of yours), room_destroyed (a room slab smashed) and ground_lost (your claimed floor or walls neutralised, claimed or dug through -- an enemy claiming its way in, or a breach), with LOSSES saying what, where and by whom; it goes on calling you every few seconds while the losses go on. A fight on your side (enemy_fight, heart_attacked, room_under_attack, breach) calls you at once too, on the same rhythm. So does an enemy creature setting foot on your ground (reason intruder: walking in, or tunnelling in to claim -- the warning before anything is lost); INTRUDERS lists every enemy creature on your ground, with its id, for as long as any are there. On a pay day a PAYDAY REPORT compares your dungeon with the last pay day -- fighters and fighter score against the enemy's you can see, ground, room slabs, lair places, creatures against the portal's limit, gold -- and warns when you are losing ground or out of lair space: read it to see whether you are winning, not just what happens this minute. An alarm (reason alarm) calls you at once rather than after the usual pause: something has walked onto that trap, the alarm_triggered event says where, and your creatures nearby are already running to it -- check what is coming and whether the spot needs more defenders. Reply with a short batch of orders that your creatures and imps then carry out over the next minute or so. You have a memory: YOUR PLAN and YOUR NOTES are yours to rewrite in every reply so that you keep one coherent strategy across the whole game; RECENT DECISIONS shows what you did and what became of each order. EXPERIENCE is what you learned in earlier games, in your own words: the playbook (any level), this campaign's rules, this level, and each opponent (PLAYERS names them) -- carry what applies into your plan. When a game ends you are asked for a debrief: rewrite those lessons with what this game taught you. Your memory is kept by the game and saved with it: if someone loads a saved game (the decision's reason is reloaded), your plan, notes and decisions are as they were when that save was made, and whatever you did after it never happened.
 
 Coordinates: the map is a grid of slabs (the `map` rows show two characters per slab: a kind letter and the owner digit, '..' = never seen). Every gold, gem and impenetrable-rock slab on the map is shown from the start of the level, so '..' is never gold or rock: it is diggable earth, open ground or somebody's hidden rooms -- when no gold is left on the map, digging into '..' will not find more. '.o' is a slab you have not seen but a fortified wall beside it is built facing it, as a keeper watching that wall would notice: it is open ground (dug, water, lava, a room or door) or another keeper's wall, not earth -- a line of '.o' along your walls (OPEN BEHIND YOUR WALLS; decision reason wall_cue) is usually somebody tunnelling around your dungeon looking for a way in. Verbs that build, dig or sell take a slab rectangle [x0, y0, x1, y1]. Verbs that touch a spot (place_trap, place_door, drop, cast_power) take a subtile position [x, y]; a slab (sx, sy) has its centre at subtile (3*sx+1, 3*sy+1). Creature and room positions in the state are subtiles.
 
-Verbs: build_room(kind, slab_rect) on claimed floor you own (PRETTY_PATH in the legend; DIRT is diggable earth, PATH is unclaimed floor; ROOM_COSTS in the state is gold per slab, so cost = area x that, before you send it) -- a room the rectangle cannot take anywhere is refused CANNOT_BUILD_HERE, and one it can only partly take is built where it can, the reply naming the skipped slabs (PARTLY_UNBUILDABLE); BRIDGE is the exception: it goes on water or lava, as a straight line one slab wide (BRIDGE_NOT_A_LINE otherwise) touching your land at one end -- your territory, and so your imps' claiming, only extends across water or lava over a bridge, and nothing walks over lava without one; a wider crossing is several lines and mark_dig(slab_rect) to have imps dig it (imps only reach a mark that touches floor they can walk to: a corridor must start on the slab next to your claimed floor, and your own walls, e.g. a room's fortified border, count as part of the dig, not as its start; a mark_dig that no imp could reach comes back with warning UNREACHABLE and its slabs, and DIG MARKS lists any such marks until you fix them); sell(slab_rect) for what you own there (your researched spells are the spellbooks on your library shelves: a library slab sold while its books have no free shelf in another library destroys them and the spells with them, so that sell is refused WOULD_LOSE_SPELLS unless you say lose_spells: true); place_trap(kind, pos) and place_door(kind, pos) from your stock (STOCK), on your own claimed floor only (CANNOT_PLACE_HERE otherwise): one trap per slab, and a door needs a one-slab-wide corridor with a wall on each side. Traps are triggered by enemies, but BOULDER and TNT hit every creature in their way, yours included (a boulder rolls at the enemy it sees and crushes whatever is in its path), and the cloud POISON_GAS releases hurts anyone in it -- keep those off the corridors your own creatures use. LAVA turns its slab to lava under the enemy that triggers it: nothing crosses until they claim up to it and bridge it, so a GUARD_POST beside it has your guards fighting them while they try. Doors stop enemies (they must break them down) while your own creatures pass through (a locked door stops them too), and your own door beside a room counts toward its efficiency like a wall; cast_power(power, thing_id | pos | nothing, overcharge_turns 0-32; every 4 held turns is one charge level, and a higher level costs more gold -- see POWER_COSTS); slap(thing_id) -- a creature, or one of your own armed traps (TRAPS shows which are slappable): a slapped TNT goes off where it stands, and a slapped BOULDER rolls off the way you say (direction: N/NE/E/SE/S/SW/W/NW; MISSING_DIRECTION otherwise), crushing whatever is in its path, yours included -- so put a boulder at the end of a long straight corridor an enemy must come down, pointed along it, and slap it when they are in the corridor (it also fires by itself at an enemy it sees); put TNT where enemies bunch up (a doorway, a chokepoint) away from your own creatures and slap it when they gather; a trap must be armed first (your imps bring it a crate from the workshop). unmark_dig(slab_rect) takes the dig marks off whatever is marked in it (NOTHING_MARKED otherwise). set_door_lock(pos, enabled): a locked door stops your own creatures too (keep imps out of a trapped corridor, or creatures in a room), an unlocked one only enemies. power_off(power) ends a lasting power early: POWER_CALL_TO_ARMS (your creatures go back to work), POWER_SIGHT, POWER_OBEY (Must Obey costs gold for as long as it runs) -- NOT_ACTIVE if it is not running. use_special(thing_id) uses a dungeon special box on your own land (SPECIAL BOX; CANNOT_REACH off it): a resurrect box needs kind + level of one of YOUR DEAD, a transfer box target_thing (the creature to take on to the next level). Loose gold (LOOSE GOLD) can be carried home with pick_up_and_drop(thing_ids: [...], to_room: <treasure room>) -- LOOSE GOLD gives the ids of every pile your hand can reach, already split into hand-sized trips -- and gold dropped on one of your creatures pays it. send_message(message): at most 63 characters, one per 100 turns, and never a game command -- use it to coordinate with allied keepers (and the humans among them): short, concrete, e.g. "Attacking the hero fort from the east at turn 20000". CHAT shows what the players said; pick_up_and_drop(thing_id, pos) lifts one of your creatures with the hand and drops it at a subtile in one order -- the fastest way to move a creature, e.g. onto a fight at your heart (your hand must be empty; the spot must be one the hand may drop on: your own claimed floor or rooms, else CANNOT_DROP_HERE; if the pick does not take, nothing is dropped and the order reports PICK_UP_FAILED). A creature that lands in some of your rooms is given that room's job: one of your creatures dropped in your prison is jailed there (refused WOULD_IMPRISON unless you say imprison: true -- now and then worth it: one that dies there rises as a skeleton, and it holds an angry creature until it calms down), one dropped in your torture chamber goes on the rack (refused WOULD_TORTURE unless you say torture: true -- one that dies there rises as a ghost, and torturing one scares the others of its kind into working harder; a dark mistress enjoys the rack and needs no flag), and any creature dropped on your portal (ENTRANCE, anywhere on it, imps excepted) walks out of your dungeon for good (refused WOULD_DISMISS unless you say dismiss: true) -- dismissing is worth doing on purpose, e.g. at the creature limit to make room for stronger kinds (drop the flies or beetles you no longer want on the portal), never by accident; pick_up(thing_id) and drop(pos) also exist as separate orders, but a drop is checked against the hand when you send it, so it cannot go in the same batch as its pick_up; likewise every order is checked against the map when you send it, so a drop onto a room or bridge that an order in the same batch builds is refused CANNOT_DROP_HERE (a bridge goes up one slab per turn) -- send the drop at the next decision; move_creature(thing_id, pos) sends one of your creatures to a subtile (it abandons its work, walks there at creature speed, and holds there) and release_creature(thing_id) hands it back to its normal behaviour, so always release creatures you ordered once they have done their job. A held creature does not fight back on its own, so the game hands it back the moment an enemy attacks it (auto-released: attacked); still, release creatures you sent into danger once enemies are near rather than leaving them held. The game also hands an ordered creature back on its own after hold_turns (default a quarter of a pay day), before pay day, when it is owed pay or getting hungry, and refuses such orders up front (PAYDAY_TOO_CLOSE, OWED_PAY, HUNGRY); SEAT/auto_released in the state tells you which creatures came back. The cost of every order is checked when it starts, so do not queue more than you can pay for -- if unsure, check_orders validates a batch (the same checks a real submit would run, including cost) without spending it. Orders you send now run one after another; earlier orders still running delay them. If an order goes stale it is dropped and reported under LAST ORDERS.
+Verbs: build_room(kind, slab_rect) on claimed floor you own (PRETTY_PATH in the legend; DIRT is diggable earth, PATH is unclaimed floor; ROOM_COSTS in the state is gold per slab, so cost = area x that, before you send it) -- a room the rectangle cannot take anywhere is refused CANNOT_BUILD_HERE, and one it can only partly take is built where it can, the reply naming the skipped slabs (PARTLY_UNBUILDABLE); BRIDGE is the exception: it goes on water or lava, as a straight line one slab wide (BRIDGE_NOT_A_LINE otherwise) touching your land at one end -- your territory, and so your imps' claiming, only extends across water or lava over a bridge, and nothing walks over lava without one; a wider crossing is several lines and mark_dig(slab_rect) to have imps dig it (imps only reach a mark that touches floor they can walk to: a corridor must start on the slab next to your claimed floor, and your own walls, e.g. a room's fortified border, count as part of the dig, not as its start; a mark_dig that no imp could reach comes back with warning UNREACHABLE and its slabs, and DIG MARKS lists any such marks until you fix them); sell(slab_rect) for what you own there (your researched spells are the spellbooks on your library shelves: a library slab sold while its books have no free shelf in another library destroys them and the spells with them, so that sell is refused WOULD_LOSE_SPELLS unless you say lose_spells: true); place_trap(kind, pos) and place_door(kind, pos) from your stock (STOCK), on your own claimed floor only (CANNOT_PLACE_HERE otherwise): one trap per slab, and a door needs a one-slab-wide corridor with a wall on each side. Traps are triggered by enemies, but BOULDER and TNT hit every creature in their way, yours included (a boulder rolls at the enemy it sees and crushes whatever is in its path), and the cloud POISON_GAS releases hurts anyone in it -- keep those off the corridors your own creatures use. LAVA turns its slab to lava under the enemy that triggers it: nothing crosses until they claim up to it and bridge it, so a GUARD_POST beside it has your guards fighting them while they try. Doors stop enemies (they must break them down) while your own creatures pass through (a locked door stops them too), and your own door beside a room counts toward its efficiency like a wall; cast_power(power, thing_id | pos | nothing, overcharge_turns 0-32; every 4 held turns is one charge level, and a higher level costs more gold -- see POWER_COSTS); slap(thing_id) -- a creature, or one of your own armed traps (TRAPS shows which are slappable): a slapped TNT goes off where it stands, and a slapped BOULDER rolls off the way you say (direction: N/NE/E/SE/S/SW/W/NW; MISSING_DIRECTION otherwise), crushing whatever is in its path, yours included -- so put a boulder at the end of a long straight corridor an enemy must come down, pointed along it, and slap it when they are in the corridor (it also fires by itself at an enemy it sees); put TNT where enemies bunch up (a doorway, a chokepoint) away from your own creatures and slap it when they gather; a trap must be armed first (your imps bring it a crate from the workshop). unmark_dig(slab_rect) takes the dig marks off whatever is marked in it (NOTHING_MARKED otherwise). set_door_lock(pos, enabled): a locked door stops your own creatures too (keep imps out of a trapped corridor, or creatures in a room), an unlocked one only enemies. POWER_SIGHT (Sight of Evil) opens a window on ground you have not seen, cast at its centre: while it is open (ACTIVE POWERS shows where, and until about when) the map, look and the enemy lists include what it uncovers, widening for a while, and when it closes that ground goes dark again. Once it has opened wide you are called at once (reason sight_open): the state's SIGHT OF EVIL section has the map of the area it uncovered and the other keepers' hearts, rooms, creatures, traps, doors and gold in it, and after it closes LAST SIGHT OF EVIL keeps that report (as it was then) until your next cast -- write down what matters. power_off(power) ends a lasting power early: POWER_CALL_TO_ARMS (your creatures go back to work), POWER_SIGHT, POWER_OBEY (Must Obey costs gold for as long as it runs) -- NOT_ACTIVE if it is not running. use_special(thing_id) uses a dungeon special box on your own land (SPECIAL BOX; CANNOT_REACH off it): a resurrect box needs kind + level of one of YOUR DEAD, a transfer box target_thing (the creature to take on to the next level). Loose gold (LOOSE GOLD) can be carried home with pick_up_and_drop(thing_ids: [...], to_room: <treasure room>) -- LOOSE GOLD gives the ids of every pile your hand can reach, already split into hand-sized trips, and the piles it cannot reach yet (on other keepers' land: claim the ground, or bridge to it, and they are yours to carry) -- and gold dropped on one of your creatures pays it. ENEMY TRAPS SEEN and ENEMY DOORS SEEN list other keepers' traps and doors you have seen (a hidden trap only once it is revealed): keep your creatures out of a trapped corridor, or send something expendable through first; HERO GATES are where heroes come into the level. send_message(message): at most 63 characters, one per 100 turns, and never a game command -- use it to coordinate with allied keepers (and the humans among them): short, concrete, e.g. "Attacking the hero fort from the east at turn 20000". CHAT shows what the players said; pick_up_and_drop(thing_id, pos) lifts one of your creatures with the hand and drops it at a subtile in one order -- the fastest way to move a creature, e.g. onto a fight at your heart (your hand must be empty; the spot must be one the hand may drop on: your own claimed floor or rooms, else CANNOT_DROP_HERE; if the pick does not take, nothing is dropped and the order reports PICK_UP_FAILED). A creature that lands in some of your rooms is given that room's job: one of your creatures dropped in your prison is jailed there (refused WOULD_IMPRISON unless you say imprison: true -- now and then worth it: one that dies there rises as a skeleton, and it holds an angry creature until it calms down), one dropped in your torture chamber goes on the rack (refused WOULD_TORTURE unless you say torture: true -- one that dies there rises as a ghost, and torturing one scares the others of its kind into working harder; a dark mistress enjoys the rack and needs no flag), and any creature dropped on your portal (ENTRANCE, anywhere on it, imps excepted) walks out of your dungeon for good (refused WOULD_DISMISS unless you say dismiss: true) -- dismissing is worth doing on purpose, e.g. at the creature limit to make room for stronger kinds (drop the flies or beetles you no longer want on the portal), never by accident; pick_up(thing_id) and drop(pos) also exist as separate orders, but a drop is checked against the hand when you send it, so it cannot go in the same batch as its pick_up; likewise every order is checked against the map when you send it, so a drop onto a room or bridge that an order in the same batch builds is refused CANNOT_DROP_HERE (a bridge goes up one slab per turn) -- send the drop at the next decision; move_creature(thing_id, pos) sends one of your creatures to a subtile (it abandons its work, walks there at creature speed, and holds there) and release_creature(thing_id) hands it back to its normal behaviour (NOT_HELD if it is not held, e.g. the game already handed it back: auto_released), so always release creatures you ordered once they have done their job. A held creature does not fight back on its own, so the game hands it back the moment an enemy attacks it (auto-released: attacked); still, release creatures you sent into danger once enemies are near rather than leaving them held. The game also hands an ordered creature back on its own after hold_turns (default a quarter of a pay day), before pay day, when it is owed pay or getting hungry, and refuses such orders up front (PAYDAY_TOO_CLOSE, OWED_PAY, HUNGRY); SEAT/auto_released in the state tells you which creatures came back. ATTACKING: a creature you hold does not fight, and your hand cannot drop on other keepers' land, so there are two ways to take a fight to an enemy. attack(thing_id, pos) sends one of your creatures to fight what is at pos: it walks there held (as move_creature, with the same refusals and hold_turns), and on arrival it is handed back fighting -- an enemy door beside the spot (it breaks it down), the enemy heart in sight, an enemy trap beside it, the enemy room the spot is in, or else the enemy creatures about (auto_released: attacking says it arrived). pos must be a spot it can walk to: beside a door rather than in it, next to the heart, on a room's floor; an enemy door on the way blocks the walk (CANNOT_REACH), so attack the door first. NOTHING_TO_ATTACK if none of those is at pos. Call to Arms is the other: cast POWER_CALL_TO_ARMS where your creatures are and it calls those within its range (ACTIVE POWERS shows it; overcharge for a wider one), then cast it again on the target and the banner moves there, every creature it already called following it however far; at the banner they do the same as attack does. It costs gold for as long as it runs, so power_off it once the job is done. The cost of every order is checked when it starts, so do not queue more than you can pay for -- if unsure, check_orders validates a batch (the same checks a real submit would run, including cost) without spending it. Orders you send now run one after another; earlier orders still running delay them. If an order goes stale it is dropped and reported under LAST ORDERS.
 
 Research is done by your creatures in a library; RESEARCH in the state names what is being worked on right now, its progress, and what is queued behind it, or says DONE when nothing is left to research and STALLED when something is but nobody is researching it (no library, or no creature working in it), and UNLOCKED lists what has already finished. A finished library still matters: its shelves hold the spellbooks of every spell you researched (RESEARCH counts them), and a book that loses its shelf takes its spell away. Build only rooms, traps and doors listed in UNLOCKED. Creatures: the state gives your army by kind and level, and the first time you own a kind you are shown its profile (jobs, how it fights, pay, hunger, abilities): use it to decide who fights, who works and what to train. Each of your creatures keeps the same name (e.g. "Orc #3") for its whole life, shown with its level, health and current activity (in plain words, not the engine's internal code) and, if relevant, why it might be misbehaving (angry, and why: not_paid, hungry, no_lair, other; or fleeing a fight). Orders that take a creature accept `name` in place of `thing_id` -- either works, and the id stays listed too if you would rather use that. Imps (and the heroes' tunnellers) are workers: they dig, claim, mine gold and carry bodies, prisoners and crates, and barely fight -- judge a fight by ARMY's fighters and fighter score (the game's own worth of each creature, scaled by the health it has left), and keep imps out of battles. set_tendency(kind: imprison|flee, enabled): imprison on makes enemies your creatures knock out get carried to your prison instead of killed -- prisoners are a resource -- and it can only be switched on while you own a prison (NO_PRISON otherwise; without a prison your creatures simply kill); a knocked-out creature that is not carried off eventually wakes and goes back to what it was doing. flee on makes badly hurt creatures leave a fight to heal, which keeps them alive and levelled but can lose a fight if too many leave at once; off makes them fight to the death, sometimes right when defending the heart, usually not. set_alliance(ally_player, enabled) declares (or withdraws) an alliance with another keeper -- one-way, like the human alliance button; it only actually shares vision/stops friendly fire once the other side declares back too, which ALLIANCE in the state shows (declared vs mutual).
 
-OBJECTIVE in the state is the level's win condition as the level states it: plan around it. Events carry the text the event box shows; information events are the level talking to you, so read them. When the level is won or lost the decision says so (victory / defeat) and no further orders are taken. Room efficiency (0-100%, ROOMS) scales what a room produces and how much it holds, and its health: each edge of a room scores best against more of the same room, your own reinforced wall or your own door, half as well against natural earth or rock, and nothing when it opens onto a corridor or another room -- so build compact, roughly square rooms, walled in, with doors at the entrances; 'open sides' lists the edges costing you efficiency ((x,y)N/E/S/W: that slab's side). Prisoners (with imprison on, knocked-out enemies are carried to your prison) are a resource: keep them alive to withhold them from their keeper (drop chickens from your hatchery in the prison, or cast POWER_HEAL_CREATURE on them); leave them unfed and a humanoid one that starves rises for you (on_death says as what); or carry them to the torture chamber, where once broken (roughly the kind's break time on the rack, longer in a less efficient chamber) each one may reveal its keeper's map (interrogated, again and again) or join you -- heal them now and then, since the rack hurts them; one that dies on the rack rises for you too. The hand carries prisoners and chickens like your own creatures: pick_up_and_drop(thing_ids: [...], to_room: <room id>) moves up to the hand's limit in one order. A prisoner dropped anywhere but your prison or torture chamber goes free, so that is refused unless you say release: true; a room with no space left turns prisoners away free too (ROOM_FULL), and each torture victim needs a free device. Graveyard: imps carry bodies there to rot, and every so many rotted bodies (GRAVEYARD shows the count) raise a vampire for you, so fights near your dungeon feed it. Temple: creatures in it pray, which calms their anger and cures bad spells on them (disease, chicken...); a creature dropped into the temple pool is sacrificed (prisoners too), and when the offerings match a recipe (listed once you own a temple, exact; get_recipes lists them again) it fires -- a new creature, a boon or a curse on all your creatures, or a special effect. A pool drop must say sacrifice: true (else WOULD_SACRIFICE); to_room: <temple id> without it drops the creature beside the pool to pray. Play to grow a strong dungeon: claim and dig, build treasure room, lair, hatchery, training room and library in that spirit, keep creatures fed and paid, defend the heart, and be ready for events. STANDING ORDERS: you think every few seconds, but a fight is often decided in less. The game can carry out standing orders for you every couple of turns: set_combat_rules (or apply_combat_preset to start from guardian, striker or miser) -- e.g. heal one of your fighters under 35% health while gold after wages stays over 2000, speed your fighters when force_ratio says a fight is going badly, chicken a strong enemy on your ground, switch Call to Arms off before it empties the treasury. They cost the normal price; a reserve, budgets and cooldowns keep them in check. The STANDING ORDERS section shows each rule by your name for it, what it did since your last decision and why one is held back; reasons assist_budget, assist_reserve and assist_gold_guard call you when one hits a limit. Review them as the game changes (stronger enemies, more gold, higher-level creatures) -- they are yours to rewrite at any decision. Answer by calling submit_orders once, with at most ~8 orders. An empty list is a valid answer when waiting is best. You may call look first to see a window of the map, or check_orders first to validate a batch without spending it. If you are clearly behind on thinking time, set_game_speed can slow the whole game down for everyone watching, not just you -- use it sparingly. In a game no human plays a keeper in (a campaign or scenario you play alone), the game is yours to pause: such a level, and a save of it when loaded (reason reloaded), starts PAUSED so you can look it over first -- the objective, the map (look), your first orders -- and only runs once you set_pause(paused: false); pause again (set_pause(paused: true)) whenever a decision needs longer thought, or run a few turns at a time with set_pause(paused: false, turns: N). Nothing moves while paused, and orders you send wait for the game to run. With a human playing, pausing is refused (HUMAN_PLAYING). get_log_tail shows the game's own recent log if something is confusing and you want to see what actually happened."""
+OBJECTIVE in the state is the level's win condition as the level states it: plan around it. Events carry the text the event box shows; information events are the level talking to you, so read them. When the level is won or lost the decision says so (victory / defeat) and no further orders are taken. Room efficiency (0-100%, ROOMS) scales what a room produces and how much it holds, and its health: each edge of a room scores best against more of the same room, your own reinforced wall or your own door, half as well against natural earth or rock, and nothing when it opens onto a corridor or another room -- so build compact, roughly square rooms, walled in, with doors at the entrances; 'open sides' lists the edges costing you efficiency ((x,y)N/E/S/W: that slab's side). Prisoners (with imprison on, knocked-out enemies are carried to your prison) are a resource: keep them alive to withhold them from their keeper (drop chickens from your hatchery in the prison, or cast POWER_HEAL_CREATURE on them); leave them unfed and a humanoid one that starves rises for you (on_death says as what); or carry them to the torture chamber, where once broken (roughly the kind's break time on the rack, longer in a less efficient chamber) each one may reveal its keeper's map (interrogated, again and again) or join you -- heal them now and then, since the rack hurts them; one that dies on the rack rises for you too. The hand carries prisoners and chickens like your own creatures: pick_up_and_drop(thing_ids: [...], to_room: <room id>) moves up to the hand's limit in one order. A prisoner dropped anywhere but your prison or torture chamber goes free, so that is refused unless you say release: true; a room with no space left turns prisoners away free too (ROOM_FULL), and each torture victim needs a free device. Graveyard: imps carry bodies there to rot, and every so many rotted bodies (GRAVEYARD shows the count) raise a vampire for you, so fights near your dungeon feed it. Temple: creatures in it pray, which calms their anger and cures bad spells on them (disease, chicken...); a creature dropped into the temple pool is sacrificed (prisoners too), and when the offerings match a recipe (listed once you own a temple, exact; get_recipes lists them again) it fires -- a new creature, a boon or a curse on all your creatures, or a special effect. A pool drop must say sacrifice: true (else WOULD_SACRIFICE); to_room: <temple id> without it drops the creature beside the pool to pray. Play to grow a strong dungeon: claim and dig, build treasure room, lair, hatchery, training room and library in that spirit, keep creatures fed and paid, defend the heart, and be ready for events. STANDING ORDERS: you think every few seconds, but a fight is often decided in less. The game can carry out standing orders for you every couple of turns: set_combat_rules (or apply_combat_preset to start from guardian, striker or miser) -- e.g. heal one of your fighters under 35% health while gold after wages stays over 2000, speed your fighters when force_ratio says a fight is going badly, chicken a strong enemy on your ground, switch Call to Arms off before it empties the treasury. They cost the normal price; a reserve, budgets, cooldowns and a cap on what the whole set may spend in a pay day (max_spend; casting rules sent with no cap get 5000, the presets bring their own) keep them in check. The STANDING ORDERS section shows each rule by your name for it, what it did since your last decision and why one is held back; reasons assist_budget (a rule's budget or the cap is spent), assist_reserve and assist_gold_guard call you when one hits a limit. Review them as the game changes (stronger enemies, more gold, higher-level creatures) -- they are yours to rewrite at any decision. FLASH DECISIONS: an urgent decision (severity 1, combat: a fight, an intruder, ground or a room lost, an alarm; severity 0, critical: your heart attacked) comes as a short FLASH DECISION instead of the full state: the spot, who is there on both sides, the imps at risk, your powers and a map of the spot. Answer it at once, without look, with at most 4 orders that matter in the next few seconds, or [] -- every second you take the fight goes on without you; status(full=true) gives the full state if you really need it. Where you may pause (no human keeper, or LLM Pause), the game also stops for each urgent decision until you answer it (THE GAME IS PAUSED FOR YOUR ANSWER; at most a minute): answer it all the same, since every other urgent thing waits with it. While you are thinking about any decision, an urgent one that comes in is announced on every other tool reply (ALERT) and handed to you in submit_orders' reply (next_decision): answer that next. Faster than any reply are standing orders (set_combat_rules), which the game carries out within a couple of turns. URGENT ORDERS AND CONTINGENCIES: an order with priority "now" goes ahead of every routine one (a long build, dig or sell in progress is cut and resumes after it) and expires after 200 turns; cancel takes one order (id) or a lane's waiting orders (lane). Standing orders also have HAND RULES (set_combat_rules, "hand" instead of "power"), carried out by the game with your hand within a couple of turns: evacuate_diggers lifts your imps near an enemy to a safe spot ("to", a subtile: best a pocket of your floor they cannot walk out of, since imps run back to an attacked heart); lift_wounded lifts your fighters under 35% health out of a fight (to "to", else a lair) when no heal rule of yours can heal them now; reinforce drops healthy fighters from elsewhere beside a fight you are losing or matching, each at least min_match % of the strongest enemy's force there, and only if they would turn it. Store a second set of standing orders in a bank (set_combat_rules bank=N, label) and switch to it in one packet (use_combat_bank) when a fight starts. Above all, write TRIGGERS on a calm decision (set_triggers, or apply_trigger_preset evacuate_imps / lift_wounded / reinforce_heart, after set_rally_points names a safe spot away from where enemies go -- imps run back to defend an attacked heart, so a safe spot for imps is a pocket of your floor they cannot walk out of): the bridge sends their orders the moment the game reports what they are for -- an intruder at your gold field, a fight, your heart attacked -- with no reply of yours in between, within a couple of turns where any reply takes hundreds. TRIGGERS in the state says what they did. Answer by calling submit_orders once, with at most ~8 orders. An empty list is a valid answer when waiting is best. You may call look first to see a window of the map, or check_orders first to validate a batch without spending it. If you are clearly behind on thinking time, set_game_speed can slow the whole game down for everyone watching, not just you -- use it sparingly. In a game no human plays a keeper in (a campaign or scenario you play alone), the game is yours to pause: such a level, and a save of it when loaded (reason reloaded), starts PAUSED so you can look it over first -- the objective, the map (look), your first orders -- and only runs once you set_pause(paused: false); pause again (set_pause(paused: true)) whenever a decision needs longer thought, or run a few turns at a time with set_pause(paused: false, turns: N). Nothing moves while paused, and orders you send wait for the game to run. With a human playing, pausing is refused (HUMAN_PLAYING) unless the view says can_pause. get_log_tail shows the game's own recent log if something is confusing and you want to see what actually happened."""
 
 # Shared between prompt.TOOLS (submit_orders, this file's Anthropic tool-use loop) and mcp_server.py's own
 # submit_orders/check_orders tool schemas (MCP's inputSchema, not Anthropic's input_schema) -- one place names every
 # order field, so the two surfaces cannot drift apart on what an order may contain.
 ORDER_ITEM_PROPERTIES = {
     "verb": {"type": "string", "enum": ["build_room", "mark_dig", "sell", "place_trap", "place_door", "cast_power",
-                                          "slap", "pick_up", "drop", "pick_up_and_drop", "move_creature", "release_creature",
+                                          "slap", "pick_up", "drop", "pick_up_and_drop", "move_creature", "release_creature", "attack",
                                           "set_tendency", "set_alliance", "cancel", "unmark_dig", "set_door_lock", "power_off",
                                           "use_special", "send_message"]},
     "kind": {"type": "string", "description": "room, trap or door code name (TREASURE, BOULDER, WOOD...), or imprison/flee for set_tendency"},
@@ -28,7 +29,7 @@ ORDER_ITEM_PROPERTIES = {
     "thing_id": {"type": "integer"},
     "overcharge_turns": {"type": "integer", "minimum": 0, "maximum": 32},
     "enabled": {"type": "boolean", "description": "set_tendency / set_alliance: turn it on or off"},
-    "hold_turns": {"type": "integer", "minimum": 0, "description": "move_creature: release automatically after this many turns (0 = default)"},
+    "hold_turns": {"type": "integer", "minimum": 0, "description": "move_creature / attack: release automatically after this many turns (0 = default)"},
     "ally_player": {"type": "integer", "description": "set_alliance: the other keeper's player number"},
     "name": {"type": "string", "description": "a creature's assigned name (from the CREATURES list, e.g. 'Orc #3'), in place of thing_id"},
     "thing_ids": {"type": "array", "items": {"type": "integer"}, "minItems": 1, "maxItems": 16,
@@ -45,6 +46,10 @@ ORDER_ITEM_PROPERTIES = {
     "level": {"type": "integer", "minimum": 1, "description": "use_special on a resurrect box: the dead creature's level (with kind)"},
     "target_thing": {"type": "integer", "description": "use_special on a transfer box: the creature to transfer"},
     "message": {"type": "string", "maxLength": 63, "description": "send_message: a short chat message to every player"},
+    "priority": {"type": "string", "enum": ["now", "routine"],
+                 "description": "now: the urgent lane -- it runs ahead of every routine order, cutting a long build, dig or sell (which resumes after it), and expires after 200 turns; the default in a flash decision"},
+    "id": {"type": "integer", "description": "cancel: just this order (its id from LAST ORDERS or submit_orders' reply)"},
+    "lane": {"type": "string", "enum": ["now", "routine"], "description": "cancel: every order still waiting in this lane"},
 }
 ORDER_ITEM_REQUIRED = ["verb"]
 
@@ -78,7 +83,9 @@ TOOLS = [
 ]
 
 ORDER_FIELDS = ("verb", "kind", "power", "slab_rect", "pos", "thing_id", "overcharge_turns", "hold_turns", "enabled", "ally_player",
-                "thing_ids", "to_room", "release", "sacrifice", "imprison", "torture", "dismiss", "lose_spells", "direction", "level", "target_thing", "message")
+                "thing_ids", "to_room", "release", "sacrifice", "imprison", "torture", "dismiss", "lose_spells", "direction", "level", "target_thing", "message",
+                "priority", "id", "lane")
+NOW_MAX_AGE_TURNS = 200   # an urgent order expires sooner: a late urgent order is usually worse than none
 
 
 # record_debrief's fields, shared by the MCP tool (mcp_server.py) and the direct-API policy's debrief call.
@@ -96,6 +103,10 @@ def order_to_request(order, seat, view_turn, max_age_turns, memory=None):
     """A model order -> the submit_action request (queued, expiring). `name` (a creature's assigned name) is resolved to
     thing_id via `memory` when the order gives a name and no explicit thing_id; an unresolvable name is left out, so the
     real submit answers with its own MISSING_THING rather than this silently sending nothing."""
+    if isinstance(order.get("max_age_turns"), int):
+        max_age_turns = order["max_age_turns"]
+    elif order.get("priority") == "now":
+        max_age_turns = min(max_age_turns, NOW_MAX_AGE_TURNS)
     req = {"action": "submit_action", "player": seat, "queue": True, "view_turn": view_turn, "max_age_turns": max_age_turns}
     for k in ORDER_FIELDS:
         if k in order and order[k] is not None:
@@ -127,7 +138,24 @@ def _fmt_results(view):
     res = view["seat"].get("results", [])
     if not res:
         return "none yet"
-    return "; ".join("#%d %s%s" % (r["id"], r["status"], (" " + r["error"]) if r.get("error") else "") for r in res[-10:])
+    return "; ".join("#%d %s%s%s%s" % (r["id"], r["status"], (" " + r["error"]) if r.get("error") else "",
+                                       " (urgent)" if r.get("lane") == "now" else "",
+                                       (" (cut %dx for urgent orders, resumed)" % r["suspended"]) if r.get("suspended") else "")
+                     for r in res[-10:])
+
+
+def _fmt_queue(view):
+    """The queue in a few words: what runs, what waits urgent and routine (seat.queue), or just the count."""
+    q = view["seat"].get("queue")
+    if not q:
+        return "%d" % view["seat"].get("queued_verbs", 0)
+    run = q.get("running")
+    parts = ["running #%d%s" % (run["id"], " (urgent)" if run.get("lane") == "now" else "") if run else "nothing running"]
+    if q.get("now"):
+        parts.append("urgent waiting " + " ".join("#%d" % e["id"] for e in q["now"]))
+    if q.get("routine"):
+        parts.append("routine waiting " + " ".join("#%d%s" % (e["id"], " (cut, resumes)" if e.get("suspended") else "") for e in q["routine"]))
+    return ", ".join(parts)
 
 
 def _map_news(state):
@@ -164,9 +192,15 @@ def _prettify_state(code):
 
 
 def _fmt_creatures(lst, memory=None, limit=40):
+    """One line per creature for the first `limit`; the rest still by name, id and level, grouped by kind (an id an order
+    needs is never hidden behind "... and N more")."""
     out = []
+
+    def name_of(c):
+        return memory.name_for(c["id"], c["kind"], c.get("born")) if memory is not None else "%s #%d" % (c["kind"].title(), c["id"])
+
     for c in lst[:limit]:
-        name = memory.name_for(c["id"], c["kind"], c.get("born")) if memory is not None else "%s #%d" % (c["kind"].title(), c["id"])
+        name = name_of(c)
         tags = []
         if c.get("digger"):
             tags.append("imp")
@@ -178,7 +212,11 @@ def _fmt_creatures(lst, memory=None, limit=40):
         out.append("  %s (id %d, %s L%d, hp%d): %s%s at (%d,%d)" % (
             name, c["id"], c["kind"], c["level"], c["health"], _prettify_state(c["state"]), tagstr, c["pos"][0], c["pos"][1]))
     if len(lst) > limit:
-        out.append("  ... and %d more" % (len(lst) - limit))
+        by_kind = {}
+        for c in lst[limit:]:
+            by_kind.setdefault(c["kind"], []).append("%s (id %d, L%d)" % (name_of(c), c["id"], c["level"]))
+        out.append("  and %d more: %s" % (len(lst) - limit, "; ".join(
+            "%s: %s" % (k, ", ".join(v)) for k, v in sorted(by_kind.items()))))
     return out
 
 
@@ -217,12 +255,118 @@ def render_for_agent(state, memory, reasons=None, first=False, note=None, experi
         memory.note_live(state.view["own"].get("creatures", []))
     fresh = memory.new_kinds(sorted(info)) if memory is not None else []
     text = render_state(state, first=first, reasons=reasons, fresh_kinds=fresh, memory=memory)
+    if hasattr(state, "mark_rendered"):
+        state.mark_rendered()   # the next decision's NEW EVENTS / MAP CHANGES start from here
     prefix = (memory.render() + "\n\n") if memory is not None else ""
     if experience:
         prefix += experience + "\n\n"
     if note:
         prefix = note + "\n\n" + prefix
     return prefix + text
+
+
+FLASH_RADIUS = 18      # subtiles (6 slabs) around a flash decision's place: who counts as "there"
+FLASH_CREATURES = 16   # lines of creatures on each side
+FLASH_ORDERS = 4
+
+
+def render_hold(view):
+    """A line when the game is held for this seat's answer (seat.decision.hold), else ""."""
+    h = (view["seat"].get("decision") or {}).get("hold")
+    if not h:
+        return ""
+    secs = int(h.get("ms_left", 0)) // 1000
+    if h.get("mode") == "pause":
+        return "THE GAME IS PAUSED FOR YOUR ANSWER (at most %d s more): submit_orders and it runs on" % secs
+    return "THE GAME IS SLOWED FOR YOUR ANSWER (%s turns a second, at most %d s more): submit_orders and it runs at its own pace" % (
+        view.get("turns_per_second", "?"), secs)
+
+
+def flash_where(view, where=None):
+    """The place a flash decision is about (subtiles): the engine's `where`, else the first intruder, else the first
+    loss. None when nothing says."""
+    if where:
+        return list(where)
+    dec = view["seat"].get("decision") or {}
+    if dec.get("where"):
+        return list(dec["where"])
+    for c in (view["own"].get("intruders") or {}).get("creatures") or []:
+        return list(c["pos"])
+    for l in dec.get("losses") or []:
+        return list(l["pos"])
+    return None
+
+
+def render_flash(state, memory, reasons, severity, where=None, note=None):
+    """An urgent decision's text (severity <= 1: a fight, an intruder, a loss, an alarm; docs/plans/llm-bridge-realtime.md
+    Phase 2): what happened and where, who is there on both sides, the imps at risk, what the hand and the powers can do
+    now, the standing orders and a map of the spot -- about 1-2 KB against the full state's 8-20, so it is read and
+    answered fast. The plan shows as its first line only; `status(full=true)` gives the full state."""
+    from gamelink import SEVERITY_NAMES
+    v = state.view
+    seat, own, vis = v["seat"], v["own"], v["visible"]
+    if memory is not None:
+        memory.note_live(own.get("creatures", []))
+    here = flash_where(v, where)
+
+    def dist(c):
+        return max(abs(c["pos"][0] - here[0]), abs(c["pos"][1] - here[1])) if here else 0
+
+    def near(c):
+        return here is None or (c.get("pos") and dist(c) <= FLASH_RADIUS)
+
+    lines = []
+    if note:
+        lines.append(note)
+    lines.append("FLASH DECISION (severity %d, %s) because: %s" % (severity, SEVERITY_NAMES.get(severity, "?"), ", ".join(reasons)))
+    if render_hold(v):
+        lines.append(render_hold(v))
+    lines.append("TURN %d%s | gold %s | orders: %s" % (v["turn"], _paused_text(v), own["gold"], _fmt_queue(v)))
+    if here:
+        lines.append("WHERE: subtile (%d,%d) = slab (%d,%d); \"near\" below is within %d subtiles of it" % (
+            here[0], here[1], here[0] // 3, here[1] // 3, FLASH_RADIUS))
+    if any(r in LOSS_REASONS for r in reasons):
+        ls = render_losses(seat.get("decision", {}).get("losses", []))
+        if ls:
+            lines.append(ls)
+    intr = render_intruders(own)
+    if intr:
+        lines.append(intr)
+    if state.last_diff is not None:
+        new_ev = state.last_diff.get("own", {}).get("events", {}).get("added", [])
+        if new_ev:
+            lines.append("NEW EVENTS: " + "; ".join(_fmt_event(e) for e in new_ev[-6:]))
+    enemies = sorted((c for c in vis["creatures"] if not c.get("ally") and near(c)), key=dist)
+    lines.append("ENEMIES NEAR (%d): %s" % (len(enemies), "; ".join(
+        "#%d %s%s owner %d hp%d at (%d,%d)" % (c["id"], c["kind"], (" L%d" % c["level"]) if c.get("level") else "", c["owner"],
+                                              c["health"], c["pos"][0], c["pos"][1]) for c in enemies[:FLASH_CREATURES]) or "none seen"))
+    mine = sorted((c for c in own["creatures"] if near(c)), key=dist)
+    lines.append("YOURS NEAR (%d of %d):" % (len(mine), len(own["creatures"])))
+    lines += _fmt_creatures(mine, memory=memory, limit=FLASH_CREATURES)
+    imps = [c["id"] for c in mine if c.get("digger")]
+    if imps:
+        lines.append("IMPS AT RISK (ids, nearest first): %s -- pick_up_and_drop(thing_ids, pos or to_room) lifts up to a hand's worth "
+                     "in one order; drop them away from the enemy's way (not where it is heading, often your heart)" % " ".join(map(str, imps)))
+    costs = own.get("power_costs", {})
+    lines.append("POWERS: " + (", ".join("%s %d" % (p.replace("POWER_", ""), costs[p][0]) if p in costs else p.replace("POWER_", "")
+                                         for p in own["powers"]) or "none"))
+    so = standing_orders.render(v, memory, memory._assist_seen if memory is not None else {})
+    lines += so[:6]
+    if memory is not None:
+        lines += triggers_mod.render(memory, memory._trig_seen)[:8]
+        memory._trig_seen = v.get("turn")
+    if here:
+        sx, sy = here[0] // 3, here[1] // 3
+        lines.append("MAP around it (slabs):")
+        lines.append(render_window(v, [sx - 4, sy - 4, sx + 4, sy + 4]))
+    plan = (memory.plan if memory is not None else "") or ""
+    lines.append("YOUR PLAN (first line; unchanged unless you send a new one): " + (_oneline(plan.splitlines()[0], 200) if plan.strip() else "(none)"))
+    lines.append("Answer NOW with submit_orders: at most %d orders, the ones that matter in the next few seconds (lift imps, drop "
+                 "fighters on your own ground beside the fight, cast), or [] to let your creatures and standing orders handle it. "
+                 "The full state, if you need it: status(full=true)." % FLASH_ORDERS)
+    if hasattr(state, "mark_rendered"):
+        state.mark_rendered()
+    return "\n".join(lines)
 
 
 def _fmt_room(r):
@@ -323,16 +467,26 @@ def render_loose_gold(lg, hand=8, max_trips=6):
     if ids is None:  # a game without the id list: example piles only
         return head + ", e.g. " + "; ".join("#%d %d at (%d,%d)%s" % (g["id"], g["gold"], g["pos"][0], g["pos"][1], "" if g.get("reachable") else " (out of reach)")
                                             for g in piles[:6])
+    far = [g for g in piles if not g.get("reachable")]
+    far_gold = lg["total"] - lg.get("reachable_gold", 0)
+    far_count = lg["count"] - lg.get("reachable_count", len(ids))
+    far_text = ""
+    if far_count > 0:
+        def land(g):
+            return (" on player %d's land" % g["land"]) if g.get("land", -1) >= 0 else ""
+        far_text = " | out of your hand's reach: %d pile(s), %d gold%s -- claim the ground they lie on (or bridge to it) to take them" % (
+            far_count, far_gold, (", largest " + "; ".join("#%d %d at (%d,%d)%s" % (g["id"], g["gold"], g["pos"][0], g["pos"][1], land(g))
+                                                            for g in far[:3])) if far else "")
     if not ids:
-        return head + "; none your hand can reach (not on your land)"
+        return head + "; none your hand can reach" + far_text
     biggest = "; ".join("#%d %d at (%d,%d)" % (g["id"], g["gold"], g["pos"][0], g["pos"][1]) for g in piles if g.get("reachable"))
     biggest = "; ".join(biggest.split("; ")[:3])
     hand = max(1, int(hand))
     trips = [ids[i:i + hand] for i in range(0, len(ids), hand)]
     shown = " ".join("[%s]" % ",".join(str(i) for i in t) for t in trips[:max_trips])
     more = "" if len(trips) <= max_trips else " +%d more pile(s) once these are home" % (len(ids) - hand * max_trips)
-    return "%s; %d in %d your hand can reach, largest %s | thing_ids by trip (to_room: a treasure room): %s%s" % (
-        head, lg.get("reachable_gold", 0), lg.get("reachable_count", len(ids)), biggest, shown, more)
+    return "%s; %d in %d your hand can reach, largest %s | thing_ids by trip (to_room: a treasure room): %s%s%s" % (
+        head, lg.get("reachable_gold", 0), lg.get("reachable_count", len(ids)), biggest, shown, more, far_text)
 
 
 def render_research(rs):
@@ -366,9 +520,10 @@ def render_placed_and_pickups(view):
     lines = []
     traps = own.get("traps") or []
     if traps:
-        lines.append("TRAPS: " + "; ".join("#%d %s at (%d,%d)%s" % (
+        lines.append("TRAPS: " + "; ".join("#%d %s at (%d,%d)%s%s" % (
             t["id"], t["kind"], t["pos"][0], t["pos"][1],
-            (" [slappable%s]" % (", give a direction" if t.get("aimed") else "")) if t.get("slappable") else " [not armed / spent]")
+            (" [slappable%s]" % (", give a direction" if t.get("aimed") else "")) if t.get("slappable") else " [not armed / spent]",
+            _charges(t))
             for t in traps[:20]))
     doors = own.get("doors") or []
     if doors:
@@ -377,7 +532,10 @@ def render_placed_and_pickups(view):
     ap = own.get("active_powers") or {}
     if ap:
         lines.append("ACTIVE POWERS (power_off ends one): " + ", ".join(
-            "%s%s" % (k, (" at (%d,%d)" % tuple(e["pos"])) if isinstance(e, dict) and e.get("pos") else "") for k, e in sorted(ap.items())))
+            "%s%s%s%s" % (k, (" at (%d,%d)" % tuple(e["pos"])) if isinstance(e, dict) and e.get("pos") else "",
+                          (" until about turn %d" % e["until_turn"]) if isinstance(e, dict) and e.get("until_turn") else "",
+                          (", calling creatures within %d subtiles" % e["range"]) if isinstance(e, dict) and e.get("range") else "")
+            for k, e in sorted(ap.items())))
     for b in own.get("specials", []):
         lines.append("SPECIAL BOX #%d %s at (%d,%d)%s" % (b["id"], b["kind"], b["pos"][0], b["pos"][1],
                                                         "" if b.get("reachable") else " (not on your land: your hand cannot reach it)"))
@@ -406,11 +564,29 @@ def _oneline(text, limit=400):
     return t if len(t) <= limit else t[:limit - 3] + "..."
 
 
+# What the event panel's problem markers mean, said as a human hears them (these events carry no text of their own).
+EVENT_HINTS = {
+    "creature_hungry": "creatures are hungry and find no food: food is scarce, enlarge the hatchery (or build one, or open a way to it)",
+    "treasure_room_full": "the treasure rooms are full: new gold has nowhere to go -- build more treasure room",
+    "need_treasure_room": "you have no treasure room: gold has nowhere to go",
+    "creature_annoyed": "a creature is annoyed (CREATURES shows who and why)",
+    "no_more_living_set": "no lair space left: build more lair",
+    "work_room_unreachable": "creatures cannot reach a room they work in",
+    "storage_room_unreachable": "creatures cannot reach a storage room (treasure, hatchery, library...)",
+    "enemy_door": "an enemy door blocks your creatures",
+    "creature_scavenged": "an enemy scavenged one of your creatures away",
+    "secret_door_spotted": "an enemy secret door was spotted",
+}
+
+
 def _fmt_event(e):
-    """An event marker as the event box would read to a human: its text when it has one, else kind and target."""
+    """An event marker as the event box would read to a human: its text when it has one, else kind and target (and what
+    a problem marker means)."""
     where = "at (%d,%d)" % (e["pos"][0], e["pos"][1])
     if e.get("text"):
         return '%s %s: "%s"' % (e["kind"], where, _oneline(e["text"], 240))
+    if e["kind"] in EVENT_HINTS:
+        return "%s: %s" % (e["kind"], EVENT_HINTS[e["kind"]])
     return "%s %s target %s" % (e["kind"], where, e["target"])
 
 
@@ -443,6 +619,176 @@ def _paused_text(v):
     return " (paused)"
 
 
+LOSS_REASONS = ("room_captured", "room_destroyed", "ground_lost")
+
+
+def _charges(t):
+    """A trap's shots as the state says them: "3/12 charges", "unlimited", "EMPTY (needs re-arming)"."""
+    if "charges" not in t:
+        return ""
+    if t["charges"] < 0:
+        return ", unlimited"
+    if t["charges"] == 0:
+        return ", EMPTY (needs re-arming)"
+    return ", %d%s charge%s%s" % (t["charges"], ("/%d" % t["max_charges"]) if t.get("max_charges", -1) > 0 else "",
+                                  "" if t["charges"] == 1 else "s", ", re-arming" if t.get("rearming") else "")
+
+
+def render_seen_defences(vis):
+    """Other keepers' traps and doors the seat can see (a hidden trap only once revealed), and the hero gates it has
+    found -- where heroes come into the level."""
+    lines = []
+    def whose(t):
+        return " of player %d%s" % (t["owner"], " (ally)" if t.get("ally") else "") if t.get("owner") is not None else ""
+    traps = vis.get("traps") or []
+    if traps:
+        lines.append("ENEMY TRAPS SEEN (%d): %s%s" % (len(traps), "; ".join(
+            "#%d %s%s at (%d,%d)%s" % (t["id"], t["kind"], whose(t), t["pos"][0], t["pos"][1], _charges(t)) for t in traps[:20]),
+            "; +%d more" % (len(traps) - 20) if len(traps) > 20 else ""))
+    doors = vis.get("doors") or []
+    if doors:
+        lines.append("ENEMY DOORS SEEN (%d): %s%s" % (len(doors), "; ".join(
+            "#%d %s%s%s at (%d,%d)" % (d["id"], d["kind"], " LOCKED" if d.get("locked") else "", whose(d), d["pos"][0], d["pos"][1])
+            for d in doors[:20]), "; +%d more" % (len(doors) - 20) if len(doors) > 20 else ""))
+    gates = vis.get("hero_gates") or []
+    if gates:
+        lines.append("HERO GATES (heroes come into the level here): " + "; ".join(
+            "gate %d at (%d,%d)" % (g["number"], g["pos"][0], g["pos"][1]) for g in gates))
+    return lines
+
+
+def _sight_lines(view, s):
+    """The SIGHT OF EVIL section for an open sight (own.active_powers.POWER_SIGHT): the map of the area it opened and
+    the other keepers' things there."""
+    x0, y0, x1, y1 = s["slab_rect"]
+    pos = s.get("pos") or [0, 0]
+    lines = ["SIGHT OF EVIL at (%d,%d), open until about turn %s: it uncovered slabs x %d-%d, y %d-%d; that ground goes dark "
+             "again when it closes, so note what matters:" % (pos[0], pos[1], s.get("until_turn", "?"), x0, x1, y0, y1)]
+    lines += ["  " + ln for ln in render_window(view, s["slab_rect"]).split("\n")[:-1]]   # the window, without its legend
+    who = lambda o: "player %d" % o
+    found = []
+    if s.get("hearts"):
+        found.append("hearts: " + "; ".join("%s's at (%d,%d), health %d" % (who(h["owner"]), h["pos"][0], h["pos"][1], h["health"]) for h in s["hearts"]))
+    if s.get("rooms"):
+        found.append("rooms: " + "; ".join("#%d %s of %s (%d slabs in sight)" % (r["id"], r["kind"], who(r["owner"]), r["slabs"]) for r in s["rooms"]))
+    if s.get("creatures"):
+        more = s.get("creatures_not_listed", 0)
+        found.append("creatures: " + "; ".join("#%d %s L%d of %s at (%d,%d)" % (c["id"], c["kind"], c["level"], who(c["owner"]), c["pos"][0], c["pos"][1])
+                                               for c in s["creatures"]) + ("; and %d more" % more if more else ""))
+    if s.get("traps"):
+        found.append("traps: " + "; ".join("#%d %s of %s at (%d,%d)" % (t["id"], t["kind"], who(t["owner"]), t["pos"][0], t["pos"][1]) for t in s["traps"]))
+    if s.get("doors"):
+        found.append("doors: " + "; ".join("#%d %s of %s at (%d,%d)%s" % (d["id"], d["kind"], who(d["owner"]), d["pos"][0], d["pos"][1], " LOCKED" if d.get("locked") else "")
+                                           for d in s["doors"]))
+    gold = [g for g in ("%d loose" % s["loose_gold"] if s.get("loose_gold") else "",
+                        "%d in other keepers' treasure rooms" % s["stored_gold"] if s.get("stored_gold") else "",
+                        "%d gold/gem slabs" % s["gold_slabs"] if s.get("gold_slabs") else "") if g]
+    if gold:
+        found.append("gold: " + ", ".join(gold))
+    return lines + ["  " + f for f in (found or ["nothing of other keepers' in it"])]
+
+
+def render_sight(view, memory=None):
+    """SIGHT OF EVIL while a sight is open; once it has closed (its ground dark again), LAST SIGHT OF EVIL, the report as it
+    last was, kept in the game's memory until the next cast."""
+    s = ((view.get("own") or {}).get("active_powers") or {}).get("POWER_SIGHT")
+    if s and s.get("slab_rect"):
+        lines = _sight_lines(view, s)
+        if memory is not None:
+            memory.last_sight = {"turn": view.get("turn"), "lines": lines[1:]}
+        return lines
+    ls = getattr(memory, "last_sight", None) if memory is not None else None
+    if ls:
+        return ["LAST SIGHT OF EVIL (as it was at turn %s; that ground is dark again):" % ls["turn"]] + ls["lines"]
+    return []
+
+
+def render_intruders(own):
+    """Enemy creatures standing on your ground right now (own.intruders), the first few by id, kind, level and owner."""
+    inn = own.get("intruders") or {}
+    if not inn.get("count"):
+        return ""
+    shown = inn.get("creatures", [])[:8]
+    more = inn["count"] - len(shown)
+    return "INTRUDERS on your ground: %d -- %s%s" % (inn["count"], "; ".join(
+        "#%d %s L%d of player %d at (%d,%d)" % (c["id"], c["kind"], c["level"], c["owner"], c["pos"][0], c["pos"][1]) for c in shown),
+        "; +%d more" % more if more > 0 else "")
+
+
+def render_losses(losses):
+    """What this decision's room_captured / room_destroyed / ground_lost were about, one clause per kind of loss."""
+    parts = []
+    for l in losses:
+        what = l.get("what")
+        where = "first at (%d,%d), turn %d" % (l["pos"][0], l["pos"][1], l.get("turn", 0))
+        by = (" by player %d" % l["by"]) if l.get("by") is not None else ""
+        if what == "room_captured":
+            parts.append("%s: %d slab(s) captured%s, %s" % (l.get("room", "room"), l["slabs"], by, where))
+        elif what == "room_destroyed":
+            parts.append("%s: %d slab(s) destroyed, %s" % (l.get("room", "room"), l["slabs"], where))
+        elif what == "ground_captured":
+            parts.append("%d slab(s) of your floor/walls claimed%s, %s" % (l["slabs"], by, where))
+        else:
+            parts.append("%d slab(s) of your floor/walls neutralised or dug through (an enemy claiming, or a breach), %s" % (l["slabs"], where))
+    return ("LOSSES since your last decision: " + "; ".join(parts)) if parts else ""
+
+
+def _delta(now, before):
+    if now is None or before is None:
+        return ""
+    d = now - before
+    return " (=)" if d == 0 else " (%+d)" % d
+
+
+def render_payday_report(checkpoints, turn):
+    """On the decision a pay day's checkpoint was taken at (experience.observe), this pay day against the last: fighters
+    and fighter score (and their trend over up to 3 pay days) against the enemy fighter score in sight, ground, room
+    slabs by kind (the ones that changed), lair places, creatures against the portal limit, gold; then plain warnings
+    (losing ground, falling behind, lair full, at the creature limit)."""
+    cps = [c for c in (checkpoints or []) if isinstance(c, dict)]
+    if len(cps) < 2 or cps[-1].get("turn") != turn:
+        return ""
+    now, last = cps[-1], cps[-2]
+    old = cps[-4] if len(cps) >= 4 else None
+    bits = ["fighters %s%s" % (now.get("fighters"), _delta(now.get("fighters"), last.get("fighters"))),
+            "fighter score %s%s%s" % (now.get("score"), _delta(now.get("score"), last.get("score")),
+                                      (", 3 pay days ago %s" % old.get("score")) if old and old.get("score") is not None else ""),
+            "enemy fighter score in sight %s%s" % (now.get("enemy_score"), _delta(now.get("enemy_score"), last.get("enemy_score")))]
+    lines = ["PAYDAY REPORT (vs the last pay day, turn %s): %s" % (last.get("turn"), ", ".join(bits))]
+    second = []
+    if now.get("area") is not None:
+        second.append("ground %d slabs%s" % (now["area"], _delta(now["area"], last.get("area"))))
+    rs_now, rs_last = now.get("room_slabs") or {}, last.get("room_slabs") or {}
+    changed = ["%s %d%s" % (k, rs_now.get(k, 0), _delta(rs_now.get(k, 0), rs_last.get(k, 0)))
+               for k in sorted(set(rs_now) | set(rs_last)) if rs_now.get(k, 0) != rs_last.get(k, 0)]
+    if rs_now:
+        second.append("room slabs %d%s%s" % (sum(rs_now.values()), _delta(sum(rs_now.values()), sum(rs_last.values()) if rs_last else None),
+                                             (": " + ", ".join(changed)) if changed else ""))
+    lair = now.get("lair")
+    if lair:
+        second.append("lair %d/%d places (%d free)" % (lair[0], lair[1], lair[1] - lair[0]))
+    lim = now.get("limit")
+    if lim:
+        second.append("creatures %d of the portal's limit %d" % (lim[0], lim[1]))
+    second.append("gold %s%s" % (now.get("gold"), _delta(now.get("gold"), last.get("gold"))))
+    lines.append("  " + " | ".join(second))
+    warn = []
+    lost_ground = (now.get("area") is not None and last.get("area") is not None and now["area"] < last["area"])
+    lost_rooms = rs_last and sum(rs_now.values()) < sum(rs_last.values())
+    if lost_ground or lost_rooms:
+        warn.append("you are LOSING GROUND")
+    if (now.get("score") is not None and last.get("score") is not None and now["score"] < last["score"]
+            and (now.get("enemy_score") or 0) > (last.get("enemy_score") or 0)):
+        warn.append("your fighters are weakening while the enemy you see grows")
+    if lair and lair[1] - lair[0] <= 1:
+        warn.append("the LAIR is full: creatures without a place get angry and new ones will not stay -- build more lair")
+    if lim and lim[1] > 0 and lim[0] >= lim[1]:
+        warn.append("you are at the creature limit: no more come through the portal (dismiss weak ones to make room)")
+    if warn:
+        lines.append("  WARNING: " + "; ".join(warn))
+    return "\n".join(lines)
+
+
 def render_state(state, first=False, reasons=None, fresh_kinds=None, memory=None):
     """Compact text of the current view. `first` adds the whole known map; `reasons` is why the decision is due;
     `fresh_kinds` are creature kinds to show a profile for (first time the agent owns them); `memory` (if given) names
@@ -453,12 +799,25 @@ def render_state(state, first=False, reasons=None, fresh_kinds=None, memory=None
     lines = ["TURN %d%s | victory: %s | gold %s | pay day: quarter %d of 4 (next quarter in ~%s turns, pay day in ~%s)" % (
         v["turn"], _paused_text(v), seat["victory_state"], own["gold"], pd.get("quarter", 0) + 1,
         pd.get("turns_to_next_quarter", "?"), pd.get("turns_to_payday", "?"))]
-    lines.append("SEAT player %d | orders waiting: %d | LAST ORDERS: %s" % (seat["player"], seat.get("queued_verbs", 0), _fmt_results(v)))
+    lines.append("SEAT player %d | orders: %s | LAST ORDERS: %s" % (seat["player"], _fmt_queue(v), _fmt_results(v)))
     if seat.get("ordered_creatures") or seat.get("auto_released"):
         lines.append("ORDERED CREATURES held: %d | handed back automatically: %s" % (seat.get("ordered_creatures", 0), "; ".join(
             "#%d %s @%d" % (a["id"], a["reason"], a["turn"]) for a in seat.get("auto_released", [])) or "none"))
+    if render_hold(v):
+        lines.insert(0, render_hold(v))
     if reasons:
         lines.insert(0, "DECISION DUE because: " + ", ".join(reasons))
+        if any(r in LOSS_REASONS for r in reasons):
+            ls = render_losses(seat.get("decision", {}).get("losses", []))
+            if ls:
+                lines.insert(1, ls)
+    intr = render_intruders(own)
+    if intr:
+        lines.insert(1 if reasons else 0, intr)
+    if memory is not None:
+        report = render_payday_report(memory.checkpoints, v.get("turn"))
+        if report:
+            lines.insert(1 if reasons else 0, report)
     lv = v.get("level") or {}
     if first and lv.get("name"):
         lines.append("LEVEL %s: %s%s" % (lv.get("number", "?"), lv["name"], (" -- " + _oneline(lv["description"])) if lv.get("description") else ""))
@@ -477,6 +836,7 @@ def render_state(state, first=False, reasons=None, fresh_kinds=None, memory=None
         lines.append("NEW EVENTS: " + ("; ".join(_fmt_event(e) for e in new_ev) or "none"))
     elif ev:
         lines.append("EVENTS: " + "; ".join(_fmt_event(e) for e in ev))
+    lines += render_sight(v, memory)
     lines.append("CREATURES (%d):" % len(own["creatures"]))
     lines += _fmt_creatures(own["creatures"], memory=memory)
     lines += render_rooms(own["rooms"])
@@ -487,6 +847,9 @@ def render_state(state, first=False, reasons=None, fresh_kinds=None, memory=None
     lines += render_placed_and_pickups(v)
     costs = own.get("power_costs", {})
     lines += standing_orders.render(v, memory, memory._assist_seen if memory is not None else {})
+    if memory is not None:
+        lines += triggers_mod.render(memory, memory._trig_seen)
+        memory._trig_seen = v.get("turn")
     lines.append("POWERS: " + (", ".join("%s (L0 %d, L2 %d)" % (p, costs[p][0], costs[p][2]) if p in costs else p for p in own["powers"]) or "none"))
     dig = "DIG MARKS: %d of %d" % (len(own["dig_marks"]), own["dig_marks_limit"])
     unreach = own.get("unreachable_dig_marks") or []
@@ -527,6 +890,7 @@ def render_state(state, first=False, reasons=None, fresh_kinds=None, memory=None
             lines.append("  #%d %s%s owner %d%s hp%d%s at (%d,%d)" % (
                 c["id"], c["kind"], (" L%d" % c["level"]) if c.get("level") else "", c["owner"], " (ally)" if c.get("ally") else "",
                 c["health"], " [digger]" if c.get("digger") else "", c["pos"][0], c["pos"][1]))
+    lines += render_seen_defences(vis)
     news = _map_news(state)
     if news:
         lines.append(news)

@@ -127,6 +127,15 @@ def main():
                                                 "experience_path": exp_path, "agent": "mcp-e2e"})
         check("connect reports the seat", ("player %d" % seat_player) in connected, connected)
 
+        # attack reaches the game by name (not UNKNOWN_VERB): sent at the seat's own floor, the game finds nothing of an
+        # enemy's there to fight.
+        cx, cy = 3 * room_rect[0] + 1, 3 * room_rect[1] + 1
+        probe_attack = json.loads(client.call_tool("check_orders", {"orders": [{"verb": "attack", "thing_id": wounded["id"], "pos": [cx, cy]}]}))
+        # (or by one of the creature-order refusals checked before it, should the creature be hungry or pay day near)
+        check("an attack on the seat's own floor is refused by the game: NOTHING_TO_ATTACK",
+              [f.get("error") for f in probe_attack.get("would_fail", [])] in (["NOTHING_TO_ATTACK"], ["HUNGRY"], ["OWED_PAY"], ["PAYDAY_TOO_CLOSE"], ["ALREADY_THERE"]),
+              probe_attack)
+
         # Standing orders (docs/newFeatures/llm/): the presets the game offers, then a rule of our own -- heal any of our
         # creatures under half health -- that the game carries out before the model has ordered anything.
         presets = json.loads(client.call_tool("apply_combat_preset"))
