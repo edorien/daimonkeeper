@@ -185,6 +185,7 @@ static const char *const golden_chunks[] = {
     // specials and powers
     "UseSpecialIncreaseLevel(PLAYER0)", "UseSpecialIncreaseLevel(PLAYER0, -1)",
     "UseSpecialMultiplyCreatures(PLAYER0, 1)", "UseSpecialTransferCreature(PLAYER0)",
+    "UseSpecialStealHero(PLAYER0, 1)",
     "UsePower(PLAYER0, 'POWER_OBEY', true)",
     "UsePowerAtLocation(PLAYER0, 1, 'POWER_LIGHTNING', 1, true)",
     "UsePowerAtPos(PLAYER0, 40, 40, 'POWER_CAVE_IN', 1, true)",

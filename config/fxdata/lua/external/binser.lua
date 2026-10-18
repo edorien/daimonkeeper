@@ -192,7 +192,7 @@ local function number_from_str(str, index)
         if m == 0 then
             n = sign * huge
         else
-            n = 0
+            n = 0 / 0 -- NaN (upstream #5430; read back as 0 before)
         end
     else
         n = sign * (1.0 + m / 2 ^ 52) * 2 ^ (e - 0x3FF)
@@ -363,7 +363,7 @@ local function newbinser()
             accum[#accum + 1] = "\208"
             accum[#accum + 1] = number_to_str(visited[x])
         else
-            if check_custom_type(x, visited, #accum) then return end
+            if check_custom_type(x, visited, accum) then return end
             error("Cannot serialize this cdata.")
         end
     end

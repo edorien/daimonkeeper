@@ -14,6 +14,7 @@
 #include "config_players.h" // player_desc[], PLAYER0
 
 #include <cstring>
+#include <string>
 
 TEST_CASE("get_coord_encoded_location packs subtile x/y (masked to 12 bits) and the MLoc_COORDS type tag", "[kfx_sim][map_locations]") {
     TbMapLocation loc = get_coord_encoded_location(100, 200);
@@ -70,4 +71,27 @@ TEST_CASE("get_map_location_code_name falls back to INVALID for an unhandled loc
     TbMapLocation loc = MLoc_THING; // no case in the switch produces a name for this type
     CHECK_FALSE(get_map_location_code_name(loc, name));
     CHECK(std::strcmp(name, "INVALID") == 0);
+}
+
+// COMBAT[...]-style locations name their player in brackets: a player name (PLAYER1) or, since upstream #5444, a
+// colour (BLUE), as objective targets already allowed. The bracket text used to be copied into a 64-byte stack
+// buffer with its terminator written at the bracket length, past the buffer for a longer name (a level script
+// or Lua location string can be up to 4096 bytes).
+TEST_CASE("get_map_location_id_f: COMBAT[...] takes a player name or a colour", "[kfx_sim][map_locations]") {
+    TbMapLocation by_name = MLoc_NONE;
+    TbMapLocation by_colour = MLoc_NONE;
+    REQUIRE(get_map_location_id_f("COMBAT[PLAYER1]", &by_name, "test", 0));
+    REQUIRE(get_map_location_id_f("COMBAT[BLUE]", &by_colour, "test", 0));
+    CHECK(by_colour == by_name);
+    CHECK(get_map_location_type(by_name) == MLoc_METALOCATION);
+}
+
+TEST_CASE("get_map_location_id_f: a COMBAT[...] name longer than the name buffer is refused, not overflowed", "[kfx_sim][map_locations]") {
+    std::string locname = "COMBAT[" + std::string(300, 'X') + "]";
+    TbMapLocation location = 1;
+    CHECK_FALSE(get_map_location_id_f(locname.c_str(), &location, "test", 0));
+    CHECK(location == MLoc_NONE);
+    // A long bracket that starts with a real name is still not that name (the copy is cut, not matched)
+    locname = "COMBAT[PLAYER1" + std::string(300, ' ') + "]";
+    CHECK_FALSE(get_map_location_id_f(locname.c_str(), &location, "test", 0));
 }

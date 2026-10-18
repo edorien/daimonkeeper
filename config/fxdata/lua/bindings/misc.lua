@@ -3,6 +3,9 @@
 ---Returns the game's timestamp, in host's local time.
 ---This timestamp is guaranteed to be set on game start and load. It is also set at other times, "occasionally."
 -- Together with the turn number, you can get an estimate of the (host's) *current* time in a way that is consistent on multiplayer and on replays.
+-- In a multiplayer game and while a replay is recorded or played back, os.time, os.date and os.clock follow this clock too:
+-- os.time() is this timestamp plus the game time since it was taken (20 turns a second), os.date uses the host's time zone,
+-- and os.clock() is the game time since turn 0. Otherwise they are the computer's own clock.
 ---@return GameTimestamp|nil timestamp nil if the host couldn't read its clock
 function GetGameTimestamp() end
 

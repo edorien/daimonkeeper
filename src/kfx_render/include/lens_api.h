@@ -66,6 +66,8 @@ void LensManager_Draw(void* mgr, TbPixel* srcbuf, TbPixel* dstbuf,
 TbBool LensManager_RegisterCustomLens(void* mgr, const char* name, void* effect);
 void* LensManager_GetCustomLens(void* mgr, const char* name);
 TbBool LensManager_SetLensByName(void* mgr, const char* name);
+/** Deletes the custom lenses of a Lua state before it is closed; returns how many. */
+int64_t LensManager_ForgetLuaState(void* mgr, const void* lua_state);
 
 // LUA lens effect creation
 void* LuaLensEffect_Create(const char* name, void* lua_state);

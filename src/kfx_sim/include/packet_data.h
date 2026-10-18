@@ -415,6 +415,11 @@ enum TbPacketControl {
 
 #define PCtr_HeartHealthShift 28
 #define PCtr_HeartHealthMask  (0x7u << PCtr_HeartHealthShift)
+/** Bit 31: this user's dig tags come only as PckA_ApplyRoomspaceDigTag actions (its client predicts them: a network
+ *  game with input lag, kfx_render's roomspace_prediction.c), so the game doesn't also tag from the held button at
+ *  the packet's lagged cursor -- which dug where a creature had been under the hand when it was clicked (upstream
+ *  #5466 makes every client tag this way; here the External seats still tag through the held button). */
+#define PCtr_DigTagsAsActions 0x80000000u
 
 /** Heart health cheat keys, as packet bits (PCtr_HeartHealthMask). */
 enum PacketHeartHealthStep {

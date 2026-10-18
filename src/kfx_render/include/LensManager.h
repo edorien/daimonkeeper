@@ -84,6 +84,8 @@ public:
     LensEffect* GetCustomLens(const char* name);
     TbBool SetLensByName(const char* name);
     const char* GetActiveCustomLensName() const;
+    /** Deletes the custom lenses made by a Lua state that is about to be closed; returns how many. */
+    int64_t ForgetLuaState(const void* lua_state);
     
     // State query
     TbBool IsReady() const { return m_initialized; }

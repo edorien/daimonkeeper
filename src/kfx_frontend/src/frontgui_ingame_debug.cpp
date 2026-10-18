@@ -22,7 +22,7 @@
 #include "bflib_datetm.h"          // frametime_measurements, debug_display_frametime, stutter_detection_*
 #include "bflib_basics.h"          // consoleLogArray / consoleLogArraySize / debug_display_consolelog
 #include "bflib_enet.h"            // GetPing / GetPacketLoss / rate getters
-#include "net_input_lag.h"         // input_lag_get_stats, INPUT_LAG_INCREASE_SAMPLE_MS
+#include "net_input_lag.h"         // input_lag_get_stats, INPUT_LAG_DECREASE_WINDOW_TURNS
 #include "net_exchange_gameplay.h" // multiplayer_speed_adjustment_ns
 #include "vidmode.h"               // MyScreenWidth / MyScreenHeight
 
@@ -299,8 +299,8 @@ void draw_network_stats_overlay(void)
         const uint64_t ping = GetPing(my_player_number, my_player_number);
         const uint64_t in_kb10 = (GetDownloadRateBytesPerSecond() * 10) / 1024;
         const uint64_t out_kb10 = (GetUploadRateBytesPerSecond() * 10) / 1024;
-        int64_t inc_wait, inc_turn, dec_wait, dec_sample;
-        input_lag_get_stats(&inc_wait, &inc_turn, &dec_wait, &dec_sample);
+        struct InputLagStats lag;
+        input_lag_get_stats(&lag);
         int64_t turn_ns = 0;
         if (kfx_sim_state.turns_per_second > 0)
         {
@@ -309,9 +309,18 @@ void draw_network_stats_overlay(void)
         }
         ImGui::Text("Full ping: %" PRIu64 "ms", (uint64_t)(ping));
         ImGui::Text("Half ping: %" PRIu64 "ms", (uint64_t)(ping / 2));
-        ImGui::Text("Input lag: %" PRId64, (int64_t)(kfx_net_state.input_lag_turns));
-        ImGui::Text("Packet wait increase: %" PRId64 "/%" PRId64 "ms in %" PRId64 "ms", (int64_t)(inc_wait), (int64_t)(inc_turn), (int64_t)(INPUT_LAG_INCREASE_SAMPLE_MS));
-        ImGui::Text("Packet wait decrease: %" PRId64 "/%" PRId64 "ms", (int64_t)(dec_wait), (int64_t)(dec_sample));
+        const int64_t lag_turns = kfx_net_state.input_lag_turns;
+        const int64_t lag_ms = lag_turns * turn_ns / 1000000;
+        if (lag.target != lag_turns)
+            ImGui::Text("Input lag: %" PRId64 " turns (%" PRId64 "ms) -> %" PRId64, lag_turns, lag_ms, lag.target);
+        else
+            ImGui::Text("Input lag: %" PRId64 " turns (%" PRId64 "ms)", lag_turns, lag_ms);
+        ImGui::Text("Packets arrive in: %" PRId64 "ms", lag.packet_delay);
+        ImGui::Text("Raise lag to: %" PRId64 " turns", lag.increase_level);
+        if (lag.sample_count >= INPUT_LAG_DECREASE_WINDOW_TURNS)
+            ImGui::Text("Lower lag to: %" PRId64 " turns", lag.decrease_level);
+        else
+            ImGui::Text("Lower lag to: collecting %" PRId64 "%%", lag.sample_count * 100 / INPUT_LAG_DECREASE_WINDOW_TURNS);
         ImGui::Text("Download: %" PRIu64 ".%" PRIu64 " KB/s", (uint64_t)(in_kb10 / 10), (uint64_t)(in_kb10 % 10));
         ImGui::Text("Upload: %" PRIu64 ".%" PRIu64 " KB/s", (uint64_t)(out_kb10 / 10), (uint64_t)(out_kb10 % 10));
         ImGui::Text("Congestion: %" PRIu64 " bytes", (uint64_t)(GetClientDataInTransit()));

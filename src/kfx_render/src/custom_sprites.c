@@ -57,6 +57,8 @@ static int64_t next_free_icon = 0;
 struct TbSpriteSheet * gui_panel_sprites = NULL;
 struct TbSpriteSheet * custom_sprites = NULL;
 
+_Static_assert((SIM_KEEPERSPRITE_ADD_OFFSET == KEEPERSPRITE_ADD_OFFSET) && (SIM_KEEPERSPRITE_ADD_NUM == KEEPERSPRITE_ADD_NUM),
+    "kfx_sim's and kfx_render's custom sprite ranges must agree");
 int64_t td_to_fp_sprite_add[KEEPERSPRITE_ADD_NUM];
 int64_t fp_to_td_sprite_add[KEEPERSPRITE_ADD_NUM];
 
@@ -260,7 +262,7 @@ static int64_t load_file_sprites(const char *path, const char *file_desc, uint64
         }
         if (add_flag & CLF_Ensigns)
         {
-            JUSTLOG("Loaded custom ensign definitions from %s", file_desc);
+            SYNCDBG(8,"Loaded custom ensign definitions from %s", file_desc);
         }
         else
         {

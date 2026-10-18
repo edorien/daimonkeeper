@@ -1048,11 +1048,8 @@ void draw_network_stats()
     uint64_t lost_packet_count = GetClientPacketsLost();
     uint64_t outgoing_rate_kb10 = (GetUploadRateBytesPerSecond() * 10) / 1024;
     uint64_t incoming_rate_kb10 = (GetDownloadRateBytesPerSecond() * 10) / 1024;
-    int64_t increase_wait_time;
-    int64_t increase_turn_time;
-    int64_t decrease_wait_time;
-    int64_t decrease_sample_time;
-    input_lag_get_stats(&increase_wait_time, &increase_turn_time, &decrease_wait_time, &decrease_sample_time);
+    struct InputLagStats input_lag_stats;
+    input_lag_get_stats(&input_lag_stats);
     int64_t turn_length_ns = 0;
     if (kfx_sim_state.turns_per_second > 0) {
         turn_length_ns = 1000000000 / kfx_sim_state.turns_per_second;
@@ -1061,39 +1058,50 @@ void draw_network_stats()
             turn_length_ns = 0;
         }
     }
+    int64_t input_lag_ms = kfx_net_state.input_lag_turns * turn_length_ns / 1000000;
+    int64_t line = 0;
 
     snprintf(text, sizeof(text), "Full ping: %" PRIu64 "ms", (uint64_t)(ping));
-    LbTextDrawResized(0, 0, tx_units_per_px, text);
+    LbTextDrawResized(0, tx_units_per_px * line++, tx_units_per_px, text);
     snprintf(text, sizeof(text), "Half ping: %" PRIu64 "ms", (uint64_t)(half_ping));
-    LbTextDrawResized(0, tx_units_per_px, tx_units_per_px, text);
-    snprintf(text, sizeof(text), "Input lag: %" PRId64, (int64_t)(kfx_net_state.input_lag_turns));
-    LbTextDrawResized(0, tx_units_per_px * 2, tx_units_per_px, text);
-    snprintf(text, sizeof(text), "Packet wait increase: %" PRId64 "/%" PRId64 "ms in %" PRId64 "ms", (int64_t)(increase_wait_time),
-        (int64_t)(increase_turn_time), (int64_t)(INPUT_LAG_INCREASE_SAMPLE_MS));
-    LbTextDrawResized(0, tx_units_per_px * 3, tx_units_per_px, text);
-    snprintf(text, sizeof(text), "Packet wait decrease: %" PRId64 "/%" PRId64 "ms", (int64_t)(decrease_wait_time), (int64_t)(decrease_sample_time));
-    LbTextDrawResized(0, tx_units_per_px * 4, tx_units_per_px, text);
+    LbTextDrawResized(0, tx_units_per_px * line++, tx_units_per_px, text);
+    if (input_lag_stats.target != kfx_net_state.input_lag_turns) {
+        snprintf(text, sizeof(text), "Input lag: %" PRId64 " turns (%" PRId64 "ms) -> %" PRId64, (int64_t)(kfx_net_state.input_lag_turns), input_lag_ms, input_lag_stats.target);
+    } else {
+        snprintf(text, sizeof(text), "Input lag: %" PRId64 " turns (%" PRId64 "ms)", (int64_t)(kfx_net_state.input_lag_turns), input_lag_ms);
+    }
+    LbTextDrawResized(0, tx_units_per_px * line++, tx_units_per_px, text);
+    snprintf(text, sizeof(text), "Packets arrive in: %" PRId64 "ms", input_lag_stats.packet_delay);
+    LbTextDrawResized(0, tx_units_per_px * line++, tx_units_per_px, text);
+    snprintf(text, sizeof(text), "Raise lag to: %" PRId64 " turns", input_lag_stats.increase_level);
+    LbTextDrawResized(0, tx_units_per_px * line++, tx_units_per_px, text);
+    if (input_lag_stats.sample_count >= INPUT_LAG_DECREASE_WINDOW_TURNS) {
+        snprintf(text, sizeof(text), "Lower lag to: %" PRId64 " turns", input_lag_stats.decrease_level);
+    } else {
+        snprintf(text, sizeof(text), "Lower lag to: collecting %" PRId64 "%%", input_lag_stats.sample_count * 100 / INPUT_LAG_DECREASE_WINDOW_TURNS);
+    }
+    LbTextDrawResized(0, tx_units_per_px * line++, tx_units_per_px, text);
     snprintf(text, sizeof(text), "Download: %" PRIu64 ".%" PRIu64 " KB/s",
         (uint64_t)(incoming_rate_kb10 / 10), (uint64_t)(incoming_rate_kb10 % 10));
-    LbTextDrawResized(0, tx_units_per_px * 5, tx_units_per_px, text);
+    LbTextDrawResized(0, tx_units_per_px * line++, tx_units_per_px, text);
     snprintf(text, sizeof(text), "Upload: %" PRIu64 ".%" PRIu64 " KB/s",
         (uint64_t)(outgoing_rate_kb10 / 10), (uint64_t)(outgoing_rate_kb10 % 10));
-    LbTextDrawResized(0, tx_units_per_px * 6, tx_units_per_px, text);
+    LbTextDrawResized(0, tx_units_per_px * line++, tx_units_per_px, text);
     snprintf(text, sizeof(text), "Congestion: %" PRIu64 " bytes", (uint64_t)(transit));
-    LbTextDrawResized(0, tx_units_per_px * 7, tx_units_per_px, text);
+    LbTextDrawResized(0, tx_units_per_px * line++, tx_units_per_px, text);
     snprintf(text, sizeof(text), "Loss rate: %" PRIu64 "%%", (uint64_t)(packet_loss_percent));
-    LbTextDrawResized(0, tx_units_per_px * 8, tx_units_per_px, text);
+    LbTextDrawResized(0, tx_units_per_px * line++, tx_units_per_px, text);
     snprintf(text, sizeof(text), "Lost packets: %" PRIu64, (uint64_t)(lost_packet_count));
-    LbTextDrawResized(0, tx_units_per_px * 9, tx_units_per_px, text);
+    LbTextDrawResized(0, tx_units_per_px * line++, tx_units_per_px, text);
     snprintf(text, sizeof(text), "Stutter: %" PRId64 "ms", (int64_t)(stutter_detection_current));
-    LbTextDrawResized(0, tx_units_per_px * 10, tx_units_per_px, text);
+    LbTextDrawResized(0, tx_units_per_px * line++, tx_units_per_px, text);
     snprintf(text, sizeof(text), "Average stutter: %" PRId64 "ms", (int64_t)(stutter_detection_average));
-    LbTextDrawResized(0, tx_units_per_px * 11, tx_units_per_px, text);
+    LbTextDrawResized(0, tx_units_per_px * line++, tx_units_per_px, text);
     snprintf(text, sizeof(text), "Max stutter: %" PRId64 "ms", (int64_t)(stutter_detection_max));
-    LbTextDrawResized(0, tx_units_per_px * 12, tx_units_per_px, text);
+    LbTextDrawResized(0, tx_units_per_px * line++, tx_units_per_px, text);
     snprintf(text, sizeof(text), "Turn length: %" PRId64, (int64_t)(turn_length_ns));
-    LbTextDrawResized(0, tx_units_per_px * 13, tx_units_per_px, text);
+    LbTextDrawResized(0, tx_units_per_px * line++, tx_units_per_px, text);
     snprintf(text, sizeof(text), "Gameturn: %" PRIu64, (uint64_t)(get_gameturn()));
-    LbTextDrawResized(0, tx_units_per_px * 14, tx_units_per_px, text);
+    LbTextDrawResized(0, tx_units_per_px * line++, tx_units_per_px, text);
 }
 /******************************************************************************/

@@ -69,6 +69,8 @@ public:
     void SetDrawCallback(int64_t lua_ref);
     
     const std::string& GetLensName() const { return m_lens_name; }
+    /** The Lua state the draw callback lives in. */
+    lua_State* GetLuaState() const { return m_lua_state; }
     
 private:
     // LUA callback invocation

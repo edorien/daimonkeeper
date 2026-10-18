@@ -122,6 +122,7 @@ struct SlabObj {
   ThingClass class_id;
   ThingModel model; //for lights this is intencity
   unsigned char range; //radius for lights / range for effect generators
+  int64_t orientation; // the object's move_angle_xy (upstream #5458's "Orientation"; masked to a circle when placed)
 };
 #pragma pack()
 

@@ -86,6 +86,13 @@ TbBool is_onscreen_msg_visible(void)
     return (render_onscreen_msg_time > 0.0);
 }
 
+/** Takes the on-screen message down at once (a new level starts without the last one's: upstream #5460). */
+void clear_onscreen_msg(void)
+{
+    render_onscreen_msg_time = 0.0;
+    onscreen_msg_text[0] = '\0';
+}
+
 TbBool show_onscreen_msg(int64_t nturns, const char *fmt_str, ...)
 {
     va_list val;

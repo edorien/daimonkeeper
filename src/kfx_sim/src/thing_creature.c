@@ -67,6 +67,7 @@
 #include "room_entrance.h"
 #include "room_graveyard.h"
 #include "room_jobs.h"
+#include "room_lair.h"
 #include "room_library.h"
 #include "room_list.h"
 #include "spdigger_stack.h"
@@ -7470,7 +7471,7 @@ struct Thing *grow_up_creature(struct Thing *thing, ThingModel grow_up_model, Cr
          && (lairroom->owner == newtng->owner)
          && room_role_matches(lairroom->kind, get_room_role_for_job(Job_TAKE_SLEEP))
          && room_has_enough_free_capacity_for_creature_job(lairroom, newtng, Job_TAKE_SLEEP)
-         && thing_is_invalid(find_creature_lair_totem_at_subtile(lairpos.x.stl.num, lairpos.y.stl.num, 0)))
+         && thing_is_invalid(find_lair_totem_at(lairpos.x.stl.num, lairpos.y.stl.num)))
         {
             creature_place_lair_totem(newtng, lairroom, &lairpos);
         }

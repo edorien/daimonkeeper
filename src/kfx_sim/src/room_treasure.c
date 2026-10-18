@@ -135,47 +135,35 @@ struct Thing *treasure_room_eats_gold_piles(struct Room *room, MapSlabCoord slb_
 
 void count_gold_hoardes_in_room(struct Room *room)
 {
-    GoldAmount all_gold_amount = 0;
-    int64_t all_wealth_size = 0;
     // (a treasure room whose slabs are all gone, or a rule that makes no sizes, divides by nothing: found by the Lua API fuzzer)
     if ((room->slabs_count <= 0) || (get_wealth_size_types_count() <= 0))
         return;
     int64_t wealth_size_holds = kfx_config_state.conf.rules[room->owner].gameplay.gold_per_hoard / get_wealth_size_types_count();
     GoldAmount max_hoard_size_in_room = wealth_size_holds * room->total_capacity / room->slabs_count;
-    // First, set the values to something big; this will prevent logging warnings on add/remove_gold_from_hoarde()
-    room->used_capacity = room->total_capacity;
-    room->capacity_used_for_storage = room->used_capacity * wealth_size_holds;
+    // Count from nothing: each hoard is added as found, before it changes; add/remove_gold_from_hoarde() and a new
+    // hoard keep the totals from then on (upstream #5431: starting at the room's capacity made several oversized
+    // hoards log a used capacity below their own size)
+    room->used_capacity = 0;
+    room->capacity_used_for_storage = 0;
     FOR_EACH_ROOM_SLAB(slb_num, room_slab_walk_from(room->slabs_list, kfx_sim_state.map_tiles_x * kfx_sim_state.map_tiles_y))
     {
         MapSlabCoord slb_x = slb_num_decode_x(slb_num);
         MapSlabCoord slb_y = slb_num_decode_y(slb_num);
         struct Thing* gldtng = find_gold_hoarde_at(slab_subtile_center(slb_x), slab_subtile_center(slb_y));
-        GoldAmount gold_amount;
+        if (!thing_is_invalid(gldtng))
+        {
+            room->used_capacity += get_wealth_size_of_gold_amount(gldtng->valuable.gold_stored);
+            room->capacity_used_for_storage += gldtng->valuable.gold_stored;
+        }
         if (!thing_is_invalid(gldtng) && (gldtng->valuable.gold_stored > max_hoard_size_in_room))
         {
-            struct Coord3d pos;
-            pos.x.val = gldtng->mappos.x.val;
-            pos.y.val = gldtng->mappos.y.val;
-            pos.z.val = gldtng->mappos.z.val;
-            int64_t drop_amount = remove_gold_from_hoarde(gldtng, room, gldtng->valuable.gold_stored - max_hoard_size_in_room);
+            struct Coord3d pos = gldtng->mappos;
+            GoldAmount drop_amount = remove_gold_from_hoarde(gldtng, room, gldtng->valuable.gold_stored - max_hoard_size_in_room);
             drop_gold_pile(drop_amount, &pos);
-            gold_amount = gldtng->valuable.gold_stored;
         } else
         {
-            gldtng = treasure_room_eats_gold_piles(room, slb_x, slb_y, gldtng);
-            if (!thing_is_invalid(gldtng))
-            {
-                gold_amount = gldtng->valuable.gold_stored;
-            } else {
-                gold_amount = 0;
-            }
-        }
-        if (gold_amount > 0) {
-            all_gold_amount += gold_amount;
-            all_wealth_size += get_wealth_size_of_gold_amount(gold_amount);
+            treasure_room_eats_gold_piles(room, slb_x, slb_y, gldtng);
         }
     }
-    room->capacity_used_for_storage = all_gold_amount;
-    room->used_capacity = all_wealth_size;
 }
 /******************************************************************************/

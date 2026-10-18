@@ -90,3 +90,22 @@ TEST_CASE_METHOD(AnimateResyncFixture, "animate_resync_progress_bar is a no-op w
     animate_resync_progress_bar(1, 4);
     CHECK(g_captured_max_progress == -1);
 }
+
+// The turn clock's phase, the fast-forward and the GUI's visibility are this machine's, kept across a resync or a
+// load that replaces the state blobs wholesale (upstream #5441); the other operation flags are the new state's.
+TEST_CASE("local_pacing_keep/restore keep this machine's pacing and GUI across a blob copy", "[kfx_net][net_resync]") {
+    kfx_net_state.process_turn_time = 0.25;
+    kfx_net_state.frame_skip = 8;
+    kfx_sim_state.operation_flags = GOF_ShowPanel;
+    const struct LocalPacingState kept = local_pacing_keep();
+    // the incoming blobs: the other machine's pacing, its GUI hidden, another flag set
+    kfx_net_state.process_turn_time = 0.75;
+    kfx_net_state.frame_skip = 0;
+    kfx_sim_state.operation_flags = GOF_ShowGui | GOF_Paused;
+    local_pacing_restore(&kept);
+    CHECK(kfx_net_state.process_turn_time == 0.25);
+    CHECK(kfx_net_state.frame_skip == 8);
+    CHECK((kfx_sim_state.operation_flags & GOF_ShowPanel) != 0);
+    CHECK((kfx_sim_state.operation_flags & GOF_ShowGui) == 0);
+    CHECK((kfx_sim_state.operation_flags & GOF_Paused) != 0);
+}

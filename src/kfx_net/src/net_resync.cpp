@@ -512,6 +512,22 @@ TbBool resync_config_state_acceptable(const char *data)
     return ok;
 }
 
+struct LocalPacingState local_pacing_keep(void)
+{
+    struct LocalPacingState kept;
+    kept.process_turn_time = kfx_net_state.process_turn_time;
+    kept.frame_skip = kfx_net_state.frame_skip;
+    kept.gui_flags = kfx_sim_state.operation_flags & (GOF_ShowGui | GOF_ShowPanel);
+    return kept;
+}
+
+void local_pacing_restore(const struct LocalPacingState *kept)
+{
+    kfx_net_state.process_turn_time = kept->process_turn_time;
+    kfx_net_state.frame_skip = kept->frame_skip;
+    kfx_sim_state.operation_flags = (unsigned char)((kfx_sim_state.operation_flags & ~(GOF_ShowGui | GOF_ShowPanel)) | kept->gui_flags);
+}
+
 static TbBool apply_resync_game_data(const char * full_resync_data, size_t full_resync_len)
 {
 
@@ -605,8 +621,10 @@ static TbBool apply_resync_game_data(const char * full_resync_data, size_t full_
         return false;
     }
 
+    const struct LocalPacingState pacing = local_pacing_keep();
     memcpy(&kfx_sim_state, kfx_sim_state_data, sizeof(kfx_sim_state));
     memcpy(&kfx_net_state, kfx_net_state_data, sizeof(kfx_net_state));
+    local_pacing_restore(&pacing);
     ariadne_saved_state_read(ariadne_state_data);
     memcpy(KFX_CONFIG_STATE_SAVED_PTR, config_state_data, KFX_CONFIG_STATE_SAVED_LEN);
     // the host's creature sound indices are its session's: this machine's custom sound banks may be laid out

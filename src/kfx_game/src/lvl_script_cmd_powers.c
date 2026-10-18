@@ -22,7 +22,9 @@
 #include "magic_powers.h"
 #include "player_availability.h"
 #include "list_walk.h"
-#include "lvl_script_commands_private.h"
+#include "map_locations.h"
+#include "thing_effects.h"
+#include "config_effects.h"
 #include "lvl_script_commands_private.h"
 #include "post_inc.h"
 
@@ -44,6 +46,66 @@ void special_transfer_creature_process(struct ScriptContext* context)
 void special_transfer_creature_check(const struct ScriptLine* scline)
 {
     command_add_value(Cmd_USE_SPECIAL_TRANSFER_CREATURE, scline->np[0],0,0,0);
+}
+
+void special_steal_hero_process(struct ScriptContext* context)
+{
+    struct PlayerInfo* player = get_player(context->player_idx);
+    TbMapLocation location = context->value->ulongs[0];
+    EffectOrEffElModel effct_id = context->value->longs[1];
+    struct Coord3d pos;
+    if (get_coords_at_location(&pos, location, false))
+    {
+        steal_hero(player, &pos);
+        if (effct_id != 0)
+        {
+            create_used_effect_or_element(&pos, effct_id, player->id_number, 0);
+        }
+    }
+}
+
+/** USE_SPECIAL_STEAL_HERO(player, location[, effect]): no effect named is the player's puff colour, none for a
+ *  player range (upstream #5422 indexes ball_puff_effects with the range unchecked). */
+void special_steal_hero_check(const struct ScriptLine* scline)
+{
+    ALLOCATE_SCRIPT_VALUE(scline->command, scline->np[0]);
+    TbMapLocation location;
+    if (!get_map_location_id(scline->tp[1], &location))
+    {
+        SCRPTWRNLOG("Invalid location: %s", scline->tp[1]);
+        DEALLOCATE_SCRIPT_VALUE
+        return;
+    }
+
+    const char* effect_name = scline->tp[2];
+    EffectOrEffElModel effct_id = 0;
+    if (scline->tp[2][0] != '\0')
+    {
+        if (parameter_is_number(effect_name) && atoi(effect_name) == 0)
+        {
+            effct_id = 0;
+        }
+        else
+        {
+            effct_id = effect_or_effect_element_id(effect_name);
+            if (effct_id == 0)
+            {
+                SCRPTERRLOG("Unrecognised effect: %s", effect_name);
+                DEALLOCATE_SCRIPT_VALUE
+                return;
+            }
+        }
+    }
+    else
+    {
+        const int64_t plyr_idx = scline->np[0];
+        effct_id = ((plyr_idx >= 0) && (plyr_idx < BALL_PUFF_EFFECTS_COUNT))
+            ? ball_puff_effects[plyr_idx] : 0;
+    }
+
+    value->ulongs[0] = location;
+    value->longs[1] = effct_id;
+    PROCESS_SCRIPT_VALUE(scline->command);
 }
 
 /** The USE_SPELL_ON_*CREATURE* checks' spell (mag_id, -1: unknown) and level: a spell of a keeper power has its level

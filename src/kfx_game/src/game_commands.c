@@ -131,7 +131,7 @@ void update_double_click_detection(NetUserId user)
 // keeper_build_room lives in kfx_sim's roomspace.c (declared in
 // roomspace.h) -- core room-building logic, not packet handling, and the
 // function actually called from packets_input.c's real input path is
-// keeper_build_roomspace() -> keeper_build_room() there. Upstream's
+// keeper_start_roomspace() -> keeper_build_room() there. Upstream's
 // version of this fix (#5229's UserState migration) was ported into that
 // real implementation instead of duplicating it here.
 TbBool process_dungeon_control_packet_spell_overcharge(NetUserId user)
@@ -265,11 +265,18 @@ struct GlobalActionHandler
 
 static TbBool global_apply_roomspace_dig_tag(const struct GlobalAction *ctx);
 
+/** Whether a player's quit is this machine's to act on: not while a replay plays, where my player is only the one
+ *  being watched and a recorded quit must neither save, nor open menus, nor close the program (upstream #5452). */
+static TbBool quit_is_this_machines(const struct PlayerInfo *player)
+{
+    return is_my_player(player) && !replay.load_enable;
+}
+
 /** PckA_QuitToMainMenu */
 static TbBool global_quit_to_main_menu(const struct GlobalAction *ctx)
 {
     struct PlayerInfo *player = ctx->player;
-    if (is_my_player(player))
+    if (quit_is_this_machines(player))
     {
       ui_turn_off_all_menus();
       ui_frontend_save_continue_game(true);
@@ -284,7 +291,7 @@ static TbBool global_quit_to_main_menu(const struct GlobalAction *ctx)
 static TbBool global_force_application_close(const struct GlobalAction *ctx)
 {
     struct PlayerInfo *player = ctx->player;
-    if (is_my_player(player))
+    if (quit_is_this_machines(player))
     {
       ui_turn_off_all_menus();
       ui_frontend_save_continue_game(true);

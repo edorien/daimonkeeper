@@ -512,6 +512,7 @@ static TbBool init_level(void)
     battle_initialise();
     ambient_sound_prepare();
     ui_zero_messages();
+    ui_clear_onscreen_msg();
     kfx_sim_state.armageddon_cast_turn = 0;
     kfx_sim_state.armageddon_over_turn = 0;
     audio_clear_sound_messages();

@@ -66,9 +66,10 @@
       counts as dead in battle)
   16: upstream #5383 -- timestamp, timestamp_tz, timestamp_turn (the host's clock, Lua's GetGameTimestamp)
   17: keeper_assist[] gained bank[] and active_bank (the combat assistant's rule banks, docs/plans/llm-bridge-realtime.md)
-  18: KeeperAssistRule gained the hand rules' fields (dest_x/dest_y, count, radius, min_match: Phase 5) */
-#define KFX_SIM_STATE_VER          18
-#define KFX_SIM_STATE_SIZE         139962125
+  18: KeeperAssistRule gained the hand rules' fields (dest_x/dest_y, count, radius, min_match: Phase 5)
+  19: upstream #5458 -- SlabObj gained orientation (slabset.toml's Orientation) */
+#define KFX_SIM_STATE_VER          19
+#define KFX_SIM_STATE_SIZE         139970317
 
 /* struct KfxNetState (kfx_net_state.h), SGC_KfxNetState
    2: S10 -- packet_load_enable, local_plyr_idx, human_players_count moved

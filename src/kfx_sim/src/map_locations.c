@@ -23,6 +23,7 @@
 #include "player_instances.h"
 #include "kfx_sim_state.h"
 #include "config_players.h"
+#include "config_campaigns.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -380,9 +381,16 @@ PlayerNumber get_player_name_from_location_string(const char* locname)
     }
 
     // Extract the player number string
-    strncpy(player_string, start, min(end - start, sizeof(player_string) - 1));
-    player_string[end - start] = '\0';
-    return get_rid(player_desc, player_string);
+    // dAImon Keeper: the terminator went at the bracket length, past the buffer for a longer name
+    size_t string_length = min((size_t)(end - start), sizeof(player_string) - 1);
+    strncpy(player_string, start, string_length);
+    player_string[string_length] = '\0';
+
+    // A colour (BLUE) as well as a player name (PLAYER1), as objective targets take (upstream #5444)
+    PlayerNumber plyr_idx = get_rid(player_desc, player_string);
+    if (plyr_idx < 0)
+        plyr_idx = get_rid(cmpgn_human_player_options, player_string);
+    return plyr_idx;
 }
 
 /**

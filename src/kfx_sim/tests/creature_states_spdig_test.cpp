@@ -141,3 +141,18 @@ TEST_CASE_METHOD(ResetSimAndConfig, "set_creature_being_dragged_by refuses when 
     creature_control_get(2)->dragtng_idx = 3; // carrier is already dragging `other`
     CHECK_FALSE(set_creature_being_dragged_by(draggedThing, carrier));
 }
+
+// An imp that no longer needs healing leaves CrSt_ImpToking for its continue_state, but toking is entered
+// through internal_set_thing_state(), which clears that: the imp was left in state 0 (upstream #5431 restarts it).
+TEST_CASE_METHOD(ResetSimAndConfig, "imp_toking: a healed imp goes back to its start state, not state 0", "[kfx_sim][creature_states_spdig]") {
+    make_player_active(0);
+    struct Thing *imp = make_creature(1, 1, 0);
+    kfx_config_state.conf.crtr_conf.model[0].evil_start_state = CrSt_ImpDoingNothing;
+    kfx_config_state.conf.crtr_conf.model[0].heal_threshold = 0;
+    creature_control_get_from_thing(imp)->max_health = 100;
+    imp->health = 100;
+    imp->active_state = CrSt_ImpToking;
+    imp->continue_state = CrSt_Unused;
+    imp_toking(imp);
+    CHECK(imp->active_state == CrSt_ImpDoingNothing);
+}

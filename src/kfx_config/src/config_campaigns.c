@@ -1167,7 +1167,10 @@ TbBool load_campaign(const char *cmpgn_fname,struct GameCampaign *campgn,int64_t
     snprintf(campgn->fname, DISKPATH_SIZE, "%s", cmpgn_fname);
     snprintf(campgn->name, DISKPATH_SIZE, "%s", cmpgn_fname);
     SYNCDBG(0,"%s campaign file \"%s\".",((flags & CnfLd_ListOnly) == 0)?"Reading":"Parsing",cmpgn_fname);
-    char* fname = prepare_file_path(fgroup, cmpgn_fname);
+    // Its own buffer: the shared static one is reused below (prepare_file_path(FGrp_CmpgConfig, NULL)) while
+    // fname is still passed on (upstream #5454)
+    char fname[FULLPATH_SIZE] = "";
+    prepare_file_path_buf(fname, sizeof(fname), fgroup, cmpgn_fname);
     int64_t len = LbFileLengthRnc(fname);
     if (len < 2)
     {

@@ -15,6 +15,7 @@ KFX_PORT_VOID(targeted_message_add, (char msg_type, PlayerNumber plyr_idx, Playe
 KFX_PORT_VOID(message_add_vfmt, (char msg_type, int64_t idx, const char *fmt_str, va_list ap), (msg_type, idx, fmt_str, ap))
 KFX_PORT_VOID(message_add, (char msg_type, int64_t idx, const char *msg), (msg_type, idx, msg))
 KFX_PORT_VOID(zero_messages, (void), ())
+KFX_PORT_VOID(clear_onscreen_msg, (void), ())
 KFX_PORT_VOID(show_real_time_taken, (void), ())
 KFX_PORT_VOID(set_room_type_highlighted, (char room_kind), (room_kind))
 KFX_PORT_VOID(set_visible_event_idx, (EventIndex evidx), (evidx))

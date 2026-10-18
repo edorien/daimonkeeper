@@ -145,34 +145,66 @@ static TbBool get_local_dig_prediction_roomspace(const struct Packet *pckt, stru
     return true;
 }
 
+/** What a packet this machine has sent changes for the build/sell box: the roomspace settings, and the work state and
+ *  room kind of a PckA_SetPlyrState (set without set_player_state(), whose other effects aren't the box's). On the
+ *  caller's saved-and-restored player and user state. */
+static void apply_packet_box_prediction(struct PlayerInfo *player, struct UserState *ustate, const struct Packet *pckt)
+{
+    apply_roomspace_packet_action(player, get_local_user(), pckt);
+    if (pckt->action == PckA_SetPlyrState) {
+        player->work_state = pckt->actn_par1;
+        if (player->work_state == PSt_BuildRoom) {
+            ustate->chosen_room_kind = pckt->actn_par2;
+        }
+    }
+}
+
+/** The build or sell box for the newest local packet, as the game will have it once every packet this machine has sent
+ *  but the game hasn't processed yet is (upstream #5466: only the newest one's roomspace action was applied, so a size,
+ *  mode or room chosen within the input lag showed late). */
 static TbBool update_predicted_build_or_sell_roomspace_preview(struct RoomSpace *roomspace, PlayerNumber plyr_idx, const struct Packet *pckt)
 {
     if (prevent_local_dig_prediction(pckt)) {
         return false;
     }
     struct PlayerInfo *player = get_player(plyr_idx);
-    if ((player->work_state != PSt_BuildRoom) && (player->work_state != PSt_Sell)) {
-        return false;
-    }
     struct Packet *direct_packet = get_local_packet();
     struct UserState *ustate = get_user_state(get_local_user());
     struct PlayerInfo saved_player = *player;
     struct UserState saved_ustate = *ustate;
     struct Packet saved_packet = *direct_packet;
-    *direct_packet = *pckt;
-    apply_roomspace_packet_action(player, get_local_user(), pckt);
-    MapSubtlCoord stl_x = coord_subtile(pckt->pos_x);
-    MapSubtlCoord stl_y = coord_subtile(pckt->pos_y);
-    if (player->work_state == PSt_BuildRoom) {
-        update_dungeon_build_roomspace_preview(get_local_user(), stl_x, stl_y);
-    } else {
-        update_dungeon_sell_roomspace_preview(get_local_user(), stl_x, stl_y);
+    for (int64_t i = local_dig_input_lag_turns - 1; i > 0; i--) {
+        const struct Packet *pending = netport_get_history_packet(get_local_user(), get_gameturn() - i);
+        if (pending != NULL) {
+            apply_packet_box_prediction(player, ustate, pending);
+        }
     }
-    *roomspace = player->render_roomspace;
+    apply_packet_box_prediction(player, ustate, pckt);
+    TbBool has_box = (player->work_state == PSt_BuildRoom) || (player->work_state == PSt_Sell);
+    if (has_box) {
+        *direct_packet = *pckt;
+        MapSubtlCoord stl_x = coord_subtile(pckt->pos_x);
+        MapSubtlCoord stl_y = coord_subtile(pckt->pos_y);
+        if (player->work_state == PSt_BuildRoom) {
+            update_dungeon_build_roomspace_preview(get_local_user(), stl_x, stl_y);
+        } else {
+            update_dungeon_sell_roomspace_preview(get_local_user(), stl_x, stl_y);
+        }
+        *roomspace = player->render_roomspace;
+    }
     *player = saved_player;
     *ustate = saved_ustate;
     *direct_packet = saved_packet;
-    return true;
+    return has_box;
+}
+
+/** Forgets the predicted dig tags and roomspace settings: the packet history they follow is starting over (a new game
+ *  or a resync; upstream #5466). */
+void reset_local_dig_prediction(void)
+{
+    memset(&local_dig_tag_prediction, 0, sizeof(local_dig_tag_prediction));
+    memset(&local_dig_roomspace_prediction, 0, sizeof(local_dig_roomspace_prediction));
+    local_dig_render_roomspace_active = false;
 }
 
 void update_local_dig_tag_prediction(int64_t input_lag_turns)
@@ -185,6 +217,7 @@ void update_local_dig_tag_prediction(int64_t input_lag_turns)
         memset(&local_dig_roomspace_prediction, 0, sizeof(local_dig_roomspace_prediction));
         return;
     }
+    pckt->control_flags |= PCtr_DigTagsAsActions; // this client's tags are the actions below, nothing else
     if ((pckt->action == PckA_SetRoomspaceHighlight) || (pckt->action == PckA_RoomspaceHighlightToggle)) {
         local_dig_roomspace_prediction = *pckt;
     }

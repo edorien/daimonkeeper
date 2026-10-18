@@ -186,7 +186,7 @@ TbBool process_dungeon_control_packet_dungeon_build_room(NetUserId user)
     }
     if (ustate->boxsize > 0)
     {
-        keeper_build_roomspace(user, &player->render_roomspace);
+        keeper_start_roomspace(user, &player->render_roomspace, ustate->chosen_room_kind);
     }
     else
     {
@@ -388,7 +388,8 @@ TbBool process_dungeon_control_packet_dungeon_control(NetUserId user)
             {
                 if (ustate->primary_cursor_state == ustate->secondary_cursor_state)
                 {
-                    if (!apply_roomspace_tag && ((ustate->secondary_cursor_state == CSt_PickAxe) || ((ustate->secondary_cursor_state == CSt_PowerHand) && ((ustate->additional_flags & UsrAF_NoThingUnderPowerHand) != 0))))
+                    if (!apply_roomspace_tag && ((pckt->control_flags & PCtr_DigTagsAsActions) == 0)
+                        && ((ustate->secondary_cursor_state == CSt_PickAxe) || ((ustate->secondary_cursor_state == CSt_PowerHand) && ((ustate->additional_flags & UsrAF_NoThingUnderPowerHand) != 0))))
                     {
                         keeper_highlight_roomspace(user, &player->render_roomspace);
                     }
@@ -477,7 +478,7 @@ TbBool process_dungeon_control_packet_dungeon_control(NetUserId user)
                                 audio_output_message(SMsg_WorkerJobsLimit, 500); // remind the user that the task limit (MAPTASKS_COUNT) has been reached
                             }
                         }
-                        else
+                        else if ((pckt->control_flags & PCtr_DigTagsAsActions) == 0)
                         {
                             keeper_highlight_roomspace(user, &player->render_roomspace);
                         }
@@ -600,14 +601,14 @@ TbBool process_dungeon_control_packet_sell_operation(NetUserId user)
         //Slab Mode
         if (player->render_roomspace.slab_count > 0)
         {
-            keeper_sell_roomspace(user, &player->render_roomspace);
+            keeper_start_roomspace(user, &player->render_roomspace, RoK_SELL);
         }
         else
         {
             struct SlabMap* slb = get_slabmap_for_subtile(stl_x, stl_y);
             if (slabmap_owner(slb) != plyr_idx)
             {
-                WARNLOG("Player %" PRId64 " can't sell item on %s owned by player %" PRId64 " at subtile (%" PRId64 ",%" PRId64 ").", (int64_t)plyr_idx, slab_code_name(slb->kind), (int64_t)slabmap_owner(slb), (int64_t)stl_x, (int64_t)stl_y);
+                SYNCDBG(7,"Player %" PRId64 " can't sell item on %s owned by player %" PRId64 " at subtile (%" PRId64 ",%" PRId64 ").", (int64_t)plyr_idx, slab_code_name(slb->kind), (int64_t)slabmap_owner(slb), (int64_t)stl_x, (int64_t)stl_y);
                 unset_packet_control(pckt, PCtr_LBtnClick);
                 return false;
             }
@@ -627,7 +628,7 @@ TbBool process_dungeon_control_packet_sell_operation(NetUserId user)
                 // Nothing to do here - trap already sold
             } else
             {
-                WARNLOG("Nothing to do for player %" PRId64 " request",(int64_t)plyr_idx);
+                SYNCDBG(7,"Nothing to sell for player %" PRId64 " request",(int64_t)plyr_idx);
             }
         }
     }
@@ -636,7 +637,7 @@ TbBool process_dungeon_control_packet_sell_operation(NetUserId user)
         struct SlabMap* slb = get_slabmap_for_subtile(stl_x, stl_y);
         if (slabmap_owner(slb) != plyr_idx)
         {
-            WARNLOG("Player %" PRId64 " can't sell item on %s owned by player %" PRId64 " at subtile (%" PRId64 ",%" PRId64 ").", (int64_t)plyr_idx, slab_code_name(slb->kind), (int64_t)slabmap_owner(slb), (int64_t)stl_x, (int64_t)stl_y);
+            SYNCDBG(7,"Player %" PRId64 " can't sell item on %s owned by player %" PRId64 " at subtile (%" PRId64 ",%" PRId64 ").", (int64_t)plyr_idx, slab_code_name(slb->kind), (int64_t)slabmap_owner(slb), (int64_t)stl_x, (int64_t)stl_y);
             unset_packet_control(pckt, PCtr_LBtnClick);
             return false;
         }
@@ -655,7 +656,7 @@ TbBool process_dungeon_control_packet_sell_operation(NetUserId user)
         }
         else
         {
-            WARNLOG("Nothing to do for player %" PRId64 " request",(int64_t)plyr_idx);
+            SYNCDBG(7,"Nothing to sell for player %" PRId64 " request",(int64_t)plyr_idx);
         }
     }
     unset_packet_control(pckt, PCtr_LBtnClick);

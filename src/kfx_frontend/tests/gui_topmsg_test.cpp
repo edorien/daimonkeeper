@@ -74,6 +74,14 @@ TEST_CASE_METHOD(ResetErrorStats, "show_onscreen_msg formats the message and sta
     CHECK(is_onscreen_msg_visible());
 }
 
+TEST_CASE_METHOD(ResetErrorStats, "clear_onscreen_msg takes a showing message down at once", "[kfx_frontend][gui_topmsg]") {
+    show_onscreen_msg(100, "Game saved");
+    REQUIRE(is_onscreen_msg_visible());
+    clear_onscreen_msg();
+    CHECK_FALSE(is_onscreen_msg_visible());
+    CHECK(onscreen_msg_text[0] == '\0');
+}
+
 TEST_CASE_METHOD(ResetErrorStatsWithGameTurn, "erstat_check skips checking except on a multiple-of-8 game turn", "[kfx_frontend][gui_topmsg]") {
     g_fake_turn = 3; // 3 & 0x07 != 0
     CHECK_FALSE(erstat_check());

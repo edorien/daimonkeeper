@@ -302,3 +302,42 @@ TEST_CASE_METHOD(ResetStates, "the host's timestamp packet sets the game's times
     CHECK(kfx_sim_state.timestamp_turn == 7);
     set_gameturn_source(nullptr);
 }
+
+// A replay plays the recorded quits too: my player there is only the one being watched, so a recorded Alt-F4
+// closed the program and a recorded quit saved a continue game; and the watched player's leaving ended the replay
+// rather than the recording player's (upstream #5452).
+TEST_CASE_METHOD(ResetStates, "a replay's recorded quits neither close the program nor end it for the watched player", "[kfx_game][game_commands_input]") {
+    clear_flag(local_system_flags, GSF_NetworkActive);
+    kfx_sim_state.game_kind = GKind_MultiGame;
+    for (int64_t u = 0; u < 3; u++) {
+        struct PlayerInfo* player = &kfx_sim_state.players[u];
+        player->allocflags = PlaF_Allocated;
+        player->id_number = u;
+        player->user_id = u;
+        set_net_user_player_number(u, u);
+    }
+    replay.load_enable = 1;
+    replay.head.recording_user = 0;
+    my_player_number = 1; // watching player 1
+    exit_keeper = 0;
+    quit_game = 0;
+
+    struct Packet close{};
+    set_packet_action(&close, PckA_ForceApplicationClose, 0, 0, 0, 0);
+    *get_packet(1) = close;
+    process_user_global_packet_action(1);
+    CHECK(exit_keeper == 0);
+    CHECK(quit_game == 0); // the watched player left; the recording goes on
+    CHECK((kfx_sim_state.players[1].display_flags & PlaF6_PlyrHasQuit) != 0);
+
+    struct Packet quit{};
+    set_packet_action(&quit, PckA_QuitToMainMenu, 0, 0, 0, 0);
+    *get_packet(0) = quit;
+    process_user_global_packet_action(0);
+    CHECK(exit_keeper == 0);
+    CHECK(quit_game == 1); // the recording player left: the replay ends
+    replay.load_enable = 0;
+    quit_game = 0;
+    for (int64_t u = 0; u < 3; u++)
+        set_net_user_player_number(u, -1);
+}

@@ -34,6 +34,7 @@
 #include "game_loop.h"
 #include "player_availability.h"
 #include "ports/script_port.h"
+#include "slab_data.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -258,6 +259,9 @@ void process_dungeon_destroy(struct Thing* heartng)
             // If this is the last heart the player had, finish him
             setup_all_player_creatures_and_diggers_leave_or_die(plyr_idx);
             player->allied_players = to_flag(player->id_number);
+            // In multiplayer the loser sees the whole map once the heart has exploded, not before (upstream #5445)
+            if (kfx_sim_state.game_kind == GKind_MultiGame)
+                reveal_whole_map(player);
         }
     }
     dungeon->heart_destroy_state = 0;

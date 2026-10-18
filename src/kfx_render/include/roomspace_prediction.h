@@ -21,6 +21,7 @@ void update_local_dig_tag_prediction(int64_t input_lag_turns);
 unsigned char get_local_dig_prediction_render_flags(MapSubtlCoord stl_x, MapSubtlCoord stl_y, unsigned char base_map_flags);
 void update_local_dig_prediction_cursor_preview(int64_t input_lag_turns);
 struct RoomSpace *get_local_dig_prediction_render_roomspace(struct RoomSpace *roomspace);
+void reset_local_dig_prediction(void);
 /******************************************************************************/
 #ifdef __cplusplus
 }

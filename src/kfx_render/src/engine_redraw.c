@@ -495,12 +495,10 @@ void update_local_mouse_light(void)
 void update_mouse_light(NetUserId user)
 {
     SYNCDBG(6,"Starting");
-    const struct Packet *pckt = NULL;
-
-    if (user == get_local_user())
-        pckt = netport_get_history_packet(user, get_gameturn());
-    if (pckt == NULL)
-        pckt = get_packet(user);
+    // The processed packet for every user, the local one too: the light is in the simulation's registry, and the
+    // local history packet (this machine's newest input) made it differ between machines. This machine draws its own
+    // cursor light at the mouse anyway (update_local_mouse_light()).
+    const struct Packet *pckt = get_packet(user);
 
     const TbBool valid = (pckt->control_flags & PCtr_MapCoordsValid) != 0;
     struct Coord3d pos;

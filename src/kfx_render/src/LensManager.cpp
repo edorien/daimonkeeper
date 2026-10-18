@@ -374,6 +374,34 @@ const char* LensManager::GetActiveCustomLensName() const
     return m_active_custom_lens.c_str();
 }
 
+int64_t LensManager::ForgetLuaState(const void* lua_state)
+{
+    // A custom lens keeps the lua_State its draw callback lives in. When that state is closed (a level restart or a
+    // save load opens the scripts again), the lens has to go first: its callback reference is released in the state
+    // while it is still open, and nothing draws through a closed state. The new scripts make their lenses again.
+    int64_t forgotten = 0;
+    for (auto it = m_custom_lenses.begin(); it != m_custom_lenses.end(); )
+    {
+        LensEffect* effect = it->second;
+        if ((effect == nullptr) || (effect->GetType() != LensEffectType::Custom) ||
+            (static_cast<LuaLensEffect*>(effect)->GetLuaState() != lua_state))
+        {
+            ++it;
+            continue;
+        }
+        if (m_active_custom_lens == it->first)
+        {
+            m_active_custom_lens.clear();
+            m_active_lens = 0;
+            m_applied_lens = 0;
+        }
+        delete effect;
+        it = m_custom_lenses.erase(it);
+        forgotten++;
+    }
+    return forgotten;
+}
+
 void LensManager::RegisterEffect(LensEffect* effect)
 {
     if (effect != nullptr) {
@@ -550,6 +578,12 @@ TbBool LensManager_SetLensByName(void* mgr, const char* name)
 {
     if (mgr == nullptr || name == nullptr) return false;
     return static_cast<LensManager*>(mgr)->SetLensByName(name);
+}
+
+int64_t LensManager_ForgetLuaState(void* mgr, const void* lua_state)
+{
+    if (mgr == nullptr || lua_state == nullptr) return 0;
+    return static_cast<LensManager*>(mgr)->ForgetLuaState(lua_state);
 }
 
 void* LuaLensEffect_Create(const char* name, void* lua_state)

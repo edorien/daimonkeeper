@@ -56,6 +56,7 @@ extern char onscreen_msg_text[]; // Phase 3: read by the ImGui text overlay
 TbBool onscreen_banner_visible(void);
 
 TbBool is_onscreen_msg_visible(void);
+void clear_onscreen_msg(void);
 TbBool show_onscreen_msg(int64_t nturns, const char *fmt_str, ...) KFX_PRINTF_FORMAT(2, 3);
 TbBool draw_onscreen_direct_messages(void);
 /******************************************************************************/

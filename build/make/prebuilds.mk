@@ -4,7 +4,7 @@ ifneq (,$(findstring Windows,$(OS)))
   PNGTOICO_DOWNLOAD=https://github.com/dkfans/png2ico/releases/download/2024-10-28/png2ico-win-2024-10-28.zip
   PNGTORAW_DOWNLOAD=https://github.com/dkfans/pngpal2raw/releases/download/v1.0.2/pngpal2raw-1_0_2_35-devel-win.zip
   PNGTOBSPAL_DOWNLOAD=https://github.com/dkfans/png2bestpal/releases/download/v1.0.3/png2bestpal-1_0_3_21-devel-win.zip
-  POTONGDAT_DOWNLOAD=https://github.com/dkfans/po2ngdat/releases/download/v1.0.2.31-c/po2ngdat-1_0_2_31-devel-win.zip
+  POTONGDAT_DOWNLOAD=https://github.com/dkfans/po2ngdat/releases/download/v1.0.2.31-d/po2ngdat-1_0_2_31-devel-win.zip
   SNDBANKER_DOWNLOAD=https://github.com/dkfans/sndbanker/releases/download/v1.0.1/sndbanker-1_0_1_13-devel-win.zip
   RNCTOOLS_DOWNLOAD=https://github.com/dkfans/rnctools/releases/download/v1.0.2/rnctools-1_0_2_5-devel-win.zip
   DKILLCONV_DOWNLOAD=no_prebuild_available_for_your_os
@@ -15,7 +15,7 @@ ifeq ($(UNAME_S),Linux)
   PNGTOICO_DOWNLOAD=https://github.com/dkfans/png2ico/releases/download/2024-10-28/png2ico-lin-2024-10-28.tar.gz
   PNGTORAW_DOWNLOAD=https://github.com/dkfans/pngpal2raw/releases/download/v1.0.2/pngpal2raw-1_0_2_35-devel-lin.tar.gz
   PNGTOBSPAL_DOWNLOAD=https://github.com/dkfans/png2bestpal/releases/download/v1.0.3/png2bestpal-1_0_3_21-devel-lin.tar.gz
-  POTONGDAT_DOWNLOAD=https://github.com/dkfans/po2ngdat/releases/download/v1.0.2.31-c/po2ngdat-1_0_2_31-devel-lin.tar.gz
+  POTONGDAT_DOWNLOAD=https://github.com/dkfans/po2ngdat/releases/download/v1.0.2.31-d/po2ngdat-1_0_2_31-devel-lin.tar.gz
   SNDBANKER_DOWNLOAD=https://github.com/dkfans/sndbanker/releases/download/v1.0.1/sndbanker-1_0_1_13-devel-lin.tar.gz
   RNCTOOLS_DOWNLOAD=https://github.com/dkfans/rnctools/releases/download/v1.0.2/rnctools-1_0_2_5-devel-lin.tar.gz
   DKILLCONV_DOWNLOAD=no_prebuild_available_for_your_os
@@ -34,7 +34,9 @@ PERESEC_PACKAGE=$(notdir $(PERESEC_DOWNLOAD))
 PNGTOICO_PACKAGE=$(notdir $(PNGTOICO_DOWNLOAD))
 PNGTORAW_PACKAGE=$(notdir $(PNGTORAW_DOWNLOAD))
 PNGTOBSPAL_PACKAGE=$(notdir $(PNGTOBSPAL_DOWNLOAD))
-POTONGDAT_PACKAGE=$(notdir $(POTONGDAT_DOWNLOAD))
+# The release tag is part of the cached name: po2ngdat's releases reuse one file name (v1.0.2.31-c and -d are both
+# po2ngdat-1_0_2_31-devel-*), so a tree that fetched the old one would never fetch the new one.
+POTONGDAT_PACKAGE=$(notdir $(patsubst %/,%,$(dir $(POTONGDAT_DOWNLOAD))))-$(notdir $(POTONGDAT_DOWNLOAD))
 SNDBANKER_PACKAGE=$(notdir $(SNDBANKER_DOWNLOAD))
 RNCTOOLS_PACKAGE=$(notdir $(RNCTOOLS_DOWNLOAD))
 DKILLCONV_PACKAGE=$(notdir $(DKILLCONV_DOWNLOAD))

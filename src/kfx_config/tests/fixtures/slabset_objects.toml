@@ -1,0 +1,22 @@
+# Fixture for config_slabsets_test.cpp -- a slab style with two objects, one turned by Orientation
+# (upstream #5458) and one without it.
+[slab0]
+[slab0.S]
+Columns = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+[[slab0.S_objects]]
+IsLight = 0
+Subtile = 7
+RelativePosition = [128, 320, 736]
+ThingType = 1
+Subtype = 2
+EffectRange = 0
+Orientation = 512
+
+[[slab0.S_objects]]
+IsLight = 0
+Subtile = 1
+RelativePosition = [128, -64, 736]
+ThingType = 1
+Subtype = 2
+EffectRange = 0

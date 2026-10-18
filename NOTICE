@@ -27,8 +27,9 @@ https://github.com/edorien/daimonkeeper, records every change and its
 date. The copyright and author notices in the individual source files are
 kept as they were.
 
-Upstream base: KeeperFX master merged up to commit fb0ab7f4d (2026-10-09), apart from the camera refactor and the
-commits built on it (docs/merge-checks/upstream-merge-2026-10-12.md).
+Upstream base: KeeperFX master merged up to commit bb5aca64f (2026-10-18), apart from the camera/UserState
+refactor and the spectator work built on it, the replay rewind and the lobby player colours (the 2026-10-12 and
+2026-10-18 merge commits list what was ported and what was not).
 Content compatibility: campaigns and map packs made for KeeperFX 1.4
 ("KFX 1.4" in the version label).
 

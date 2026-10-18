@@ -922,6 +922,7 @@ const struct CommandDesc command_desc[] = {
   {"LOCATE_HIDDEN_WORLD",               "        ", Cmd_LOCATE_HIDDEN_WORLD, &locate_hidden_world_check, &locate_hidden_world_process},
   {"USE_SPECIAL_LOCATE_HIDDEN_WORLD",   "        ", Cmd_LOCATE_HIDDEN_WORLD, &locate_hidden_world_check, &locate_hidden_world_process}, // Legacy command
   {"USE_SPECIAL_TRANSFER_CREATURE",     "P       ", Cmd_USE_SPECIAL_TRANSFER_CREATURE, &special_transfer_creature_check, &special_transfer_creature_process},
+  {"USE_SPECIAL_STEAL_HERO",            "PLa     ", Cmd_USE_SPECIAL_STEAL_HERO, &special_steal_hero_check, &special_steal_hero_process},
   {"TRANSFER_CREATURE",                 "PC!An   ", Cmd_TRANSFER_CREATURE, &script_transfer_creature_check, &script_transfer_creature_process},
   {"CHANGE_CREATURES_ANNOYANCE",        "PC!AN   ", Cmd_CHANGE_CREATURES_ANNOYANCE, &change_creatures_annoyance_check, &change_creatures_annoyance_process},
   {"ADD_TO_FLAG",                       "PAN     ", Cmd_ADD_TO_FLAG, &add_to_flag_check, &add_to_flag_process},

@@ -92,6 +92,14 @@ TEST_CASE_METHOD(SlabsetFixture, "clear_slabsets zeroes every slabset/slabobj sl
     CHECK(g_fake_slabobjs_num == 0);
 }
 
+TEST_CASE_METHOD(SlabsetFixture, "load_slabset_config_file reads an object's Orientation, 0 when absent", "[kfx_config][config_slabsets]") {
+    REQUIRE(keeper_slabset_file_data.load_func(KFX_CONFIG_TEST_FIXTURES_DIR "/slabset_objects.toml", 0));
+    REQUIRE(g_fake_slabobjs_num == 2);
+    CHECK(g_fake_slabobjs_arr[0].stl_id == 7);
+    CHECK(g_fake_slabobjs_arr[0].orientation == 512);
+    CHECK(g_fake_slabobjs_arr[1].orientation == 0);
+}
+
 TEST_CASE_METHOD(SlabsetFixture, "load_slabset_config_file returns false for a missing file", "[kfx_config][config_slabsets]") {
     CHECK_FALSE(keeper_slabset_file_data.load_func(KFX_CONFIG_TEST_FIXTURES_DIR "/does_not_exist.toml", CnfLd_IgnoreErrors));
 }

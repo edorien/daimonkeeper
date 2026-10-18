@@ -31,7 +31,7 @@ int64_t run(std::initializer_list<std::string> args) {
 
 } // namespace
 
-TEST_CASE_METHOD(CommandLineFixture, "-campaign truncates a long name to each destination buffer", "[kfx_apploop][command_line]") {
+TEST_CASE_METHOD(CommandLineFixture, "the -campaign argument truncates a long name to each destination buffer", "[kfx_apploop][command_line]") {
     // autostart_multiplayer_campaign is 80 bytes; this used to be an
     // unbounded strcpy of the (up to CMDLN_MAXLEN) argument.
     const std::string name(200, 'c');
@@ -41,7 +41,7 @@ TEST_CASE_METHOD(CommandLineFixture, "-campaign truncates a long name to each de
     CHECK(std::string(start_params.autostart_multiplayer_campaign) == name.substr(0, sizeof(start_params.autostart_multiplayer_campaign) - 1));
 }
 
-TEST_CASE_METHOD(CommandLineFixture, "-campaign as the last argument gives an empty name", "[kfx_apploop][command_line]") {
+TEST_CASE_METHOD(CommandLineFixture, "the -campaign argument, given last, gives an empty name", "[kfx_apploop][command_line]") {
     CHECK(run({"daimonkeeper", "-level", "1", "-campaign"}) == 1);
 
     CHECK(start_params.selected_campaign[0] == '\0');

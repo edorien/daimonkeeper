@@ -1145,6 +1145,8 @@ same on every target (explicit `int64_t` fields, packed layouts).
   replays can't be loaded.
 - Sim state version 13 (the combat assistant's `keeper_assist[]`), 17 (its rule banks) and 18 (its hand rules' fields,
   §5a); older saves can't be loaded.
+- Upstream merge 2026-10-18: sim state version 19 (`SlabObj.orientation`, slabset.toml's `Orientation`, #5458);
+  older saves and replays can't be loaded.
 
 ---
 

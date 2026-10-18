@@ -1397,6 +1397,7 @@ void set_call_to_arms_as_birthing(struct Thing *objtng)
     case CTAOL_Birthing:
         frame = objtng->current_frame;
         break;
+    case CTAOL_Unset:
     case CTAOL_Alive:
         frame = 0;
         break;

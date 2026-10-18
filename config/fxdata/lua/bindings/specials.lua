@@ -16,6 +16,12 @@ function UseSpecialMultiplyCreatures(player) end
 ---@param player Player
 function UseSpecialTransferCreature(player) end
 
+---Activates the effect of a 'Steal hero' dungeon special at a location.
+---@param player Player
+---@param spawn_location location
+---@param effect? effect_or_effelem_type
+function UseSpecialStealHero(player, spawn_location, effect) end
+
 ---Creates a custom tooltip for Custom special boxes.
 ---@param boxnumber integer The ID of the custom box. With a new ADiKtEd or the Add_object_to_level command you can set a number. Multiple boxes may have the same number, and they will get the same tooltip and functionality.
 ---@param tooltip string The text that will displayed when you hover your mouse over the Special box.

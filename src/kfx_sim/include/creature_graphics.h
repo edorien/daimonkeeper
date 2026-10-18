@@ -39,7 +39,7 @@ struct Thing;
 // The custom sprites' animation ids (kfx_render's KEEPERSPRITE_ADD_OFFSET/_NUM are these): ids from
 // SIM_KEEPERSPRITE_ADD_OFFSET on are the sprites mods' zips add (custom_sprites.c).
 #define SIM_KEEPERSPRITE_ADD_OFFSET 16384
-#define SIM_KEEPERSPRITE_ADD_NUM 16383
+#define SIM_KEEPERSPRITE_ADD_NUM 49151 // = kfx_render's KEEPERSPRITE_ADD_NUM (asserted in custom_sprites.c)
 
 /******************************************************************************/
 struct PickedUpOffset *get_creature_picked_up_offset(struct Thing *thing);

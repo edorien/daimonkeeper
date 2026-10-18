@@ -292,7 +292,6 @@ struct Thing *find_hero_gate_of_number(int64_t num);
 void hero_gate_set_hidden(struct Thing *thing, TbBool hide);
 int64_t get_free_hero_gate_number(void);
 
-struct Thing *find_creature_lair_totem_at_subtile(MapSubtlCoord stl_x, MapSubtlCoord stl_y, ThingModel crmodel);
 
 TbBool thing_is_shootable(const struct Thing *thing, PlayerNumber shot_owner, HitTargetFlags hit_targets);
 HitTargetFlags hit_type_to_hit_targets(int64_t hit_type);

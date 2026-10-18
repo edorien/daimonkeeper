@@ -59,7 +59,9 @@ struct Camera;
 
 #define KEEPSPRITE_LENGTH 9149
 #define KEEPERSPRITE_ADD_OFFSET 16384
-#define KEEPERSPRITE_ADD_NUM 16383
+// 49151 custom sprite slots, upstream's up to USHRT_MAX (#5387: mods ran out of the old 16383); the ids are int64 here,
+// so the -1 "none" stays (upstream's new ANIMATION_NONE sentinel isn't taken)
+#define KEEPERSPRITE_ADD_NUM 49151
 
 struct EngineCoord { // sizeof = 28
   int64_t view_width; // X screen position, probably not a width

@@ -210,6 +210,9 @@ enum TbScriptCommands {
     Cmd_TRIGGER_ACTION_POINT               = 197,
     Cmd_SET_LEVEL_ENSIGN                   = 198,
     Cmd_DISPLAY_VARIABLE_WITH_LABEL        = 199,
+    // Upstream #5422 gave USE_SPECIAL_STEAL_HERO 120 and moved CHANGE_CREATURES_ANNOYANCE to 200; here the
+    // numbers stay (ScriptValue.valtype is saved), so the new command is appended.
+    Cmd_USE_SPECIAL_STEAL_HERO             = 200,
 };
 
 struct ScriptLine {

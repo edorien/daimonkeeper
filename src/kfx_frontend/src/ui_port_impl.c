@@ -218,6 +218,7 @@ const struct UiPort kfx_frontend_ui_port = {
     .message_add_vfmt = &message_add_vfmt,
     .message_add = &message_add,
     .zero_messages = &zero_messages,
+    .clear_onscreen_msg = &clear_onscreen_msg,
     .show_real_time_taken = &show_real_time_taken,
     .set_room_type_highlighted = &sim_feedback_set_room_type_highlighted,
     .set_visible_event_idx = &sim_feedback_set_visible_event_idx,

@@ -24,6 +24,9 @@
 #include "globals.h"
 #include "kfx_sim_test_fixtures.h"
 #include "thing_stats.h"
+#include "kfx_config/tests/scoped_port_override.h"
+#include "ports/script_port.h"
+#include "config_players.h"
 
 #include <cstring>
 
@@ -431,4 +434,24 @@ TEST_CASE_METHOD(ResetSimAndConfig, "the hostility memo is dropped between scans
     creature_hostility_memo_begin_scan(); // new scan -> memo cleared
     CHECK(creature_is_hostile_towards(fightng, enmtng));
     creature_hostility_memo_end_scan();
+}
+
+namespace {
+int64_t g_cleanup_calls = 0;
+int64_t count_cleanup(FuncIdx, struct Thing *) { g_cleanup_calls++; return 0; }
+}
+
+// set_start_state() cleaned the current state up and then called initialise_thing_state(), which cleans it up
+// again, so a cleanup that isn't idempotent (a Lua cleanup_state, here) ran twice (upstream #5431).
+TEST_CASE_METHOD(kfx_test::ResetSimAndConfig, "set_start_state runs the current state's cleanup once", "[kfx_sim][creature_states]") {
+    ScopedPortOverride<ScriptPort> script{script_port, set_script_port};
+    script->luafunc_crstate_func = count_cleanup;
+    g_cleanup_calls = 0;
+    struct Thing *thing = kfx_test::make_creature(1, 1, PLAYER_NEUTRAL); // neutral: goes dormant
+    const CrtrStateId current = 2;
+    kfx_config_state.conf.crtr_conf.states[current].cleanup_state = -1;
+    thing->active_state = current;
+    set_start_state(thing);
+    CHECK(g_cleanup_calls == 1);
+    CHECK(thing->active_state == CrSt_CreatureDormant);
 }

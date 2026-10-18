@@ -272,3 +272,66 @@ TEST_CASE_METHOD(kfx_test::ResetSimAndConfig, "roomspace_liquid_path_is_blocked 
     CHECK(roomspace_liquid_path_is_blocked(0, 0, 3, 1, false));
     CHECK(roomspace_liquid_path_is_blocked(0, 3, 0, 1, false)); // scan direction doesn't matter
 }
+
+namespace {
+// Player 0 (user 0) owns claimed, revealed floor over the whole 4x4-slab map, except the slab at (0,0).
+struct RoomspaceStartFixture : kfx_test::ResetSimAndConfig {
+    struct PlayerInfo *player;
+    RoomspaceStartFixture() {
+        player = kfx_test::make_player_active(0);
+        player->user_id = 0;
+        for (MapSlabCoord y = 0; y < 4; y++)
+            for (MapSlabCoord x = 0; x < 4; x++) {
+                struct SlabMap *slb = get_slabmap_block(x, y);
+                slb->kind = SlbT_CLAIMED;
+                slb->owner = 0;
+                reveal_map_subtile(slab_subtile_center(x), slab_subtile_center(y), 0);
+            }
+        get_slabmap_block(0, 0)->kind = SlbT_PATH;
+    }
+    static struct RoomSpace box(MapSlabCoord left, MapSlabCoord top, MapSlabCoord right, MapSlabCoord bottom) {
+        struct RoomSpace rs{};
+        rs.is_roomspace_a_box = true;
+        rs.left = left; rs.top = top; rs.right = right; rs.bottom = bottom;
+        rs.width = right - left + 1; rs.height = bottom - top + 1;
+        return rs;
+    }
+};
+}
+
+// Upstream #5431: a box's first slab was built without a check (a "can't build" warning when it was unbuildable),
+// and the non-drag start read slab_grid[-1]; each slab is now checked when it is reached.
+TEST_CASE_METHOD(RoomspaceStartFixture, "keeper_start_roomspace: a box starts at its first slab a room can be built on", "[kfx_sim][roomspace]") {
+    const struct RoomSpace rs = box(0, 0, 2, 0);
+    keeper_start_roomspace(0, &rs, 1);
+    CHECK(player->roomspace.is_active);
+    CHECK(player->roomspace.buildx == 1);
+    CHECK(player->roomspace.buildy == 0);
+    CHECK(player->roomspace.rkind == 1);
+}
+
+TEST_CASE_METHOD(RoomspaceStartFixture, "keeper_start_roomspace: a box with nothing buildable ends at once", "[kfx_sim][roomspace]") {
+    const struct RoomSpace rs = box(0, 0, 0, 0);
+    keeper_start_roomspace(0, &rs, 1);
+    CHECK_FALSE(player->roomspace.is_active);
+}
+
+TEST_CASE_METHOD(RoomspaceStartFixture, "keeper_start_roomspace: a non-box selection starts at its first selected slab", "[kfx_sim][roomspace]") {
+    struct RoomSpace rs = box(0, 0, 2, 1);
+    rs.is_roomspace_a_box = false;
+    rs.slab_grid[2][0] = true;
+    rs.slab_grid[1][1] = true;
+    keeper_start_roomspace(0, &rs, 1);
+    REQUIRE(player->roomspace.is_active);
+    CHECK(player->roomspace.buildx == 2);
+    CHECK(player->roomspace.buildy == 0);
+}
+
+TEST_CASE_METHOD(RoomspaceStartFixture, "keeper_start_roomspace: selling leaves the caller's roomspace as it was", "[kfx_sim][roomspace]") {
+    player->render_roomspace = box(0, 0, 1, 0);
+    player->render_roomspace.rkind = 1;
+    keeper_start_roomspace(0, &player->render_roomspace, RoK_SELL);
+    CHECK(player->roomspace.rkind == RoK_SELL);
+    CHECK(player->roomspace.buildx == 0); // selling takes any slab of the box
+    CHECK(player->render_roomspace.rkind == 1);
+}

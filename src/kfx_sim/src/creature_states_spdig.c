@@ -1311,7 +1311,8 @@ int64_t imp_toking(struct Thing *creatng)
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
     if (!creature_would_benefit_from_healing(creatng))
     {
-        internal_set_thing_state(creatng, creatng->continue_state);
+        // Toking is entered with internal_set_thing_state(), which clears continue_state (upstream #5431)
+        set_start_state(creatng);
         return 0;
     }
     if (cctrl->instance_id == CrInst_NULL)
@@ -1511,9 +1512,9 @@ int64_t creature_save_unconscious_creature(struct Thing *thing)
             set_start_state(thing);
             return 0;
         }
-        if (!find_lair_totem_at(lairtng->mappos.x.stl.num,lairtng->mappos.y.stl.num))
+        if (!thing_is_lair_totem(lairtng)) // (find_lair_totem_at() returns INVALID_THING, never NULL: upstream #5454)
         {
-            WARNLOG("Player %" PRId64 " can't pick %s - no position within %s to store it",(int64_t)thing->owner,thing_model_name(picktng),room_role_code_name(RoRoF_Prison));
+            WARNLOG("Player %" PRId64 " can't pick %s - it has no lair totem within %s",(int64_t)thing->owner,thing_model_name(picktng),room_role_code_name(RoRoF_LairStorage));
             set_start_state(thing);
             return 0;
         }

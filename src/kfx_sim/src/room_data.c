@@ -2405,7 +2405,7 @@ TbBool find_random_valid_position_for_thing_in_room_avoiding_object_excluding_ro
     // if the above fails, do a more thorough check
     if (room->used_capacity <= room->total_capacity)
     {
-        SYNCLOG("Could not find valid random point in %s %" PRId64 " for %s. Attempting thorough check.",room_code_name(room->kind),(int64_t)(room->index),thing_model_name(thing));
+        SYNCDBG(7,"Could not find valid random point in %s %" PRId64 " for %s. Attempting thorough check.",room_code_name(room->kind),(int64_t)(room->index),thing_model_name(thing));
         k = 0;
         for (i = room->slabs_list; (i != 0); i = get_next_slab_number_in_room(i))
         {
@@ -2519,6 +2519,25 @@ int64_t find_random_valid_position_for_item_in_different_room_avoiding_object(st
     }
     ERRORLOG("Found %" PRId64 " matching rooms but couldn't find position within any",(int64_t)matching_rooms);
     return 0;
+}
+
+/** Removes a lair totem from a room with its creature's lair; a totem its creature doesn't know is deleted
+ *  (upstream #5454: it was left in the room with an error). */
+static void remove_lair_totem_with_owner(struct Room *room, struct Thing *lairtng)
+{
+    struct Thing* creatng = thing_get(lairtng->lair.belongs_to);
+    struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
+    if (!thing_is_creature(creatng) || (cctrl->lairtng_idx != lairtng->index)) {
+        ERRORLOG("Lair totem %" PRId64 " belongs to thing %" PRId64 " which doesn't have it as its lair, deleting it",(int64_t)lairtng->index,(int64_t)lairtng->lair.belongs_to);
+        destroy_object(lairtng);
+        return;
+    }
+    if (cctrl->lair_room_id != room->index) {
+        ERRORLOG("Lair totem %" PRId64 " is in %s index %" PRId64 " but its owner expects room index %" PRId64 ", deleting it",(int64_t)lairtng->index,room_code_name(room->kind),(int64_t)room->index,(int64_t)cctrl->lair_room_id);
+        delete_lair_totem(lairtng);
+        return;
+    }
+    creature_remove_lair_totem_from_room(creatng, room);
 }
 
 void kill_room_contents_at_subtile(struct Room *room, PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y, SlabCodedCoords slbnum)
@@ -2659,21 +2678,7 @@ void kill_room_contents_at_subtile(struct Room *room, PlayerNumber plyr_idx, Map
         struct Thing *totemtng = find_lair_totem_at(stl_x, stl_y);
         if (!thing_is_invalid(totemtng))
         {
-            if (totemtng->lair.belongs_to)
-            {
-                struct Thing *tmptng;
-                struct CreatureControl *cctrl;
-                tmptng = thing_get(totemtng->lair.belongs_to);
-                cctrl = creature_control_get_from_thing(tmptng);
-                if (cctrl->lairtng_idx == totemtng->index) {
-                    creature_remove_lair_totem_from_room(tmptng, room);
-                } else {
-                    ERRORLOG("Lair totemtng thinks it belongs to a creature, but the creature disagrees.");
-                }
-            } else
-            {
-                ERRORLOG("Lair totemtng %" PRId64 " has no owner!",(int64_t)totemtng->index);
-            }
+            remove_lair_totem_with_owner(room, totemtng);
         }
     }
 }
@@ -3021,26 +3026,9 @@ static void change_ownership_or_delete_object_thing_in_room(struct Room *room, s
     }
     else if (room_role_matches(room->kind,RoRoF_LairStorage) && thing_is_lair_totem(thing))
     {
-        // Lair - owns creature lairs
-        if (objst->related_creatr_model)
-        {
-            if (thing->lair.belongs_to)
-            {
-                struct Thing *tmptng;
-                struct CreatureControl *cctrl;
-                tmptng = thing_get(thing->lair.belongs_to);
-                cctrl = creature_control_get_from_thing(tmptng);
-                if (cctrl->lairtng_idx == thing->index) {
-                    creature_remove_lair_totem_from_room(tmptng, room);
-                } else {
-                    ERRORLOG("Lair totem thinks it belongs to a creature, but the creature disagrees.");
-                }
-            } else
-            {
-                ERRORLOG("Lair totem %" PRId64 " has no owner!",(int64_t)thing->index);
-            }
-            return;
-        }
+        // Lair - owns creature lairs (any lair totem: one with no RelatedCreature was left behind, upstream #5454)
+        remove_lair_totem_with_owner(room, thing);
+        return;
     }
     else if (room_role_matches(room->kind, RoRoF_KeeperStorage) && thing_is_dungeon_heart(thing))
     {

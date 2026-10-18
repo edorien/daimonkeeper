@@ -938,9 +938,21 @@ static void leave_network_if_alone(void)
     }
 }
 
+/** The player whose leaving ends this session: mine, or in a replay the recording one's (the watched player, my
+ *  player there, leaving is another player leaving: upstream #5413/#5452). */
+static struct PlayerInfo *player_whose_leaving_ends_session(void)
+{
+    if (replay.load_enable) {
+        const PlayerNumber plyr_idx = get_net_user_player_number(replay.head.recording_user);
+        if (plyr_idx >= 0)
+            return get_player(plyr_idx);
+    }
+    return get_my_player();
+}
+
 void process_player_leave_game_packet(struct PlayerInfo *player)
 {
-    if (player != get_my_player()) {
+    if (player != player_whose_leaving_ends_session()) {
         if (kfx_sim_state.game_kind == GKind_MultiGame) {
             NetUserId user = player->user_id;
             if (network_is_active()) {

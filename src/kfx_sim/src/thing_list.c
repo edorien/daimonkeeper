@@ -1371,27 +1371,6 @@ void hero_gate_set_hidden(struct Thing *thing, TbBool hide)
     }
 }
 
-/**
- * Returns a creatures lair totem from given subtile.
- */
-struct Thing *find_creature_lair_totem_at_subtile(MapSubtlCoord stl_x, MapSubtlCoord stl_y, ThingModel crmodel)
-{
-    struct Map* mapblk = get_map_block_at(stl_x, stl_y);
-    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
-    {
-        if (thing->class_id == TCls_Object)
-        {
-            struct ObjectConfigStats* objst = get_object_model_stats(thing->model);
-            if (objst->related_creatr_model > 0)
-            {
-                if ((crmodel == 0) || (crmodel == CREATURE_ANY) || (objst->related_creatr_model == crmodel))
-                    return thing;
-            }
-        }
-    }
-    return INVALID_THING;
-}
-
 struct Thing *find_random_thing_in_room(ThingClass tngclass, ThingModel tngmodel,struct Room *room)
 {
 

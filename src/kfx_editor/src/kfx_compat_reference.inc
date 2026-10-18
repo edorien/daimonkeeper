@@ -11,6 +11,7 @@ static const char *const kfx_ref_forkonly_script_commands[] = {
     "DISPLAY_VARIABLE_WITH_LABEL",
     "SET_LEVEL_ENSIGN",
     "TRIGGER_ACTION_POINT",
+    "USE_SPECIAL_STEAL_HERO",
     nullptr,
 };
 
@@ -28,6 +29,7 @@ static const char *const kfx_ref_forkonly_lua_functions[] = {
     "StopMusic",
     "StopSound",
     "TriggerActionPoint",
+    "UseSpecialStealHero",
     "remove_from_play",
     "set_start_state",
     "transform",

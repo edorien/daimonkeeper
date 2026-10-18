@@ -215,6 +215,7 @@ const CommandInfo kCommands[] = {
     {"USE_SPECIAL_MAKE_SAFE", ScrGroup_MapPowers, false, nullptr},
     {"USE_SPECIAL_LOCATE_HIDDEN_WORLD", ScrGroup_MapPowers, false, nullptr},
     {"USE_SPECIAL_TRANSFER_CREATURE", ScrGroup_MapPowers, false, nullptr},
+    {"USE_SPECIAL_STEAL_HERO", ScrGroup_MapPowers, false, nullptr},
     {"MAKE_SAFE", ScrGroup_MapPowers, false, nullptr},
     {"MAKE_UNSAFE", ScrGroup_MapPowers, false, nullptr},
     {"LOCATE_HIDDEN_WORLD", ScrGroup_MapPowers, false, nullptr},

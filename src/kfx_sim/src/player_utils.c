@@ -206,7 +206,7 @@ void set_player_as_lost_level(struct PlayerInfo *player)
     if (player->victory_state != VicS_Undecided)
     {
         // Suppress redundant warnings
-        if (!kfx_sim_state.run_after_victory)
+        if (!kfx_sim_state.run_after_victory && (player->victory_state != VicS_LostLevel))
         {
             WARNLOG("Victory state already set to %" PRId64,(int64_t)player->victory_state);
         }
@@ -263,8 +263,6 @@ void set_player_as_lost_level(struct PlayerInfo *player)
     set_player_state(player, PSt_CtrlDungeon, 0);
     if (kfx_sim_state.game_kind != GKind_MultiGame)
         player->display_objective_turn = get_gameturn() + 300;
-    if (kfx_sim_state.game_kind == GKind_MultiGame)
-        reveal_whole_map(player);
     if ((dungeon->computer_enabled & 0x01) != 0)
         ai_toggle_computer_player(player->id_number);
 }

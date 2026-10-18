@@ -62,6 +62,7 @@
 #include "game_replay.h"
 #include "kfx_local_view.h"
 #include "kfx_render_state.h"
+#include "net_resync.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -999,6 +1000,7 @@ TbBool load_game(int64_t slot_num)
 
     LbFileSeek(fh, 0, Lb_FILE_SEEK_BEGINNING);
     // Here is the actual loading
+    const struct LocalPacingState pacing = local_pacing_keep();
     if (load_game_chunks(fh,centry) != GLoad_SavedGame)
     {
         forget_loaded_agent_memory();
@@ -1011,6 +1013,7 @@ TbBool load_game(int64_t slot_num)
         return false;
     }
     my_player_number = kfx_sim_state.level_human_player;
+    local_pacing_restore(&pacing); // this machine's, not the saving one's
     LbFileClose(fh);
     // The agents' memory comes back exactly as it was saved; a save without the chunk leaves none.
     if (!agent_memory_deserialise(loaded_agent_memory, loaded_agent_memory_len))

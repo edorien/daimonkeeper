@@ -642,7 +642,7 @@ static int64_t room_storage_check_subtile(const struct RoomStorageKind *kind, st
         // If exceeded capacity of the room
         if (room->used_capacity >= room->total_capacity)
         {
-            WARNLOG("The %s capacity %" PRId64 " exceeded; space used is %" PRId64,room_code_name(room->kind),(int64_t)room->total_capacity,(int64_t)room->used_capacity);
+            SYNCDBG(7,"The %s capacity %" PRId64 " exceeded; space used is %" PRId64,room_code_name(room->kind),(int64_t)room->total_capacity,(int64_t)room->used_capacity);
             return -1; // re-create all (this could save the object if there are duplicates)
         } else
         // If the thing is in wall, remove it but store to re-create later
@@ -748,7 +748,7 @@ void room_storage_recount(const struct RoomStorageKind *kind, struct Room *room)
             kind->overflow(room, &rrepos);
         } else
         {
-            ERRORLOG("The %s index %" PRId64 " capacity %" PRId64 " wasn't enough; %" PRId64 " items belonging to player %" PRId64 " dropped",
+            SYNCLOG("The %s index %" PRId64 " capacity %" PRId64 " wasn't enough; %" PRId64 " items belonging to player %" PRId64 " dropped",
               room_code_name(room->kind),(int64_t)room->index,(int64_t)room->total_capacity,(int64_t)rrepos.used,(int64_t)room->owner);
         }
     }

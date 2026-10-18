@@ -43,6 +43,7 @@
 #include "ports/game_port.h"
 #include "ports/session_loop_port.h"
 #include "external_seat.h"
+#include "roomspace_prediction.h"
 #include "post_inc.h"
 
 // Owning definition: this file manages the multiplayer clock-adjustment
@@ -201,7 +202,6 @@ void process_gameplay_chat_message(NetUserId user, const char *message, MapCoord
     PlayerNumber plyr_idx = get_net_user_player_number(user);
     struct PlayerInfo *player = prepare_network_chat_message(plyr_idx, message);
     if (message[0] != '\0') {
-        SYNCLOG("Gameplay chat from user %" PRId64 " (player %" PRId64 "): %s", (int64_t)user, (int64_t)plyr_idx, message);
         extseat_note_chat(plyr_idx, player->mp_message_text); // External seats read the chat as the players do
         script_lua_on_chatmsg(plyr_idx, player->mp_message_text);
         const TbBool shown = (player->mp_message_text[0] != cmd_char) || !game_cmd_exec(plyr_idx, player->mp_message_text + 1, cursor_x, cursor_y) || network_is_active();
@@ -244,6 +244,10 @@ void store_packet_history(NetUserId user, const struct Packet *packet)
     struct Packet *entry = &packet_history[user].entries[packet->turn % PACKET_HISTORY_SIZE];
     if (!is_packet_empty(entry) && (GameTurnDelta)(entry->turn - packet->turn) > 0) {
         return;
+    }
+    // the first copy of a peer's packet for this turn (later ones are redundant resends or repair history)
+    if (user != netstate.my_id && network_user_active(user) && (is_packet_empty(entry) || entry->turn != packet->turn)) {
+        input_lag_note_packet_arrival(packet->turn);
     }
     *entry = *packet;
 }
@@ -341,6 +345,7 @@ void initialize_packet_history(void)
     last_turn_sync_send = 0;
     next_repair_history_user = 0;
     input_lag_reset();
+    reset_local_dig_prediction(); // its predictions follow this history (upstream #5466)
 }
 
 static TbBool user_has_required_turn_packets(NetUserId user)
@@ -506,7 +511,6 @@ static TbError wait_for_missing_packets(void *server_buf, size_t frame_size, Net
         }
     }
     TbClockMSec wait_time = LbTimerClock() - wait_start_time;
-    input_lag_note_packet_wait((int64_t)wait_time);
     if (wait_timed_out) {
         WARNLOG("LbNetwork_ExchangeGameplay: Timed out waiting for turn=%" PRIu64 " after %" PRId64 "ms; continuing so resync can recover",
             (uint64_t)expected_turn, (int64_t)wait_time);

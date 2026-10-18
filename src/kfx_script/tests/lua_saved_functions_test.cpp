@@ -298,3 +298,31 @@ TEST_CASE("a function that can't be kept in a save is refused when it is registe
     CHECK(lua_true("pcall(CreateTrigger, 'OnTurn', SCRIPT_BLOCK.fn)"));
     CHECK(lua_true("select(1, require('core.function_source').describe(SCRIPT_BLOCK.fn)) == 'source'"));
 }
+
+TEST_CASE("binser keeps NaN, infinities and registered 64-bit integers", "[kfx_script][lua_saved_functions]") {
+    std::string blob;
+    {
+        LuaScriptFixture fx;
+        REQUIRE(execute_lua_code_from_script("Game.nan = 0/0; Game.inf = 1/0; Game.ninf = -1/0; Game.half = 0.5"));
+        blob = lua_string("GetSerializedData()");
+    }
+    {
+        LuaScriptFixture fx;
+        set_global("BLOB", blob);
+        REQUIRE(lua_true("pcall(SetSerializedData, BLOB)"));
+        CHECK(lua_true("Game.nan ~= Game.nan"));                             // NaN used to be read back as 0
+        CHECK(lua_true("Game.inf == 1/0 and Game.ninf == -1/0 and Game.half == 0.5"));
+    }
+    LuaScriptFixture fx;
+    // A 64-bit integer literal is cdata; one registered as a resource is written by name. types.cdata passed the
+    // length of the output instead of the output itself, so this raised an error instead.
+    CHECK(lua_true("(function()\n"
+                   "  local b = require('external.binser').newbinser()\n"
+                   "  local big = 5LL\n"
+                   "  b.registerResource(big, 'big')\n"
+                   "  local ok, s = pcall(b.serialize, big)\n"
+                   "  if not ok then return false end\n"
+                   "  local v = b.deserialize(s)\n"
+                   "  return v[1] == big\n"
+                   "end)()"));
+}

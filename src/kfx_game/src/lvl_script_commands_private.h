@@ -32,6 +32,8 @@ void add_tunneller_party_to_level_check(const struct ScriptLine *scline);
 extern const struct NamedCommand is_free_desc[];
 void special_transfer_creature_process(struct ScriptContext* context);
 void special_transfer_creature_check(const struct ScriptLine* scline);
+void special_steal_hero_process(struct ScriptContext* context);
+void special_steal_hero_check(const struct ScriptLine* scline);
 void use_spell_on_creature_check(const struct ScriptLine* scline);
 void use_spell_on_creature_process(struct ScriptContext* context);
 void use_spell_on_players_creatures_check(const struct ScriptLine *scline);

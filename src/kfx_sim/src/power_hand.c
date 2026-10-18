@@ -475,7 +475,7 @@ TbBool insert_thing_into_power_hand_list(struct Thing *thing, PlayerNumber plyr_
     {
         powerst = get_power_model_stats(PwrK_PICKUPCRTR);
         audio_thing_play_sample(thing, powerst->select_sound_idx, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
-        if (is_my_player_number(thing->owner)) {
+        if (is_my_player_number(plyr_idx)) { // the hand's keeper hears it, whoever owns the creature (upstream #5449)
             play_creature_sound(thing, CrSnd_Hang, 3, 1);
         }
     }

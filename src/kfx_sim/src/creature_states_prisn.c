@@ -500,7 +500,7 @@ CrCheckRet process_prison_function(struct Thing *creatng)
             if (is_my_player_number(room->owner)) {
                 audio_output_message(SMsg_PrisonersEscaping, 40);
             }
-            else if (is_my_player_number(room->owner)) {
+            else if (is_my_player_number(creatng->owner)) { // the prisoner's keeper (upstream #5449: was the room's, so never)
                 audio_output_message(SMsg_CreatrFreedPrison, 40);
             }
             set_start_state(creatng);

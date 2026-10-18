@@ -58,6 +58,20 @@ TbBool receive_resync_game(void);
 
 void intentional_desync();
 
+/**
+ * This machine's own pacing and screen state kept in the shared state blobs: the turn clock's phase and the
+ * fast-forward (kfx_net_state) and whether the GUI and its panel are shown (kfx_sim_state.operation_flags). A resync
+ * or a loaded save replaces those blobs wholesale; keep these across it (upstream #5441 moved them out of the saved
+ * game state into its LocalState).
+ */
+struct LocalPacingState {
+    double process_turn_time;
+    int64_t frame_skip;
+    unsigned char gui_flags;
+};
+struct LocalPacingState local_pacing_keep(void);
+void local_pacing_restore(const struct LocalPacingState *kept);
+
 #ifdef __cplusplus
 }
 #endif

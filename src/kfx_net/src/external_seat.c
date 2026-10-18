@@ -1162,7 +1162,7 @@ int64_t extseat_room_build_check(PlayerNumber plyr_idx, RoomKind rkind, int64_t 
     } else {
         // Bridges: the engine builds one slab per turn, in the drag's order (rows from the start corner's row, and
         // along each row from its column), and each needs land beside it by its turn -- so simulate every start corner
-        // (0 top-left, 1 bottom-right, 2 top-right, 3 bottom-left: roomspace.c's find_next_point modes) and keep the best.
+        // (0 top-left, 1 bottom-right, 2 top-right, 3 bottom-left: roomspace.c's drag directions) and keep the best.
         for (int c = 0; c < 4; c++) {
             memset(built, 0, (size_t)(w * h));
             const TbBool rev_x = (c == 1) || (c == 2), rev_y = (c == 1) || (c == 3);
