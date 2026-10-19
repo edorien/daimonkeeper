@@ -108,6 +108,7 @@
 #include "tests/ftest_creature_prison_capture.h"
 #include "tests/ftest_creature_torture_ownership.h"
 #include "tests/ftest_creature_neutral_rooms.h"
+#include "tests/ftest_room_merge_on_claim.h"
 #include "tests/ftest_net_resync_fake_multiplayer.h"
 #include "tests/ftest_net_enet_loopback_host.h"
 #include "tests/ftest_net_enet_loopback_join.h"
@@ -250,6 +251,7 @@ struct ftest_onlyappendtests__config ftest_onlyappendtests__conf = {
          { .test_name="creature_prison_capture",             .init_func=ftest_creature_prison_capture_init,          .level_file="keeporig", .level=11, .frame_skip=8 },
          { .test_name="creature_torture_ownership",          .init_func=ftest_creature_torture_ownership_init,       .level_file="keeporig", .level=11, .frame_skip=8 },
          { .test_name="creature_neutral_rooms",              .init_func=ftest_creature_neutral_rooms_init,           .level_file="keeporig", .level=11, .frame_skip=8 },
+         { .test_name="room_merge_on_claim",                 .init_func=ftest_room_merge_on_claim_init,              .level_file="keeporig", .level=11, .frame_skip=8 },
          { .test_name="net_resync_fake_multiplayer",         .init_func=ftest_net_resync_fake_multiplayer_init,      .level_file="keeporig", .level=11, .frame_skip=8 },
          { .test_name="gui_packet_parity",                   .init_func=ftest_gui_packet_parity_init,                .level_file="keeporig", .level=11, .frame_skip=8 },
          { .test_name="gui_seam_ingame",                     .init_func=ftest_gui_seam_ingame_init,                  .level_file="keeporig", .level=11, .frame_skip=8 },

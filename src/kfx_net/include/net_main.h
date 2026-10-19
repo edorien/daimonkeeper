@@ -102,6 +102,7 @@ struct NetFrame {
 struct NetState {
     const struct NetSP *sp;
     struct NetUser users[MAX_NET_USERS];
+    TbBool users_timed_out[MAX_NET_USERS]; /**< why a user was dropped, kept past the memset of users[] (upstream #5488) */
     struct NetFrame *exchg_queue;
     char password[32];
     NetUserId my_id;

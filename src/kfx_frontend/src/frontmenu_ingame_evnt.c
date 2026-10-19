@@ -249,6 +249,11 @@ void gui_kill_event(struct GuiButton *gbtn)
     struct PlayerInfo* player = get_my_player();
     EventIndex evidx = get_my_event_button_index(gbtn->content.lval);
     turn_off_event_box_if_necessary(player->id_number, evidx);
+    // A replay plays the recorded packets, not this one: hiding the button here left a dead slot while the event
+    // lived on (upstream #5489)
+    if (replay.load_enable) {
+        return;
+    }
     if (kfx_sim_state.event[evidx].kind != EvKind_Objective) {
         my_event_button_state[evidx] |= EvBtnS_Hidden;
         set_players_packet_action(player, PckA_EventBoxTurnOff, evidx, 0, 0, 0);

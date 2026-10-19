@@ -99,8 +99,8 @@ void net_lobby_refresh_metadata(void)
     session.max_players = netstate.max_users;
     snprintf(session.version, sizeof(session.version), "%s", NET_SESSION_VERSION);
     struct LevelInformation *level = get_level_info(get_selected_level_number());
-    if (netstate.locked && level && level->players > 0) {
-        session.max_players = min(session.max_players, level->players);
+    if (netstate.locked && level) {
+        session.max_players = min(session.max_players, max(level->players, 2)); // as startup_player_slots_count()
     }
     for (int64_t i = 0; i < netstate.max_users && i < SESSION_HUMANS_MAX; i++) {
         if (netstate.users[i].progress == USER_LOGGEDIN) {

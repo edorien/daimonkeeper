@@ -6940,9 +6940,9 @@ msgid "%s has left the game."
 msgstr "%s 已离开游戏。"
 
 #: guitext:1117
-msgctxt "Network game message"
-msgid "%s has disconnected."
-msgstr "%s 已断开连接。"
+msgctxt "Unused"
+msgid "unused"
+msgstr "unused"
 
 #: guitext:1118
 msgctxt "Unused"
@@ -6950,9 +6950,9 @@ msgid "unused"
 msgstr "unused"
 
 #: guitext:1119
-msgctxt "Network game message"
-msgid "Network connection to host lost"
-msgstr "与主机的网络连接已丢失"
+msgctxt "Unused"
+msgid "unused"
+msgstr "unused"
 
 #: guitext:1120
 #, fuzzy
@@ -7073,4 +7073,10 @@ msgstr "主机使用的游戏版本不同。"
 msgctxt "Network game interface"
 msgid "Lobby Name"
 msgstr "大厅名称"
+
+#: guitext:1220
+#, fuzzy, c-format
+msgctxt "Network game message"
+msgid "%s lost connection (timed out)."
+msgstr "%s 失去连接（超时）。"
 

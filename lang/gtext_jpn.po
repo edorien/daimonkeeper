@@ -7273,9 +7273,9 @@ msgid "%s has left the game."
 msgstr "%sが退出しました。"
 
 #: guitext:1117
-msgctxt "Network game message"
-msgid "%s has disconnected."
-msgstr "%sの接続が切断されました。"
+msgctxt "Unused"
+msgid "unused"
+msgstr "unused"
 
 #: guitext:1118
 msgctxt "Unused"
@@ -7283,9 +7283,9 @@ msgid "unused"
 msgstr "unused"
 
 #: guitext:1119
-msgctxt "Network game message"
-msgid "Network connection to host lost"
-msgstr "ホストへのネットワーク接続が失われました"
+msgctxt "Unused"
+msgid "unused"
+msgstr "unused"
 
 #: guitext:1120
 #, fuzzy
@@ -7406,4 +7406,10 @@ msgstr "ホストのゲームバージョンが異なります。"
 msgctxt "Network game interface"
 msgid "Lobby Name"
 msgstr "ロビー名"
+
+#: guitext:1220
+#, fuzzy, c-format
+msgctxt "Network game message"
+msgid "%s lost connection (timed out)."
+msgstr "%sの接続が切れました（タイムアウト）。"
 

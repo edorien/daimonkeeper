@@ -469,9 +469,9 @@ enum GUIStrings {
     GUIStr_NetCustomSpriteMismatch,
     GUIStr_NetAiTookOver,
     GUIStr_NetPlayerLeftGame,
-    GUIStr_NetPlayerDisconnected,
-    GUIStr_NetUnused,
-    GUIStr_NetHostConnectionLost,
+    GUIStr_NetUnused1, // was "%s has disconnected." (upstream #5488: a leave says "has left", a timeout its own line)
+    GUIStr_NetUnused2,
+    GUIStr_NetUnused3, // was "Network connection to host lost"
     GUIStr_FxdataZipNotLoaded,
     GUIStr_FxdataZipInstallAsMod,
     GUIStr_NetLobbyConnectionLost,
@@ -593,6 +593,7 @@ enum GUIStrings {
     GUIStr_NetLobbyFull,
     GUIStr_NetDifferentVersion,
     GUIStr_NetLobbyName,
+    GUIStr_NetPlayerTimedOut, // upstream's 1159 (#5488); 1220 here
     GuiStrEnd
 };
 

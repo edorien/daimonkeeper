@@ -695,6 +695,8 @@ int64_t instf_destroy(struct Thing *creatng, int64_t *param)
             return 0;
         }
         clear_dig_on_room_slabs(room, creatng->owner);
+        // Before the claim: it may merge the room into a neighbour of the same kind and free it (upstream #5467)
+        create_effects_on_room_slabs(room, imp_spangle_effects[get_player_color_idx(creatng->owner)], 0, creatng->owner);
         if (room->owner == kfx_config_state.neutral_player_num)
         {
             remove_room_from_players_list(room, kfx_config_state.neutral_player_num);
@@ -707,7 +709,6 @@ int64_t instf_destroy(struct Thing *creatng, int64_t *param)
             claim_enemy_room(room, creatng);
         }
         audio_thing_play_sample(creatng, snd_spell_stars, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
-        create_effects_on_room_slabs(room, imp_spangle_effects[get_player_color_idx(creatng->owner)], 0, creatng->owner);
         return 0;
     }
     if (slb->health > 1)

@@ -48,7 +48,8 @@ typedef int64_t NetUserId;
 
 enum NetDropReason {
     NETDROP_MANUAL,
-    NETDROP_ERROR,
+    NETDROP_DISCONNECT, /**< the peer closed the connection */
+    NETDROP_TIMEOUT,    /**< the connection timed out (upstream #5488 split NETDROP_ERROR) */
 };
 
 typedef enum NetJoinRejection (*NetNewUserCallback)(NetUserId *assigned_id);

@@ -17,6 +17,9 @@
 #include "kfx_sim_state.h"
 #include "kfx_net_state.h"
 #include "kfx_config_state.h"
+#include "net_main.h"
+#include "net_exchange_gameplay.h"
+#include "globals.h"
 
 #include <cstdio>
 #include <cstring>
@@ -184,4 +187,25 @@ TEST_CASE_METHOD(DropFixture, "apply_user_start_settings gives a player its own 
     apply_user_start_settings(player, &us, &host);
     CHECK(player->cheats_allowed);
     CHECK(player->skip_heart_zoom);
+}
+
+// Upstream #5488: the host's packet for a user it dropped says whether the connection timed out (actn_par1
+// NET_LEAVE_TIMED_OUT), so every machine names the leave the same way: "has left the game" or "lost connection".
+TEST_CASE_METHOD(DropFixture, "the host's leave packet for a dropped user says whether it timed out", "[kfx_net][net_game]") {
+    make_human_enemy(1);
+    net_user_info[1].network_user_active = 0; // its connection is gone; the game still maps it (user_present)
+    netstate.my_id = SERVER_ID;
+    GameTurn turn = 100;
+    set_gameturn_source(&turn);
+    for (int timed_out = 0; timed_out < 2; timed_out++) {
+        initialize_packet_history();
+        netstate.users_timed_out[1] = timed_out;
+        host_spoof_dropped_user_packets();
+        const struct Packet *pckt = get_history_packet(1, turn - kfx_net_state.input_lag_turns);
+        REQUIRE(pckt != NULL);
+        CHECK(pckt->action == PckA_ForceApplicationClose);
+        CHECK(pckt->actn_par1 == (timed_out ? NET_LEAVE_TIMED_OUT : 0));
+    }
+    netstate.users_timed_out[1] = 0;
+    set_gameturn_source(NULL);
 }

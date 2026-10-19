@@ -607,8 +607,9 @@ static int64_t startup_player_slots_count(void)
 {
     int64_t slots_count = MAX_NET_USERS;
     struct LevelInformation *level = get_level_info(get_loaded_level_number());
-    if (level && level->players > 0) {
-        slots_count = min(level->players, slots_count);
+    // A level whose .lof names no player count reads as 1: a multiplayer game has two at least (upstream #5474)
+    if (level) {
+        slots_count = min(max(level->players, 2), slots_count);
     }
     return slots_count;
 }
@@ -943,7 +944,8 @@ static TbBool host_already_won_level(void)
     return false;
 }
 
-static void abandon_network_player(struct PlayerInfo *player, TbBool announce)
+/** announce_fmt: the message naming the player who left (a %s), or NULL for none. */
+static void abandon_network_player(struct PlayerInfo *player, const char *announce_fmt)
 {
     if ((player->allocflags & PlaF_CompCtrl) == 0) {
         if (network_is_active()) {
@@ -951,8 +953,8 @@ static void abandon_network_player(struct PlayerInfo *player, TbBool announce)
             network_lobby_ping = GetPing(my_player_number, my_player_number);
             input_lag_reset_request(calculate_initial_input_lag());
         }
-        if (announce && player->player_name[0] != '\0') {
-            ui_message_add_fmt(MsgType_Blank, 0, get_string(GUIStr_NetPlayerDisconnected), player->player_name);
+        if ((announce_fmt != NULL) && (player->player_name[0] != '\0')) {
+            ui_message_add_fmt(MsgType_Blank, 0, announce_fmt, player->player_name);
         }
         JUSTLOG("p:%" PRId64 " player %s departed", (int64_t)(player->id_number), player->player_name);
         if (player->victory_state == VicS_Undecided) {
@@ -965,7 +967,7 @@ static void abandon_network_player(struct PlayerInfo *player, TbBool announce)
     }
 }
 
-static void remove_user_from_game(NetUserId user, TbBool announce)
+static void remove_user_from_game(NetUserId user, const char *announce_fmt)
 {
     if ((user < 0) || (user >= MAX_NET_USERS) || (net_user_player_number[user] < 0)) {
         return;
@@ -977,7 +979,7 @@ static void remove_user_from_game(NetUserId user, TbBool announce)
         return;
     }
     player->user_id = -1;
-    abandon_network_player(player, announce);
+    abandon_network_player(player, announce_fmt);
 }
 
 static void leave_network_if_alone(void)
@@ -1007,7 +1009,12 @@ void process_player_leave_game_packet(struct PlayerInfo *player)
             if (network_is_active()) {
                 OnDroppedUser(user, NETDROP_MANUAL);
             }
-            remove_user_from_game(user, user != SERVER_ID);
+            // "has left", or "lost connection" when the host's packet for a dropped user says it timed out
+            const char *announce_fmt = get_string(GUIStr_NetPlayerLeftGame);
+            if (get_packet(user)->actn_par1 == NET_LEAVE_TIMED_OUT) {
+                announce_fmt = get_string(GUIStr_NetPlayerTimedOut);
+            }
+            remove_user_from_game(user, announce_fmt);
             if (network_is_active()) {
                 leave_network_if_alone();
             } else if (replay.load_enable && !replay_has_remote_humans()) {
@@ -1040,7 +1047,7 @@ void host_spoof_dropped_user_packets(void)
         }
         struct Packet spoofed;
         memset(&spoofed, 0, sizeof(spoofed));
-        set_packet_action(&spoofed, PckA_ForceApplicationClose, 0, 0, 0, 0);
+        set_packet_action(&spoofed, PckA_ForceApplicationClose, netstate.users_timed_out[user] ? NET_LEAVE_TIMED_OUT : 0, 0, 0, 0);
         // only the turns user_has_required_turn_packets expects
         for (GameTurn turn = first_turn; turn < first_turn + 2; turn++) {
             if (get_history_packet(user, turn) != NULL) {
@@ -1048,6 +1055,18 @@ void host_spoof_dropped_user_packets(void)
             }
             spoofed.turn = turn;
             store_packet_history(user, &spoofed);
+        }
+    }
+}
+
+/** The host is gone: it is named as having lost its connection (upstream #5488: "Network connection to host lost"
+ *  before), and every other remote user leaves without a message. */
+static void remove_remote_users_after_host_lost(NetUserId local_user)
+{
+    remove_user_from_game(SERVER_ID, get_string(GUIStr_NetPlayerTimedOut));
+    for (NetUserId user = 0; user < MAX_NET_USERS; user++) {
+        if (user != local_user) {
+            remove_user_from_game(user, NULL);
         }
     }
 }
@@ -1063,25 +1082,14 @@ void process_disconnected_network_players(void)
         quit_game = 1;
         return;
     }
-    ui_message_add(MsgType_Blank, 0, get_string(GUIStr_NetHostConnectionLost));
-    for (NetUserId user = 0; user < MAX_NET_USERS; user++) {
-        if (user != netstate.my_id) {
-            remove_user_from_game(user, false);
-        }
-    }
+    remove_remote_users_after_host_lost(netstate.my_id);
     game_replay_record_network_stopped();
     stop_network_game_and_continue_locally();
 }
 
 void apply_recorded_network_stop(void)
 {
-    ui_message_add(MsgType_Blank, 0, get_string(GUIStr_NetHostConnectionLost));
-    const NetUserId local_user = replay.head.recording_user;
-    for (NetUserId user = 0; user < MAX_NET_USERS; user++) {
-        if (user != local_user) {
-            remove_user_from_game(user, false);
-        }
-    }
+    remove_remote_users_after_host_lost(replay.head.recording_user);
     stop_network_game_and_continue_locally();
 }
 

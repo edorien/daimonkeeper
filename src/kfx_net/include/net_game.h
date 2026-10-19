@@ -19,6 +19,9 @@
 #ifndef DK_NETGAME_H
 #define DK_NETGAME_H
 
+/** PckA_ForceApplicationClose's actn_par1 for a user the host dropped after a timeout (upstream #5488). */
+#define NET_LEAVE_TIMED_OUT 1
+
 #include "globals.h"
 #include "bflib_basics.h"
 #include "net_main.h"

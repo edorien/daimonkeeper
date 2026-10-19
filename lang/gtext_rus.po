@@ -6696,9 +6696,9 @@ msgid "%s has left the game."
 msgstr "%s покинул игру."
 
 #: guitext:1117
-msgctxt "Network game message"
-msgid "%s has disconnected."
-msgstr "%s отсоединился."
+msgctxt "Unused"
+msgid "unused"
+msgstr "unused"
 
 #: guitext:1118
 msgctxt "Unused"
@@ -6706,9 +6706,9 @@ msgid "unused"
 msgstr "Не используется"
 
 #: guitext:1119
-msgctxt "Network game message"
-msgid "Network connection to host lost"
-msgstr "Соединение с хостом разорвано"
+msgctxt "Unused"
+msgid "unused"
+msgstr "unused"
 
 #: guitext:1120
 msgctxt "In-game message"
@@ -6809,4 +6809,10 @@ msgstr "У хоста другая версия игры."
 msgctxt "Network game interface"
 msgid "Lobby Name"
 msgstr "Название лобби"
+
+#: guitext:1220
+#, fuzzy, c-format
+msgctxt "Network game message"
+msgid "%s lost connection (timed out)."
+msgstr "%s потерял соединение (истекло время ожидания)."
 

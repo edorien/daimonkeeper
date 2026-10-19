@@ -7337,9 +7337,9 @@ msgid "%s has left the game."
 msgstr "%s har lämnat spelet."
 
 #: guitext:1117
-msgctxt "Network game message"
-msgid "%s has disconnected."
-msgstr "%s har kopplats från."
+msgctxt "Unused"
+msgid "unused"
+msgstr "unused"
 
 #: guitext:1118
 msgctxt "Unused"
@@ -7347,9 +7347,9 @@ msgid "unused"
 msgstr "unused"
 
 #: guitext:1119
-msgctxt "Network game message"
-msgid "Network connection to host lost"
-msgstr "Nätverksanslutningen till värden förlorades"
+msgctxt "Unused"
+msgid "unused"
+msgstr "unused"
 
 #: guitext:1120
 #, fuzzy
@@ -7470,4 +7470,10 @@ msgstr "Värden använder en annan spelversion."
 msgctxt "Network game interface"
 msgid "Lobby Name"
 msgstr "Lobbynamn"
+
+#: guitext:1220
+#, fuzzy, c-format
+msgctxt "Network game message"
+msgid "%s lost connection (timed out)."
+msgstr "%s tappade anslutningen (tidsgräns överskreds)."
 

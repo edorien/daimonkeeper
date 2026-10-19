@@ -160,10 +160,11 @@ void OnDroppedUser(NetUserId id, enum NetDropReason reason)
     if (netstate.users[id].progress == USER_UNUSED) {
         return;
     }
-    if (reason == NETDROP_ERROR) {
-        NETMSG("User left (or connection error): %" PRId64 " %s", (int64_t)(id), netstate.users[id].name);
-    } else if (reason == NETDROP_MANUAL) {
+    netstate.users_timed_out[id] = (reason == NETDROP_TIMEOUT);
+    if (reason == NETDROP_MANUAL) {
         NETMSG("Dropped user %" PRId64 " %s", (int64_t)(id), netstate.users[id].name);
+    } else {
+        NETMSG("User left (or timed out): %" PRId64 " %s", (int64_t)(id), netstate.users[id].name);
     }
     memset(&netstate.users[id], 0, sizeof(netstate.users[id]));
     netstate.users[id].id = id;
