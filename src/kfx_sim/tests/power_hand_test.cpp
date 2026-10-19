@@ -22,6 +22,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "power_hand.h"
+#include "player_instances.h"
 #include "dungeon_data.h"
 #include "config_rules.h"
 #include "kfx_sim_test_fixtures.h"
@@ -158,4 +159,37 @@ TEST_CASE_METHOD(ResetSimAndConfig, "armageddon_blocks_creature_pickup is true o
     kfx_sim_state.armageddon_caster_idx = 0;
     kfx_config_state.conf.rules[0].magic.armageddon_count_down = 100;
     CHECK_FALSE(armageddon_blocks_creature_pickup(thing, 0)); // countdown (110) hasn't been reached (gameturn defaults to 0)
+}
+
+TEST_CASE_METHOD(ResetSimAndConfig, "prepare_thing_for_power_hand keeps the influenced thing while a blocking player instance runs (upstream #1854)", "[kfx_sim][power_hand]") {
+    struct PlayerInfo *player = make_player_active(0);
+    kfx_config_state.conf.rules[0].gameplay.max_things_in_hand = 4;
+    player->hand_thing_idx = 3; // skip create_power_hand
+    struct Thing *first = make_creature(1, 1, 0);
+    make_creature(2, 2, 0);
+    first->creation_turn = 7;
+    player->influenced_thing_idx = 1;
+    player->influenced_thing_creation = 7;
+
+    SECTION("direct control") {
+        player->instance_num = PI_DirctCtrl;
+        prepare_thing_for_power_hand(2, 0);
+        CHECK(player->influenced_thing_idx == 1);
+        CHECK(player->influenced_thing_creation == 7);
+        CHECK(player->instance_num == PI_DirctCtrl);
+    }
+
+    SECTION("grab already running") {
+        player->instance_num = PI_Grab;
+        prepare_thing_for_power_hand(2, 0);
+        CHECK(player->influenced_thing_idx == 1);
+        CHECK(player->influenced_thing_creation == 7);
+    }
+
+    SECTION("idle player grabs normally") {
+        player->instance_num = PI_Unset;
+        CHECK(prepare_thing_for_power_hand(2, 0) == 1);
+        CHECK(player->influenced_thing_idx == 2);
+        CHECK(player->instance_num == PI_Grab);
+    }
 }

@@ -95,6 +95,8 @@ TbBool update_creature_influenced_by_call_to_arms_at_pos(struct Thing *creatng, 
 // docs/refactor/stage-04-kfx-config.md issue D).
 TbBool add_power_to_player(PowerKind pwkind, PlayerNumber plyr_idx);
 void remove_power_from_player(PowerKind pwkind, PlayerNumber plyr_idx);
+TbBool decrease_power_level_of_player(PowerKind pwkind, PlayerNumber plyr_idx);
+void power_lost_side_effects(PowerKind pwkind, PlayerNumber plyr_idx);
 void turn_off_power_sight_of_evil(PlayerNumber plyr_idx);
 void turn_off_power_obey(PlayerNumber plyr_idx);
 /******************************************************************************/

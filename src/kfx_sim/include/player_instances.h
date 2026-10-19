@@ -80,6 +80,7 @@ struct PlayerInstanceInfo { // sizeof = 44
 /******************************************************************************/
 extern struct PlayerInstanceInfo player_instance_info[PLAYER_INSTANCES_COUNT];
 /******************************************************************************/
+TbBool player_can_start_instance(const struct PlayerInfo *player);
 void set_player_instance(struct PlayerInfo *player, int64_t ninum, TbBool force);
 void turn_off_query(PlayerNumber plyr_idx);
 int64_t filter_creatures_owned_by_keepers(const struct Thing *thing, MaxTngFilterParam param, int64_t a3);

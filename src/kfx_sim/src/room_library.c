@@ -514,15 +514,21 @@ static void library_take_out(struct Room *room, struct Thing *thing, struct Room
     if (get_gameturn() > 10) //Function is used to place books in rooms before dungeons are intialized
     {
         dungeon = get_players_num_dungeon(room->owner);
+        TbBool stored = false;
         if (dungeon->magic_level[spl_idx] < 2)
         {
-            if (!store_unique_reposition_entry(rrepos, objkind)) {
+            stored = store_unique_reposition_entry(rrepos, objkind);
+            if (!stored) {
                 WARNLOG("Too many things to reposition in %s.", room_code_name(room->kind));
             }
         }
         if (!is_neutral_thing(thing))
         {
-            remove_power_from_player(spl_idx, room->owner);
+            // A stored book comes back, so an active power stays on unless library_overflow() finds it lost
+            if (stored)
+                decrease_power_level_of_player(spl_idx, room->owner);
+            else
+                remove_power_from_player(spl_idx, room->owner);
             dungeon = get_dungeon(room->owner);
             dungeon->magic_resrchable[spl_idx] = 1;
         }
@@ -709,6 +715,15 @@ static void library_overflow(struct Room *room, struct RoomReposition *rrepos)
     {
         SYNCLOG("No %s capacity available to move, %" PRId64 " items belonging to player %" PRId64 " dropped",
             room_code_name(room->kind), (int64_t)rrepos->used, (int64_t)room->owner);
+    }
+    struct Dungeon* dungeon = get_players_num_dungeon(room->owner);
+    for (int64_t ri = 0; ri < ROOM_REPOSITION_COUNT; ri++)
+    {
+        if ((rrepos->models[ri] == 0) || (rrepos->models[ri] >= kfx_config_state.conf.object_conf.object_types_count))
+            continue;
+        const PowerKind pwkind = kfx_config_state.conf.object_conf.object_to_power_artifact[rrepos->models[ri]];
+        if ((pwkind > 0) && (dungeon->magic_level[pwkind] == 0))
+            power_lost_side_effects(pwkind, room->owner);
     }
 }
 

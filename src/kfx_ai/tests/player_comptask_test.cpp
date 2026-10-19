@@ -115,3 +115,68 @@ TEST_CASE_METHOD(ResetSimAndConfig, "remove_task returns false for a task that i
     struct ComputerTask *stray = get_computer_task(5); // never linked in
     CHECK_FALSE(remove_task(comp, stray));
 }
+
+// --- tool_dig_to_pos2 and liquid slabs (upstream #786) ---
+// A 5x3-slab map whose middle row is: claimed start (0,1), one liquid slab
+// (1,1), path destination (2,1). Every other slab is kind 0 with no flags.
+namespace {
+void setup_liquid_strip(struct Computer2 *comp, SlabKind liquid, TbBool bridge_buildable)
+{
+    kfx_sim_state.map_tiles_x = 5;
+    kfx_sim_state.map_tiles_y = 3;
+    kfx_sim_state.map_subtiles_x = 5 * STL_PER_SLB;
+    kfx_sim_state.map_subtiles_y = 3 * STL_PER_SLB;
+    struct SlabsConfig *slab_conf = &kfx_config_state.conf.slab_conf;
+    slab_conf->slab_types_count = SlbT_WATER + 1;
+    slab_conf->slab_cfgstats[SlbT_WATER].wlb_type = WlbT_Water;
+    slab_conf->slab_cfgstats[SlbT_LAVA].wlb_type = WlbT_Lava;
+    configure_room_role(RoK_BRIDGE, RoRoF_PassWater | RoRoF_PassLava);
+    struct Dungeon *dungeon = computer_dungeon(comp);
+    dungeon->room_resrchable[RoK_BRIDGE] = 1;
+    dungeon->room_buildable[RoK_BRIDGE] = bridge_buildable ? 1 : 0;
+    struct SlabMap *start = get_slabmap_block(0, 1);
+    start->kind = SlbT_CLAIMED;
+    start->owner = dungeon->owner;
+    get_slabmap_block(1, 1)->kind = liquid;
+    get_slabmap_block(2, 1)->kind = SlbT_PATH;
+}
+
+ToolDigResult dig_across_strip(struct Computer2 *comp, struct ComputerDig *cdig)
+{
+    struct Coord3d startpos = {};
+    struct Coord3d endpos = {};
+    startpos.x.val = subtile_coord_center(slab_subtile_center(0));
+    startpos.y.val = subtile_coord_center(slab_subtile_center(1));
+    endpos.x.val = subtile_coord_center(slab_subtile_center(2));
+    endpos.y.val = subtile_coord_center(slab_subtile_center(1));
+    setup_dig_to(cdig, startpos, endpos);
+    return tool_dig_to_pos2(comp, cdig, true, ToolDig_BasicOnly);
+}
+}
+
+TEST_CASE_METHOD(ResetSimAndConfig, "tool_dig_to_pos2 asks for a bridge on a water slab when a bridge is available (upstream #786)", "[kfx_ai][player_comptask]") {
+    struct Computer2 *comp = make_computer_player(0);
+    setup_liquid_strip(comp, SlbT_WATER, true);
+    struct ComputerDig cdig;
+    CHECK((int)dig_across_strip(comp, &cdig) == TDR_BuildBridgeOnSlab);
+    CHECK(subtile_slab(cdig.pos_next.x.stl.num) == 1);
+    CHECK(subtile_slab(cdig.pos_next.y.stl.num) == 1);
+}
+
+TEST_CASE_METHOD(ResetSimAndConfig, "tool_dig_to_pos2 asks for a bridge on a lava slab when a bridge is available", "[kfx_ai][player_comptask]") {
+    struct Computer2 *comp = make_computer_player(0);
+    setup_liquid_strip(comp, SlbT_LAVA, true);
+    struct ComputerDig cdig;
+    CHECK((int)dig_across_strip(comp, &cdig) == TDR_BuildBridgeOnSlab);
+    CHECK(subtile_slab(cdig.pos_next.x.stl.num) == 1);
+    CHECK(subtile_slab(cdig.pos_next.y.stl.num) == 1);
+}
+
+TEST_CASE_METHOD(ResetSimAndConfig, "tool_dig_to_pos2 treats water as blocking when no bridge is available", "[kfx_ai][player_comptask]") {
+    struct Computer2 *comp = make_computer_player(0);
+    setup_liquid_strip(comp, SlbT_WATER, false);
+    struct ComputerDig cdig;
+    int result = dig_across_strip(comp, &cdig);
+    CHECK(result != TDR_BuildBridgeOnSlab);
+    CHECK(result != TDR_ReachedDestination);
+}

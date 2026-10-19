@@ -1,0 +1,20 @@
+# Fixture for config_effects_test.cpp -- effectGenerator blocks whose
+# EffectModel is an unknown name, the slot-0 effect name and a known
+# non-zero effect name.
+[effect0]
+Name = "EFFECT_TEST"
+
+[effect1]
+Name = "EFFECT_SECOND"
+
+[effectGenerator0]
+Name = "EFFECTGEN_BAD"
+EffectModel = "NOT_A_REAL_EFFECT"
+
+[effectGenerator1]
+Name = "EFFECTGEN_SLOT0"
+EffectModel = "EFFECT_TEST"
+
+[effectGenerator2]
+Name = "EFFECTGEN_SECOND"
+EffectModel = "EFFECT_SECOND"

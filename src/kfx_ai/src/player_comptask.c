@@ -1884,7 +1884,7 @@ ToolDigResult tool_dig_to_pos2_skip_slabs_which_dont_need_digging_f(const struct
         nextslb_x = subtile_slab(*nextstl_x);
         nextslb_y = subtile_slab(*nextstl_y);
         slb = get_slabmap_block(nextslb_x, nextslb_y);
-        if (slab_good_for_computer_dig_path(slb) && (slb->kind != SlbT_WATER))
+        if (slab_good_for_computer_dig_path(slb))
         {
             SubtlCodedCoords stl_num;
             stl_num = get_subtile_number_at_slab_center(nextslb_x,nextslb_y);
@@ -2225,6 +2225,27 @@ ToolDigResult tool_dig_to_pos2_f(struct Computer2 * comp, struct ComputerDig * c
     return TDR_DigSlab;
 }
 
+/**
+ * Simulated digging only: acts as if the bridge asked for by TDR_BuildBridgeOnSlab was built.
+ * Moves the dig start to the slab beyond the liquid one at cdig->pos_next, so the simulation
+ * goes on checking the rest of the path instead of taking the bridge as reaching the destination.
+ * @return TDR_ReachedDestination if the liquid slab is the destination, TDR_DigSlab otherwise.
+ */
+ToolDigResult simulate_bridge_on_dig_slab(struct ComputerDig *cdig)
+{
+    MapSubtlCoord stl_x = stl_slab_center_subtile(cdig->pos_next.x.stl.num);
+    MapSubtlCoord stl_y = stl_slab_center_subtile(cdig->pos_next.y.stl.num);
+    if ((subtile_slab(cdig->pos_dest.x.stl.num) == subtile_slab(stl_x)) && (subtile_slab(cdig->pos_dest.y.stl.num) == subtile_slab(stl_y))) {
+        return TDR_ReachedDestination;
+    }
+    SmallAroundIndex around_index = small_around_index_towards_destination(stl_x,stl_y,cdig->pos_dest.x.stl.num,cdig->pos_dest.y.stl.num);
+    cdig->pos_begin.x.stl.num = stl_x + STL_PER_SLB * small_around[around_index].delta_x;
+    cdig->pos_begin.y.stl.num = stl_y + STL_PER_SLB * small_around[around_index].delta_y;
+    // Go on with straight-line digging from the far side
+    cdig->distance = get_2d_distance(&cdig->pos_begin, &cdig->pos_dest);
+    return TDR_DigSlab;
+}
+
 int64_t check_for_gold(MapSubtlCoord basestl_x, MapSubtlCoord basestl_y, int64_t plyr_idx)
 {
     struct SlabMap *slb;
@@ -2317,17 +2338,14 @@ TbBool find_next_gold(struct Computer2 *comp, struct ComputerTask *ctask)
         dig_result = tool_dig_to_pos2(comp, &cdig, true, ToolDig_BasicOnly); // actions are simulated
         SYNCDBG(5,"retval=%" PRId64 ", dig.distance=%" PRId64 ", dig.calls_count=%" PRId64,
             (int64_t)(dig_result), (int64_t)(cdig.distance), (int64_t)(cdig.calls_count));
+        // A bridge is not the gold - check the path beyond it too
+        if (dig_result == TDR_BuildBridgeOnSlab) {
+            dig_result = simulate_bridge_on_dig_slab(&cdig);
+        }
     } while (dig_result == TDR_DigSlab); // loop until we have reached our destination, or an error has occurred
 
     SYNCDBG(6,"Finished");
-    switch(dig_result)
-    {
-        case TDR_ReachedDestination:
-        case TDR_BuildBridgeOnSlab:
-            return true;
-        default:
-            return false;
-    }
+    return (dig_result == TDR_ReachedDestination);
 }
 
 /** Dig a path to get access to gold. */

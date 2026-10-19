@@ -1012,6 +1012,9 @@ int64_t prepare_thing_for_power_hand(int64_t tng_idx, PlayerNumber plyr_idx)
     if (dungeon->num_things_in_hand >= kfx_config_state.conf.rules[plyr_idx].gameplay.max_things_in_hand) {
       return 0;
     }
+    if (!player_can_start_instance(player)) {
+        return 0;
+    }
     struct Thing *thing;
     thing = thing_get(tng_idx);
     player->influenced_thing_idx = thing->index;

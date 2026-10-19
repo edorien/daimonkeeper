@@ -1751,6 +1751,9 @@ static TbResult magic_use_power_slap_thing(PowerKind power_kind, PlayerNumber pl
     if ((player->instance_num == PI_Whip) || (get_gameturn() - dungeon->last_creature_dropped_gameturn <= 10)) {
         return Lb_OK;
     }
+    if (!player_can_start_instance(player)) {
+        return Lb_OK;
+    }
     player->influenced_thing_idx = thing->index;
     player->influenced_thing_creation = thing->creation_turn;
     set_player_instance(player, PI_Whip, 0);
@@ -1770,6 +1773,11 @@ static TbResult magic_use_power_possess_thing(PowerKind power_kind, PlayerNumber
         }
     }
 
+    player = get_player(plyr_idx);
+    if (!player_can_start_instance(player)) {
+        return Lb_FAIL;
+    }
+
     if ((mod_flags & PwMod_CastForFree) == 0)
     {
         // If we can't afford the power, fail
@@ -1780,7 +1788,6 @@ static TbResult magic_use_power_possess_thing(PowerKind power_kind, PlayerNumber
         }
     }
 
-    player = get_player(plyr_idx);
     player->influenced_thing_idx = thing->index;
     player->influenced_thing_creation = thing->creation_turn;
     struct UserState* ustate = get_player_user_state(player);
@@ -2348,22 +2355,34 @@ TbBool add_power_to_player(PowerKind pwkind, PlayerNumber plyr_idx)
  */
 void remove_power_from_player(PowerKind pwkind, PlayerNumber plyr_idx)
 {
+    if (decrease_power_level_of_player(pwkind, plyr_idx))
+        power_lost_side_effects(pwkind, plyr_idx);
+}
+
+/** Decrements the power's magic_level without touching an active effect. */
+TbBool decrease_power_level_of_player(PowerKind pwkind, PlayerNumber plyr_idx)
+{
     struct Dungeon* dungeon = get_dungeon(plyr_idx);
-    struct PlayerInfo* player;
-    struct Thing* thing;
     if (dungeon_invalid(dungeon))
     {
         ERRORLOG("Cannot remove spell %s from invalid dungeon %" PRId64 "!",power_code_name(pwkind),(int64_t)plyr_idx);
-        return;
+        return false;
     }
     int64_t i = dungeon->magic_level[pwkind];
     if (i < 1)
     {
         ERRORLOG("Cannot remove spell %s (%" PRId64 ") from player %" PRId64 " as he doesn't have it!",power_code_name(pwkind),(int64_t)pwkind,(int64_t)plyr_idx);
-        return;
+        return false;
     }
     SYNCDBG(4,"Decreasing spell %s of player %" PRId64 " to level %" PRId64,power_code_name(pwkind),(int64_t)plyr_idx,(int64_t)i-1);
     dungeon->magic_level[pwkind] = i-1;
+    return true;
+}
+
+void power_lost_side_effects(PowerKind pwkind, PlayerNumber plyr_idx)
+{
+    struct PlayerInfo* player;
+    struct Thing* thing;
     switch (pwkind)
     {
     case PwrK_OBEY:

@@ -313,8 +313,7 @@ int64_t pinstfs_passenger_control_creature(struct PlayerInfo *player, int64_t *n
 {
   struct UserState* ustate = get_player_user_state(player);
   ustate->init_flags |= UsrIF_MouseInputDisabled;
-  // The cursor light only moves with dungeon/map packets; leaving it on would strand it where the hand last was.
-  // The leave paths turn it back on.
+  // Off until update_mouse_light() turns it on again at the cursor
   turn_user_cursor_light(player->user_id, false);
   if (is_my_player(player))
   {
@@ -498,7 +497,6 @@ int64_t pinstfs_direct_leave_creature(struct PlayerInfo *player, int64_t *n)
   ustate->init_flags |= UsrIF_KeyboardInputDisabled;
   player->influenced_thing_idx = 0;
   player->influenced_thing_creation = 0;
-  turn_user_cursor_light(player->user_id, true);
   return 0;
 }
 
@@ -534,7 +532,6 @@ int64_t pinstfs_passenger_leave_creature(struct PlayerInfo *player, int64_t *n)
   ustate->init_flags |= UsrIF_KeyboardInputDisabled;
   player->influenced_thing_idx = 0;
   player->influenced_thing_creation = 0;
-  turn_user_cursor_light(player->user_id, true);
   return 0;
 }
 
@@ -852,12 +849,17 @@ int64_t pinstfe_zoom_to_position(struct PlayerInfo *player, int64_t *n)
     return 0;
 }
 
-void set_player_instance(struct PlayerInfo *player, int64_t ninum, TbBool force)
+TbBool player_can_start_instance(const struct PlayerInfo *player)
 {
     int64_t inum = player->instance_num;
     if (inum >= PLAYER_INSTANCES_COUNT)
         inum = 0;
-    if ((inum == 0) || (player_instance_info[inum].instance_state != 1) || (force))
+    return (inum == 0) || (player_instance_info[inum].instance_state != 1);
+}
+
+void set_player_instance(struct PlayerInfo *player, int64_t ninum, TbBool force)
+{
+    if (player_can_start_instance(player) || (force))
     {
         player->instance_num = ninum%PLAYER_INSTANCES_COUNT;
         struct PlayerInstanceInfo* inst_info = &player_instance_info[player->instance_num];

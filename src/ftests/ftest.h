@@ -35,7 +35,7 @@ extern "C" {
 }
 
 #define FTEST_MAX_NAME_LENGTH 128
-#define FTEST_MAX_TESTS 128
+#define FTEST_MAX_TESTS 192
 #define FTEST_MAX_ACTIONS_PER_TEST 100
 
 typedef unsigned char TbBool; //redefine rather than include extraneus header info

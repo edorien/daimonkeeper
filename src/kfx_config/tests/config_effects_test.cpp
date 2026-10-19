@@ -11,7 +11,13 @@
 #include "config_effects.h"
 #include "kfx_config_state.h"
 
+#include "bflib_basics.h"
+
 #include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <string>
 
 namespace {
 struct ResetConfigState {
@@ -152,6 +158,29 @@ TEST_CASE_METHOD(ResetConfigState, "effect_or_effect_element_id returns 0 for a 
     // the final `return 0` -- a real quirk, not something this test is
     // working around.
     CHECK(effect_or_effect_element_id("EFFECT_TEST") == 0);
+}
+
+TEST_CASE_METHOD(ResetConfigState, "load_effects_config_file warns about an unknown effectGenerator EffectModel name (upstream #4706)", "[kfx_config][config_effects]") {
+    const char *dir = "kfx_effects_badmodel_test/";
+    const std::filesystem::path full_dir = std::filesystem::current_path() / "kfx_effects_badmodel_test";
+    std::filesystem::remove_all(full_dir);
+    std::filesystem::create_directories(full_dir);
+    REQUIRE(LbErrorLogSetup(dir, "test.log", 1) == 1);
+
+    REQUIRE(keeper_effects_file_data.load_func(KFX_CONFIG_TEST_FIXTURES_DIR "/effects_badmodel.toml", 0));
+    LbErrorLogClose();
+
+    std::ifstream in(full_dir / "test.log");
+    const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    CHECK(text.find("NOT_A_REAL_EFFECT") != std::string::npos);
+    CHECK(text.find("EffectModel") != std::string::npos);
+    CHECK(text.find("EFFECT_TEST") == std::string::npos);
+    CHECK(text.find("EFFECT_SECOND") == std::string::npos);
+
+    CHECK(get_effectgenerator_model_stats(0)->effect_model == 0);
+    CHECK(get_effectgenerator_model_stats(1)->effect_model == 0);
+    CHECK(get_effectgenerator_model_stats(2)->effect_model == 1);
+    std::filesystem::remove_all(full_dir);
 }
 
 TEST_CASE_METHOD(ResetConfigState, "load_effects_config_file returns false for a missing file", "[kfx_config][config_effects]") {

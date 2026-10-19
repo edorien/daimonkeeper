@@ -665,6 +665,10 @@ TbBool simulate_dig_to(struct Computer2 *comp, struct Coord3d *startpos, const s
     while(1)
     {
         dig_result = tool_dig_to_pos2(comp, &cdig, true, digflags);
+        if (dig_result == TDR_BuildBridgeOnSlab) {
+            // A bridge is not the destination - go on as if it was built, and check the path beyond it
+            dig_result = simulate_bridge_on_dig_slab(&cdig);
+        }
         switch(dig_result)
         {
             case TDR_DigSlab:
@@ -679,7 +683,6 @@ TbBool simulate_dig_to(struct Computer2 *comp, struct Coord3d *startpos, const s
                 (*dig_distance)++;
                 continue;
             case TDR_ReachedDestination:
-            case TDR_BuildBridgeOnSlab:
                 return true;
             case TDR_ToolDigError:
             default:

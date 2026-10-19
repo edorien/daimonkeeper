@@ -1570,7 +1570,7 @@ void process_thing_spell_teleport_effects(struct Thing *thing, struct CastedSpel
                             {
                                 struct Thing* tng = thing_get(battle->first_creatr);
                                 TRACE_THING(tng);
-                                if (creature_can_navigate_to(thing, &tng->mappos, NavRtF_NoOwner))
+                                if (creature_can_navigate_to(thing, &tng->mappos, NavRtF_Default))
                                 {
                                     pos.x.val = tng->mappos.x.val;
                                     pos.y.val = tng->mappos.y.val;
@@ -1616,7 +1616,7 @@ void process_thing_spell_teleport_effects(struct Thing *thing, struct CastedSpel
                     cta_pos.x.val = subtile_coord_center(dungeon->cta_stl_x);
                     cta_pos.y.val = subtile_coord_center(dungeon->cta_stl_y);
                     cta_pos.z.val = subtile_coord(1,0);
-                    if (creature_can_navigate_to(thing, &cta_pos, NavRtF_NoOwner))
+                    if (creature_can_navigate_to(thing, &cta_pos, NavRtF_Default))
                     {
                         pos = cta_pos;
                     }
@@ -1655,19 +1655,19 @@ void process_thing_spell_teleport_effects(struct Thing *thing, struct CastedSpel
                         find_first_valid_position_for_thing_anywhere_in_room(thing, room, &room_pos);
                         count++;
                     }
-                    while (!creature_can_navigate_to(thing, &room_pos, NavRtF_NoOwner));
+                    while (!creature_can_navigate_to(thing, &room_pos, NavRtF_Default));
                 }
             }
             if (!room_is_invalid(room))
             {
                 room_pos.x.val = subtile_coord_center(room->central_stl_x);
                 room_pos.y.val = subtile_coord_center(room->central_stl_y);
-                allowed = creature_can_navigate_to(thing, &room_pos, NavRtF_NoOwner);
+                allowed = creature_can_navigate_to(thing, &room_pos, NavRtF_Default);
                 if (!allowed)
                 {
                     if (find_random_valid_position_for_thing_in_room(thing, room, &room_pos))
                     {
-                        allowed = (creature_can_navigate_to(thing, &room_pos, NavRtF_NoOwner) || rkind == RoK_DUNGHEART);
+                        allowed = (creature_can_navigate_to(thing, &room_pos, NavRtF_Default) || rkind == RoK_DUNGHEART);
                     }
                 }
             }
@@ -3173,7 +3173,6 @@ void prepare_to_controlled_creature_death(struct Thing *thing)
     if (is_my_player(player)) {
         ui_local_view_transition(player, LVTr_ControlledCreatureDied);
     }
-    turn_user_cursor_light(player->user_id, true);
 }
 
 void delete_armour_effects_attached_to_creature(struct Thing *thing)

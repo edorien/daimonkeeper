@@ -15,6 +15,10 @@
 #include "creature_states_combt.h"
 #include "creature_battle.h"
 #include "creature_control.h"
+#include "creature_instances.h"
+#include "kfx_config_state.h"
+#include "config_magic.h"
+#include "config_creature.h"
 #include "kfx_sim_test_fixtures.h"
 
 using namespace kfx_test;
@@ -145,4 +149,55 @@ TEST_CASE_METHOD(ResetSimAndConfig, "add_melee_combat_attacker/remove_melee_comb
     CHECK(cctrl->opponents_melee[0] == 0);
     CHECK(cctrl->opponents_melee_count == 0);
     CHECK_FALSE(remove_melee_combat_attacker(victim, 3));
+}
+
+namespace {
+struct Thing *make_cornered_melee_creature()
+{
+    kfx_config_state.conf.rules[0].creature.flee_zone_radius = 1536;
+    struct Thing *creature = make_creature(1, 1, 0);
+    creature->model = 1;
+    creature->mappos.x.val = 5 * 256;
+    creature->mappos.y.val = 5 * 256;
+    struct CreatureControl *cctrl = creature_control_get(1);
+    cctrl->flee_pos = creature->mappos;
+    return creature;
+}
+
+struct Thing *make_enemy_creature()
+{
+    struct Thing *enemy = make_creature(2, 2, 1);
+    enemy->model = 2;
+    enemy->mappos.x.val = 6 * 256;
+    enemy->mappos.y.val = 5 * 256;
+    return enemy;
+}
+}
+
+TEST_CASE_METHOD(ResetSimAndConfig, "creature_too_scared_for_combat: a melee creature in its flee zone still flees a time bomb carrier (upstream #5115)", "[kfx_sim][creature_states_combt]") {
+    struct Thing *creature = make_cornered_melee_creature();
+    struct Thing *enemy = make_enemy_creature();
+    creature_control_get(2)->spell_flags |= CSAfF_Timebomb;
+
+    CHECK(creature_too_scared_for_combat(creature, enemy));
+}
+
+TEST_CASE_METHOD(ResetSimAndConfig, "creature_too_scared_for_combat: a creature with a ranged weapon does not fear a time bomb carrier", "[kfx_sim][creature_states_combt]") {
+    kfx_config_state.conf.crtr_conf.instances_count = 2;
+    kfx_config_state.conf.magic_conf.instance_info[1].instance_property_flags = InstPF_RangedAttack;
+    struct Thing *creature = make_cornered_melee_creature();
+    struct Thing *enemy = make_enemy_creature();
+    creature_control_get(1)->instance_available[1] = 1;
+    creature_control_get(2)->spell_flags |= CSAfF_Timebomb;
+
+    CHECK_FALSE(creature_too_scared_for_combat(creature, enemy));
+}
+
+TEST_CASE_METHOD(ResetSimAndConfig, "creature_too_scared_for_combat: the flee zone still exempts other fears", "[kfx_sim][creature_states_combt]") {
+    struct Thing *creature = make_cornered_melee_creature();
+    struct Thing *enemy = make_enemy_creature();
+    kfx_config_state.conf.crtr_conf.model_count = 3;
+    kfx_config_state.conf.crtr_conf.model[1].fear_wounded = 101;
+
+    CHECK_FALSE(creature_too_scared_for_combat(creature, enemy));
 }

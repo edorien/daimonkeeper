@@ -14,8 +14,11 @@
 #include "tests/ftest_local_view_transitions.h"
 #include "tests/ftest_camera_keys_seat.h"
 #include "tests/ftest_bug_imp_tp_job_attack_door.h"
+#include "tests/ftest_bug_library_reposition_toggle.h"
+#include "tests/ftest_bug_teleport_locked_door.h"
 #include "tests/ftest_bug_pathing_pillar_circling.h"
 #include "tests/ftest_bug_imp_goldseam_dig.h"
+#include "tests/ftest_bug_spiral_ap_range.h"
 #include "tests/ftest_bug_invisible_units_cant_select.h"
 #include "tests/ftest_bug_pathing_stair_treasury.h"
 #include "tests/ftest_bug_ai_bridge.h"
@@ -152,7 +155,13 @@ struct ftest_onlyappendtests__config ftest_onlyappendtests__conf = {
          { .test_name="bug_imp_tp_attack_door__claim",      .init_func=ftest_bug_imp_tp_attack_door__claim_init,    .level_file="deepdngn", .level=80, .frame_skip=8 },
          { .test_name="bug_imp_tp_attack_door__prisoner",   .init_func=ftest_bug_imp_tp_attack_door__prisoner_init, .level_file="deepdngn", .level=80, .frame_skip=8 },
          { .test_name="bug_imp_tp_attack_door__deadbody",   .init_func=ftest_bug_imp_tp_attack_door__deadbody_init, .level_file="deepdngn", .level=80, .frame_skip=8 },
+         { .test_name="bug_library_reposition_toggle__expand",  .init_func=ftest_bug_library_reposition_toggle__expand_init,  .level_file="keeporig", .level=11, .frame_skip=8 },
+         { .test_name="bug_library_reposition_toggle__moved",   .init_func=ftest_bug_library_reposition_toggle__moved_init,   .level_file="keeporig", .level=11, .frame_skip=8 },
+         { .test_name="bug_library_reposition_toggle__dropped", .init_func=ftest_bug_library_reposition_toggle__dropped_init, .level_file="keeporig", .level=11, .frame_skip=8 },
+         { .test_name="bug_teleport_locked_door__locked",   .init_func=ftest_bug_teleport_locked_door__locked_init,   .level_file="keeporig", .level=11, .frame_skip=8 },
+         { .test_name="bug_teleport_locked_door__unlocked", .init_func=ftest_bug_teleport_locked_door__unlocked_init, .level_file="keeporig", .level=11, .frame_skip=8 },
          { .test_name="bug_imp_goldseam_dig",               .init_func=ftest_bug_imp_goldseam_dig_init,             .level_file="keeporig", .level=1,  .frame_skip=8 },
+         { .test_name="bug_spiral_ap_range",                .init_func=ftest_bug_spiral_ap_range_init,              .level_file="keeporig", .level=1,  .frame_skip=8 },
          { .test_name="bug_pathing_stair_treasury",         .init_func=ftest_bug_pathing_stair_treasury_init,       .level_file="keeporig", .level=1,  .frame_skip=8 },
          { .test_name="bug_pathing_pillar_circling",        .init_func=ftest_bug_pathing_pillar_circling_init,      .level_file="keeporig", .level=1,  .frame_skip=8 },
          { .test_name="creature_combat_power_hand",         .init_func=ftest_creature_combat_power_hand_init,       .level_file="keeporig", .level=11, .frame_skip=8 },

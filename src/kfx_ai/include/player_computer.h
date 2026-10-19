@@ -111,6 +111,7 @@ TbResult game_action(PlayerNumber plyr_idx, int64_t gaction, KeepPwrLevel power_
 TbResult try_game_action(struct Computer2 *comp, PlayerNumber plyr_idx, int64_t gaction, KeepPwrLevel power_level,
     MapSubtlCoord stl_x, MapSubtlCoord stl_y, int64_t param1, int64_t param2);
 ToolDigResult tool_dig_to_pos2_f(struct Computer2 * comp, struct ComputerDig * cdig, TbBool simulation, DigFlags digflags, const char *func_name);
+ToolDigResult simulate_bridge_on_dig_slab(struct ComputerDig *cdig);
 TbBool add_trap_location_if_requested(struct Computer2 *comp, struct ComputerTask *ctask, TbBool is_task_dig_to_attack);
 #define tool_dig_to_pos2(comp,cdig,simulation,digflags) tool_dig_to_pos2_f(comp,cdig,simulation,digflags,__func__)
 #define search_spiral(pos, owner, area_total, cb) search_spiral_f(pos, owner, area_total, cb, __func__)
