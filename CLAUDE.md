@@ -102,7 +102,7 @@ Two separate test mechanisms:
 - **`tests/`** — standalone CUnit test programs (`tst_main`, `tst_enet_client`, `tst_enet_server`, `001_test`), built via `mingw32-make tests`.
 - **`src/kfx_*/tests/`** — Catch2 unit tests, one binary per `kfx_*` library (`KFX_BUILD_TESTS=ON`, native Linux only). Full guide: [docs/refactor/testing/00-overview.md](docs/refactor/testing/00-overview.md).
 
-When merging new commits from upstream (`origin`, dkfans/keeperfx) into this fork's refactored tree, use the coverage-first procedure in [docs/Architecture/upstream-merge-workflow.md](docs/Architecture/upstream-merge-workflow.md) — upstream has no test harness of its own, so this fork's `src/ftests/` and Catch2 suite are what catch a merge-introduced regression.
+When merging new commits from upstream (`origin`, dkfans/keeperfx) into this fork's refactored tree, use the coverage-first procedure in [docs/Architecture/upstream-merge-workflow.md](docs/Architecture/upstream-merge-workflow.md) — upstream has no test harness of its own, so this fork's `src/ftests/` and Catch2 suite are what catch a merge-introduced regression. The reverse direction (fixing upstream issues here test-first, then offering them as upstream PRs) is [docs/Architecture/upstream-contribution-workflow.md](docs/Architecture/upstream-contribution-workflow.md); nothing is pushed or opened upstream without the user's review.
 
 ## Architecture
 
